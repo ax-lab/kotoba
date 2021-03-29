@@ -1,0 +1,59 @@
+{
+	"name": "kotoba",
+	"version": "0.1.0",
+	"description": "Helper tool for Japanese study",
+	"main": "build/main/index.js",
+	"private": true,
+	"scripts": {
+		"test": "jest",
+		"check": "run-s check:* lint",
+		"check:types": "tsc --noemit",
+		"check:tests": "jest --coverage --coverageReporters text html",
+		"lint": "eslint -f codeframe . --ext .ts ",
+		"build": "run-s build:*",
+		"build:ts": "tsc",
+		"build:web": "webpack --mode development",
+		"start": "ts-node src/main.ts",
+		"serve": "webpack serve --env devServer --mode development",
+		"open-coverage": "run-s open-coverage:*",
+		"open-coverage:windows": "open-cli build\\coverage\\index.html",
+		"open-coverage:default": "open-cli build/coverage/index.html"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git@github.com:ax-lab/kotoba.git"
+	},
+	"keywords": [
+		"japanese"
+	],
+	"author": "axemac",
+	"license": "MIT",
+	"devDependencies": {
+		"@babel/core": "^7.13.14",
+		"@babel/preset-env": "^7.13.12",
+		"@babel/preset-typescript": "^7.13.0",
+		"@types/jest": "^26.0.22",
+		"@types/node": "^14.14.37",
+		"@typescript-eslint/eslint-plugin": "^4.20.0",
+		"@typescript-eslint/parser": "^4.20.0",
+		"copy-webpack-plugin": "^8.1.0",
+		"eslint": "^7.23.0",
+		"eslint-config-prettier": "^8.1.0",
+		"eslint-plugin-import": "^2.22.1",
+		"eslint-plugin-jest": "^24.3.2",
+		"eslint-plugin-only-warn": "^1.0.2",
+		"jest": "^26.6.3",
+		"npm-run-all": "^4.1.5",
+		"open-cli": "^6.0.1",
+		"prettier": "^2.2.1",
+		"ts-loader": "^8.1.0",
+		"ts-node": "^9.1.1",
+		"typescript": "^4.2.3",
+		"webpack": "^5.28.0",
+		"webpack-cli": "^4.6.0",
+		"webpack-dev-server": "^3.11.2"
+	},
+	"dependencies": {
+		"immutable": "^4.0.0-rc.12"
+	}
+}

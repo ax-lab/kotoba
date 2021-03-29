@@ -1,0 +1,9 @@
+# package.json is formatted by package managers, so we ignore it here
+package.json
+
+# Don't mess with Markdown formatting
+*.md
+
+# Also ignore any libraries and the compiled files
+node_modules
+dist

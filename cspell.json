@@ -1,0 +1,7 @@
+{
+	"language": "en",
+	"words": ["kotoba", "lcov", "prettierrc", "serializers", "unmocked"],
+	"flagWords": ["teh"],
+	"ignorePaths": ["package.json", "package-lock.json", "yarn.lock", "tsconfig.json", "node_modules/**", ".vscode/**"],
+	"ignoreRegExpList": []
+}

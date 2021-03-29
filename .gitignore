@@ -1,3 +1,7 @@
+# Ignore build and dist files
+dist
+build
+
 # Logs
 logs
 *.log

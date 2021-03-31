@@ -3,7 +3,9 @@
  */
 
 import path from 'path'
+
 import express from 'express'
+
 import { version } from './lib'
 
 /** Server listening port */

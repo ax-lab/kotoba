@@ -15,9 +15,9 @@ async function main() {
 
 	player.on('data', (data) => console.log('RECV', JSON.stringify(data)))
 
-	player.on('output', (line) => console.log(`OUT: ${line}`))
+	player.on('output', (line: string) => console.log(`OUT: ${line}`))
 
-	player.on('error', (line) => console.error(`ERR: ${line}`))
+	player.on('error', (line: string) => console.error(`ERR: ${line}`))
 
 	if (SHOW_PLAYER) {
 		await player.open()

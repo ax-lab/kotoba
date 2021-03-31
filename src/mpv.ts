@@ -1,6 +1,6 @@
+import path from 'path'
 import fs from 'fs'
 import net from 'net'
-import path from 'path'
 
 import { spawn, ChildProcess } from 'child_process'
 import EventEmitter from 'events'
@@ -28,6 +28,15 @@ const mpv_path = (() => {
 	}
 	return ''
 })()
+
+if (mpv_path) {
+	console.log(`Found player at ${mpv_path}`)
+} else {
+	console.error(`Could not find mpv player, aborting`)
+	console.error(`Expected '${path.join(BIN_DIR, MPV_EXE)}' in the script directory or parent directories`)
+	console.error(``)
+	process.exit(1)
+}
 
 const IPC_PIPE = 'mpv-kotoba-control'
 
@@ -171,13 +180,4 @@ export class MPV extends EventEmitter {
 			}
 		}
 	}
-}
-
-if (mpv_path) {
-	console.log(`Found player at ${mpv_path}`)
-} else {
-	console.error(`Could not find mpv player, aborting`)
-	console.error(`Expected '${path.join(BIN_DIR, MPV_EXE)}' in the script directory or parent directories`)
-	console.error(``)
-	process.exit(1)
 }

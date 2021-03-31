@@ -7,10 +7,11 @@
 		{
 			"type": "pwa-node",
 			"request": "launch",
-			"name": "Launch Program",
+			"name": "Launch Server",
 			"skipFiles": ["<node_internals>/**"],
-			"program": "${workspaceFolder}\\src\\main.ts",
-			"outFiles": ["${workspaceFolder}/**/*.js"]
+			"runtimeExecutable": "node",
+			"runtimeArgs": ["--nolazy", "-r", "ts-node/register/transpile-only"],
+			"args": ["${workspaceFolder}/src/main.ts"]
 		}
 	]
 }

@@ -1,9 +1,8 @@
+import { ChildProcess, spawn } from 'child_process'
+import EventEmitter from 'events'
 import fs from 'fs'
 import net from 'net'
 import path from 'path'
-
-import { spawn, ChildProcess } from 'child_process'
-import EventEmitter from 'events'
 
 const BIN_DIR = `bin`
 const MPV_EXE = `mpv.exe`
@@ -18,7 +17,9 @@ const mpv_path = (() => {
 			if (mpv_stat.isFile()) {
 				return mpv_path
 			}
-		} catch (e) {}
+		} catch (e) {
+			// ignore error
+		}
 		const parent = path.normalize(path.join(base, '..'))
 		if (parent != base) {
 			base = parent
@@ -28,6 +29,15 @@ const mpv_path = (() => {
 	}
 	return ''
 })()
+
+if (mpv_path) {
+	console.log(`Found player at ${mpv_path}`)
+} else {
+	console.error(`Could not find mpv player, aborting`)
+	console.error(`Expected '${path.join(BIN_DIR, MPV_EXE)}' in the script directory or parent directories`)
+	console.error(``)
+	process.exit(1)
+}
 
 const IPC_PIPE = 'mpv-kotoba-control'
 
@@ -68,10 +78,11 @@ export class MPV extends EventEmitter {
 			])
 			this._process = ps
 
-			let interval = setInterval(() => this.try_connect(), 500)
+			const interval = setInterval(() => this.try_connect(), 500)
 
-			ps.stdout.on('data', (data) => this.on_output(false, data.toString()))
-			ps.stderr.on('data', (data) => this.on_output(true, data.toString()))
+			type Data = { toString(): string }
+			ps.stdout.on('data', (data: Data) => this.on_output(false, data.toString()))
+			ps.stderr.on('data', (data: Data) => this.on_output(true, data.toString()))
 			ps.on('exit', (code) => {
 				this._process = undefined
 				this._socket = undefined
@@ -86,7 +97,7 @@ export class MPV extends EventEmitter {
 		}
 	}
 
-	public send_command(value: any) {
+	public send_command(value: unknown) {
 		if (this._socket) {
 			try {
 				this._socket.write(JSON.stringify(value) + '\n')
@@ -130,9 +141,11 @@ export class MPV extends EventEmitter {
 					const line = buffer.slice(0, p)
 					buffer = buffer.slice(p + 1)
 					try {
-						const response = JSON.parse(line)
+						const response = JSON.parse(line) as unknown
 						this.on_ipc(response)
-					} catch (e) {}
+					} catch (e) {
+						// ignore errors
+					}
 				}
 			})
 
@@ -147,7 +160,7 @@ export class MPV extends EventEmitter {
 		}
 	}
 
-	private on_ipc(data: any) {
+	private on_ipc(data: unknown) {
 		this.emit('data', data)
 	}
 
@@ -171,13 +184,4 @@ export class MPV extends EventEmitter {
 			}
 		}
 	}
-}
-
-if (mpv_path) {
-	console.log(`Found player at ${mpv_path}`)
-} else {
-	console.error(`Could not find mpv player, aborting`)
-	console.error(`Expected '${path.join(BIN_DIR, MPV_EXE)}' in the script directory or parent directories`)
-	console.error(``)
-	process.exit(1)
 }

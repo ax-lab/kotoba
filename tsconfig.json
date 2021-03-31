@@ -26,11 +26,11 @@
 		"typeRoots": ["node_modules/@types"],
 
 		// Redirect output structure to the directory.
-		"outDir": "./build/main",
+		"outDir": "./build/",
 		// Generates corresponding '.d.ts' file.
 		"declaration": true,
 		// Specify output directory for generated declaration files.
-		"declarationDir": "./build/main/types",
+		"declarationDir": "./build/types",
 		// Generates a sourcemap for each corresponding '.d.ts' file.
 		"declarationMap": true,
 		// Generates corresponding '.map' file.

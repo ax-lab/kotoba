@@ -2,7 +2,30 @@ const path = require('path')
 
 const CopyPlugin = require('copy-webpack-plugin')
 
-const OUTPUT_DIR = path.resolve(__dirname, 'build/web')
+const OUTPUT = path.resolve(__dirname, 'build', 'app')
+
+const common = {
+	module: {
+		rules: [
+			{
+				test: /\.tsx?$/,
+				use: 'ts-loader',
+				exclude: /node_modules/,
+			},
+		],
+	},
+	resolve: {
+		extensions: ['.tsx', '.ts', '.js'],
+	},
+	devtool: 'inline-source-map',
+	optimization: {
+		usedExports: false,
+	},
+	performance: {
+		maxEntrypointSize: 2 * 1024 * 1024,
+		maxAssetSize: 2 * 1024 * 1024,
+	},
+}
 
 module.exports = (env, _args) => {
 	const { devServer = false } = env || {}
@@ -15,49 +38,29 @@ module.exports = (env, _args) => {
 	// preserve live reloading we use the `devServer` env trick below (to run
 	// this use `npx webpack serve --env devServer`).
 
-	const mainEntry = './web/index.ts'
-	const config = {
-		entry: devServer ? ['webpack-dev-server/client', mainEntry] : mainEntry,
-		module: {
-			rules: [
-				{
-					test: /\.tsx?$/,
-					use: 'ts-loader',
-					exclude: /node_modules/,
-				},
-			],
-		},
-		resolve: {
-			extensions: ['.tsx', '.ts', '.js'],
-		},
-		devtool: 'inline-source-map',
+	const appIndex = './app/index.tsx'
+	const frontend = {
+		entry: devServer ? ['webpack-dev-server/client', appIndex] : appIndex,
 		output: {
-			filename: 'index.js',
-			path: OUTPUT_DIR,
-			library: 'index',
-		},
-		optimization: {
-			usedExports: false,
+			filename: 'app.js',
+			path: OUTPUT,
 		},
 		plugins: [
 			new CopyPlugin({
-				patterns: [
-					{ from: 'web/index.html', to: OUTPUT_DIR },
-					{ from: 'web/*.png', to: OUTPUT_DIR },
-					{ from: 'web/favicon.*', to: OUTPUT_DIR },
-					{ from: 'web/site.webmanifest', to: OUTPUT_DIR },
-				],
+				patterns: [{ context: 'public', from: '**/*', to: OUTPUT }],
 			}),
 		],
-		performance: {
-			maxEntrypointSize: 2 * 1024 * 1024,
-			maxAssetSize: 2 * 1024 * 1024,
-		},
 		devServer: {
-			contentBase: OUTPUT_DIR,
+			contentBase: 'public',
 			port: 9090,
 			injectClient: false,
+			proxy: {
+				'/api': {
+					target: 'http://localhost:8086',
+				},
+			},
 		},
 	}
-	return config
+
+	return Object.assign({}, common, frontend)
 }

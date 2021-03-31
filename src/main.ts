@@ -1,4 +1,7 @@
 import { MPV } from './mpv'
+import { start_server } from './server'
+
+const SHOW_PLAYER = false
 
 async function main() {
 	const player = MPV.get()
@@ -12,11 +15,15 @@ async function main() {
 
 	player.on('data', (data) => console.log('RECV', JSON.stringify(data)))
 
-	player.on('output', (line) => console.log(`OUT: ${line}`))
+	player.on('output', (line: string) => console.log(`OUT: ${line}`))
 
-	player.on('error', (line) => console.error(`ERR: ${line}`))
+	player.on('error', (line: string) => console.error(`ERR: ${line}`))
 
-	await player.open()
+	if (SHOW_PLAYER) {
+		await player.open()
+	}
+
+	start_server()
 }
 
 main().catch((err) => {

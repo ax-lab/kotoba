@@ -34,6 +34,8 @@
 		"@babel/preset-typescript": "^7.13.0",
 		"@types/jest": "^26.0.22",
 		"@types/node": "^14.14.37",
+		"@types/react": "^17.0.3",
+		"@types/react-dom": "^17.0.3",
 		"@typescript-eslint/eslint-plugin": "^4.20.0",
 		"@typescript-eslint/parser": "^4.20.0",
 		"copy-webpack-plugin": "^8.1.0",
@@ -54,6 +56,8 @@
 		"webpack-dev-server": "^3.11.2"
 	},
 	"dependencies": {
-		"immutable": "^4.0.0-rc.12"
+		"immutable": "^4.0.0-rc.12",
+		"react": "^17.0.2",
+		"react-dom": "^17.0.2"
 	}
 }

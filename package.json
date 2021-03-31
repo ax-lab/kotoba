@@ -15,7 +15,7 @@
 		"check": "run-s check:* lint",
 		"check:types": "tsc --noemit",
 		"check:tests": "jest --coverage --coverageReporters text html",
-		"lint": "eslint -f codeframe . --ext .ts ",
+		"lint": "eslint -f codeframe . --ext .ts,.tsx ",
 		"open-coverage": "run-s open-coverage:*",
 		"open-coverage:windows": "open-cli build\\coverage\\index.html",
 		"open-coverage:default": "open-cli build/coverage/index.html"
@@ -38,6 +38,7 @@
 		"@types/node": "^14.14.37",
 		"@types/react": "^17.0.3",
 		"@types/react-dom": "^17.0.3",
+		"@types/react-router-dom": "^5.1.7",
 		"@typescript-eslint/eslint-plugin": "^4.20.0",
 		"@typescript-eslint/parser": "^4.20.0",
 		"copy-webpack-plugin": "^8.1.0",
@@ -63,6 +64,7 @@
 		"express": "^4.17.1",
 		"immutable": "^4.0.0-rc.12",
 		"react": "^17.0.2",
-		"react-dom": "^17.0.2"
+		"react-dom": "^17.0.2",
+		"react-router-dom": "^5.2.0"
 	}
 }

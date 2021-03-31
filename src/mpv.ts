@@ -1,5 +1,5 @@
 import fs from 'fs'
-import os from 'os'
+import net from 'net'
 import path from 'path'
 
 import { spawn } from 'child_process'
@@ -55,6 +55,25 @@ export async function open() {
 	ps.on('exit', (code) => {
 		console.log(`\nPlayer exited with code ${code}`)
 	})
+
+	setTimeout(() => {
+		console.log('Opening IPC connection...')
+		try {
+			const socket = net.connect('\\\\.\\pipe\\mpv-kotoba-control')
+			console.log('Connected!')
+			socket.on('data', (data) => {
+				console.log('SOCKET:', data.toString())
+			})
+			socket.on('end', () => {
+				console.log('Connection ended!')
+			})
+			socket.write(`{ "command": ["client_name"], "async": true }\n`)
+			socket.write(`{ "command": ["request_log_messages", "debug"], "async": true }\n`)
+			console.log('Command sent!')
+		} catch (e) {
+			console.error('Socket', e)
+		}
+	}, 1000)
 
 	return () => {
 		try {

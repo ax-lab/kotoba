@@ -2,8 +2,7 @@ import { version } from './lib'
 import * as mpv from './mpv'
 
 async function main() {
-	const close = await mpv.open()
-	setTimeout(close, 3000)
+	await mpv.open()
 }
 
 main().catch((err) => {

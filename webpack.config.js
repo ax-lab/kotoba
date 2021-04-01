@@ -67,6 +67,7 @@ module.exports = (env, _args) => {
 					target: 'http://localhost:8086',
 				},
 			},
+			historyApiFallback: true,
 		},
 	}
 

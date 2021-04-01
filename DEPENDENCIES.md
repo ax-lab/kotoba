@@ -56,6 +56,17 @@ This file provides a quick description and rationale of project dependencies.
 	- https://webpack.js.org/guides/getting-started/
 - `types/jest` and `@types/node`
 	- TypeScript's strong typed definitions for Jest and Node.
+- SASS
+	- Node support: https://sass-lang.com/dart-sass
+	- Webpack loaders: 
+		- https://webpack.js.org/loaders/sass-loader/
+		- https://webpack.js.org/loaders/style-loader/
+		- https://webpack.js.org/loaders/css-loader/
+
+
+## SASS configuration
+
+- 
 
 ## Configuration Files
 

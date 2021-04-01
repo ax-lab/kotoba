@@ -2,6 +2,14 @@
 	"language": "en",
 	"words": ["kotoba", "lcov", "prettierrc", "serializers", "unmocked"],
 	"flagWords": ["teh"],
-	"ignorePaths": ["package.json", "package-lock.json", "yarn.lock", "tsconfig.json", "node_modules/**", ".vscode/**"],
+	"ignorePaths": [
+		".vscode/**",
+		"node_modules/**",
+		"normalize.scss",
+		"package-lock.json",
+		"package.json",
+		"tsconfig.json",
+		"yarn.lock"
+	],
 	"ignoreRegExpList": []
 }

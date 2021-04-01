@@ -1,6 +1,6 @@
 import React from 'react'
 import { Switch } from 'react-router'
-import { Link, Route, HashRouter as Router } from 'react-router-dom'
+import { Link, Route, BrowserRouter as Router } from 'react-router-dom'
 
 import Demo from './components/demo'
 import Home from './components/home'

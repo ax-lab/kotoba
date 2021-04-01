@@ -26,6 +26,11 @@ app.get('/api', (req, res) => {
 	res.json({ app: 'Kotoba', version: version() })
 })
 
+/** Handle any unmatched request as the index (we need this for routes to work) */
+app.get('*', (req, res) => {
+	res.sendFile(path.join(WEB, 'index.html'))
+})
+
 /** Entry point to spin-up the server. */
 export function start_server() {
 	app.listen(PORT, () => {

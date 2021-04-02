@@ -2,9 +2,12 @@ import React from 'react'
 import { Switch } from 'react-router'
 import { Link, Route, BrowserRouter as Router } from 'react-router-dom'
 
+import { Events } from './api/events'
 import Demo from './components/demo'
 import Home from './components/home'
 import Video from './components/video'
+
+Events.get().register((data) => console.log('EVENT', data))
 
 const App = () => (
 	<Router>

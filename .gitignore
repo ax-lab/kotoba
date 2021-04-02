@@ -2,6 +2,8 @@
 dist
 build
 
+config/app.local.json
+
 # Logs
 logs
 *.log

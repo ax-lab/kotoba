@@ -66,24 +66,16 @@ app.get('/api/events', (req, res) => {
 MPV.get().on('error', (error: unknown) => postEvent({ source: 'video', type: 'error', error }))
 MPV.get().on('connect', () => postEvent({ source: 'video', type: 'connect' }))
 MPV.get().on('disconnect', () => postEvent({ source: 'video', type: 'disconnect' }))
-MPV.get().on('data', (data: unknown) => postEvent({ source: 'video', type: 'data', data }))
+MPV.get().on('ipc', (data: unknown) => postEvent({ source: 'video', type: 'data', data }))
 
 app.get('/api/video/open', (req, res) => {
-	MPV.get()
-		.open()
-		.then(
-			() => res.json({ ok: true }),
-			(error: unknown) => res.json({ error }),
-		)
+	MPV.get().open()
+	res.json({ ok: true })
 })
 
 app.get('/api/video/close', (req, res) => {
-	MPV.get()
-		.close()
-		.then(
-			() => res.json({ ok: true }),
-			(error: unknown) => res.json({ error }),
-		)
+	MPV.get().close()
+	res.json({ ok: true })
 })
 
 /** Handle any unmatched request as the index (we need this for routes to work) */

@@ -1,29 +1,56 @@
 import { MPV } from './mpv'
 import { start_server } from './server'
 
-const SHOW_PLAYER = false
+const DEBUG_IPC = false
+const DEBUG_LOG = false
+const SHOW_PLAYER = true
+const START_SERVER = false
 
 async function main() {
 	const player = MPV.get()
 
 	player.on('connect', () => {
-		console.log('IPC connected')
-		player.send_command({ command: ['request_log_messages', 'debug'], async: true })
+		console.log('IPC: connected')
 	})
 
-	player.on('disconnect', () => console.log('IPC disconnected'))
+	player.on('disconnect', () => console.log('IPC: disconnected'))
 
-	player.on('data', (data) => console.log('RECV', JSON.stringify(data)))
+	player.on('ipc', (data) => {
+		if (DEBUG_IPC) {
+			console.log('IPC:', JSON.stringify(data))
+		}
+	})
 
-	player.on('output', (line: string) => console.log(`OUT: ${line}`))
+	player.on('log', (log) => {
+		if (['debug', 'v', 'trace'].indexOf(log.level) >= 0 && !DEBUG_LOG) {
+			return
+		}
+		console.log('LOG:', log.level, log.prefix, log.text)
+	})
 
-	player.on('error', (line: string) => console.error(`ERR: ${line}`))
+	player.on('output', (line) => {
+		if (DEBUG_LOG) {
+			console.log(`OUT: ${line}`)
+		}
+	})
+
+	player.on('error', (line) => console.error(`ERR: ${line.toString()}`))
+
+	player.on('playback', (playback) => {
+		if (playback) {
+			console.log('PLAYBACK:', playback)
+		} else {
+			console.log('PLAYBACK: FINISHED')
+		}
+	})
 
 	if (SHOW_PLAYER) {
-		await player.open()
+		player.open()
 	}
 
-	start_server()
+	if (START_SERVER) {
+		start_server()
+	}
 }
 
 main().catch((err) => {

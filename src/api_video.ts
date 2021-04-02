@@ -3,26 +3,13 @@ import path from 'path'
 
 import { Express } from 'express'
 
+import { Dir } from '../lib/video_types'
+
 import config from './config'
 import { MPV } from './mpv'
 
 const RE_VIDEO_EXTENSION = /\.(mp4|avi|mkv|webm|wmv)$/i
 const RE_SUB_EXTENSION = /\.(ass|srt)$/i
-
-type DirEntry = File | Dir
-
-type File = {
-	type: 'video' | 'subtitle'
-	name: string
-	path: string
-}
-
-type Dir = {
-	type: 'dir'
-	name: string
-	path: string
-	list: DirEntry[]
-}
 
 async function list_files(): Promise<Dir> {
 	return new Promise((resolve) => {
@@ -109,7 +96,7 @@ export function register_video_api(app: Express, base: string) {
 	app.get(`${base}/video/files`, (req, res) => {
 		list_files().then(
 			(result) => res.json(result),
-			(error) => res.json({ error: `${error as string}` }),
+			(error) => res.status(500).json({ error: `${error as string}` }),
 		)
 	})
 }

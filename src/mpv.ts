@@ -97,6 +97,12 @@ export class MPV extends EventEmitter {
 		}
 	}
 
+	async close() {
+		if (this._process) {
+			this._process.kill()
+		}
+	}
+
 	public send_command(value: unknown) {
 		if (this._socket) {
 			try {

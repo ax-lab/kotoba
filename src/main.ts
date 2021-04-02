@@ -3,8 +3,8 @@ import { start_server } from './server'
 
 const DEBUG_IPC = false
 const DEBUG_LOG = false
-const SHOW_PLAYER = true
-const START_SERVER = false
+const SHOW_PLAYER = false
+const START_SERVER = true
 
 async function main() {
 	const player = MPV.get()

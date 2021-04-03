@@ -37,8 +37,6 @@ $link-hover: $highlight;
 
 	background-color: $background-fore;
 	padding: $spacing;
-	margin: $spacing;
-	margin-bottom: 0;
 	border-radius: $radius $radius 0 0;
 }
 
@@ -46,7 +44,6 @@ $link-hover: $highlight;
 	@include border;
 	background-color: $background-deep;
 	padding: $spacing * 2;
-	margin: $spacing;
 	border-radius: $radius;
 	margin-top: 0;
 }

@@ -15,11 +15,11 @@ body {
 		flex: 1 1;
 		flex-direction: column;
 		align-items: stretch;
+		min-width: 400px;
 	}
 
 	nav ul {
 		background-color: theme.$background-fore;
-		margin-bottom: theme.$spacing;
 		box-shadow: 0px 2px 2px 0px rgba(0, 0, 0, 0.3);
 
 		display: flex;

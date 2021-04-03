@@ -4,14 +4,17 @@ import { Dir, DirEntry } from '../../lib/video_types'
 import { video } from '../api'
 
 import * as saved_state from './saved_state'
+import Splitter from './splitter'
 
 import './video.scss'
 
 const Video = () => {
 	return (
-		<>
+		<div className="video-view">
 			<FilesView />
-		</>
+			<Splitter name="video-view-splitter" />
+			<div style={{ flex: 0.5 }}>Test</div>
+		</div>
 	)
 }
 
@@ -125,7 +128,7 @@ const FilesView = () => {
 		refresh()
 	}, [])
 	return (
-		<>
+		<div className="video-files-view">
 			<div className="video-toolbar">
 				<button className="fas fa-sync" title="Refresh" onClick={refresh}></button>
 				<button className="fas fa-minus-square" title="Collapse all" onClick={collapseAll}></button>
@@ -136,7 +139,7 @@ const FilesView = () => {
 				{state.message && <div>{state.message}</div>}
 				{state.root && <FileList root={state.view || state.root} open openMap={openMap} setOpen={setOpen} />}
 			</div>
-		</>
+		</div>
 	)
 }
 
@@ -173,7 +176,7 @@ const FileEntry = ({ entry, openMap, setOpen }: FileEntryProps) => {
 	const isOpen = entry.type == 'dir' && openMap[key]
 	return (
 		<>
-			<li onClick={(ev) => toggleOpen(ev)} className={isOpen ? 'open' : ''}>
+			<li onClick={(ev) => toggleOpen(ev)} title={entry.name} className={isOpen ? 'open' : ''}>
 				<FileIcon type={entry.type} open={isOpen} />
 				{entry.name}
 				{entry.type == 'dir' && <FileList root={entry} open={isOpen} openMap={openMap} setOpen={setOpen} />}

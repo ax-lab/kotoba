@@ -1,0 +1,64 @@
+@use 'sass:color';
+
+@use 'theme';
+
+body {
+	color: theme.$color;
+	background-color: theme.$background;
+}
+
+/* custom selection color */
+::-moz-selection {
+	background: theme.$selection-background;
+	color: theme.$selection-color;
+	text-shadow: none;
+}
+::selection {
+	background: theme.$selection-background;
+	color: theme.$selection-color;
+	text-shadow: none;
+}
+
+a {
+	color: theme.$link;
+}
+a:visited {
+	color: theme.$link-visited;
+}
+a:hover {
+	color: theme.$link-hover;
+}
+
+button {
+	border: none;
+	padding: theme.$spacing;
+}
+
+button:hover,
+button:active {
+	background: theme.$background-deep;
+}
+
+button:focus {
+	@include theme.outline;
+}
+
+button:active {
+	color: theme.$background-deep;
+	background: theme.$highlight;
+}
+
+input {
+	&[type='text'],
+	&[type='search'] {
+		color: theme.$color;
+		border: 1px solid theme.$background-deep;
+		background-color: theme.$background;
+		padding: theme.$spacing-thin;
+		outline: none;
+
+		&:focus {
+			@include theme.outline;
+		}
+	}
+}

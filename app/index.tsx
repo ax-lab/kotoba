@@ -1,6 +1,7 @@
 import './css/normalize.scss'
 import './css/reset.local.scss'
 import './css/typography.scss'
+import './css/common.scss'
 
 import React from 'react'
 import ReactDOM from 'react-dom'

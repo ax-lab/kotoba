@@ -1,0 +1,55 @@
+@use 'sass:color';
+
+$spacing: 10px;
+$spacing-thin: 5px;
+$radius: 5px;
+
+$background: hsl(218, 11%, 15%);
+$color: hsl(0, 0%, 78%);
+$highlight: hsl(37, 100%, 50%);
+
+//============================================================================//
+// Computed
+//============================================================================//
+
+$background-deep: color.scale($background, $lightness: -20%);
+$background-fore: color.scale($background, $lightness: +10%);
+
+$selection-background: color.scale($background, $lightness: -50%);
+$selection-color: color.scale($color, $lightness: 50%);
+
+// Link
+
+$link: color.scale($highlight, $lightness: -10%);
+$link-visited: color.scale($link, $saturation: -20%);
+$link-hover: $highlight;
+
+//============================================================================//
+// Mixins
+//============================================================================//
+
+@mixin border {
+	border: 1px solid color.change($color, $alpha: 0.15);
+}
+
+@mixin toolbar {
+	@include border;
+
+	background-color: $background-fore;
+	padding: $spacing;
+	margin: $spacing;
+	margin-bottom: 0;
+	border-radius: $radius $radius 0 0;
+}
+
+@mixin container {
+	@include border;
+	background-color: $background-deep;
+	padding: $spacing * 2;
+	margin: $spacing;
+	border-radius: $radius;
+}
+
+@mixin outline {
+	outline: 1px solid color.change($highlight, $alpha: 0.5);
+}

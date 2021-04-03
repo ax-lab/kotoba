@@ -3,13 +3,21 @@ import path from 'path'
 
 import { Express } from 'express'
 
-import { Dir } from '../lib'
+import { Dir, EventVideoPlayback } from '../lib'
 
 import config from './config'
+import { event } from './events'
 import { MPV } from './mpv'
 
 const RE_VIDEO_EXTENSION = /\.(mp4|avi|mkv|webm|wmv)$/i
 const RE_SUB_EXTENSION = /\.(ass|srt)$/i
+
+MPV.get().on('playback', (info) => {
+	event.post<EventVideoPlayback>({
+		type: 'video-playback',
+		play: info || null,
+	})
+})
 
 function open_video(filename: string, paused = false) {
 	const parts = filename.replace(/^\\/g, '/').replace(/^\//, '').split('/')
@@ -104,8 +112,8 @@ async function list_files(): Promise<Dir> {
 	})
 }
 
-export function register_video_api(app: Express, base: string) {
-	app.post('/api/video/open', (req, res) => {
+export default function serve_video(app: Express, base: string) {
+	app.post(`${base}/video/open`, (req, res) => {
 		const params = req.body as Record<string, unknown>
 		const filename = ((params && params.filename) as string) || ''
 		const paused = !!(params && params.paused)
@@ -113,7 +121,7 @@ export function register_video_api(app: Express, base: string) {
 		res.json({ ok: true })
 	})
 
-	app.post('/api/video/close', (req, res) => {
+	app.post(`${base}/video/close`, (req, res) => {
 		MPV.get().close()
 		res.json({ ok: true })
 	})

@@ -4,6 +4,8 @@ import fs from 'fs'
 import net from 'net'
 import path from 'path'
 
+import { PlaybackInfo, Subtitle } from '../lib'
+
 const BIN_DIR = `bin`
 const MPV_EXE = `mpv.exe`
 
@@ -92,31 +94,10 @@ interface EventsForMPV {
 	playback: (info?: PlaybackInfo) => void
 }
 
-/** A single subtitle line. */
-export type Subtitle = {
-	text: string
-	start: number
-	end: number
-}
-
 type PartialSubtitle = {
 	text?: string
 	start?: number
 	end?: number
-}
-
-/** Playback info for the current file. */
-export type PlaybackInfo = {
-	file_name?: string
-	file_path?: string
-	file_size?: number
-	title?: string
-	paused?: boolean
-	position?: number
-	duration?: number
-	subtitle?: Subtitle
-	loop_a?: number
-	loop_b?: number
 }
 
 export interface MPV {

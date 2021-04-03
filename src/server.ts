@@ -6,10 +6,10 @@ import path from 'path'
 
 import { json as jsonParser } from 'body-parser'
 import express from 'express'
-import { v4 as uuid } from 'uuid'
 
 import { version } from './lib'
-import { register_video_api } from './serve_video'
+import serve_events from './serve_events'
+import serve_video from './serve_video'
 
 /** Server listening port */
 const PORT = 8086
@@ -33,39 +33,8 @@ app.get('/api', (req, res) => {
 	res.json({ app: 'Kotoba', version: version() })
 })
 
-const clients = new Map<string, (data: string) => void>()
-
-export function postEvent(data: unknown) {
-	const event = typeof data != 'string' ? JSON.stringify(data) : data
-	for (const post of clients.values()) {
-		post(event)
-	}
-}
-
-app.get('/api/events', (req, res) => {
-	const id = uuid()
-	const headers = {
-		'Content-Type': 'text/event-stream',
-		Connection: 'keep-alive',
-		'Cache-control': 'no-cache',
-	}
-
-	res.writeHead(200, headers)
-
-	const post = (data: string) => {
-		res.write(`data: ${data}\n\n`)
-	}
-
-	clients.set(id, post)
-
-	req.on('close', () => {
-		clients.delete(id)
-	})
-
-	post(JSON.stringify({ id }))
-})
-
-register_video_api(app, API_BASE)
+serve_video(app, API_BASE)
+serve_events(app, API_BASE)
 
 /** Handle any unmatched request as the index (we need this for routes to work) */
 app.get('*', (req, res) => {

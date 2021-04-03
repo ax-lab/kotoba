@@ -1,6 +1,6 @@
 import React from 'react'
 import { Switch } from 'react-router'
-import { Link, Route, BrowserRouter as Router } from 'react-router-dom'
+import { NavLink, Route, BrowserRouter as Router } from 'react-router-dom'
 
 import { Events } from './api/events'
 import Demo from './components/demo'
@@ -12,22 +12,25 @@ Events.get().register((data) => console.log('EVENT', data))
 const App = () => (
 	<Router>
 		<>
-			<h1>Kotoba</h1>
-			<hr />
 			<nav>
 				<ul>
 					<li>
-						<Link to="/">Home</Link>
+						<NavLink to="/" activeClassName="active" exact>
+							Home
+						</NavLink>
 					</li>
 					<li>
-						<Link to="/video">Video</Link>
+						<NavLink to="/video" activeClassName="active">
+							Video
+						</NavLink>
 					</li>
 					<li>
-						<Link to="/demo">Demo</Link>
+						<NavLink to="/demo" activeClassName="active">
+							Demo
+						</NavLink>
 					</li>
 				</ul>
 			</nav>
-			<hr />
 			<Switch>
 				<Route exact path="/">
 					<Home />

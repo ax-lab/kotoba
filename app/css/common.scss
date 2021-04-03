@@ -39,6 +39,7 @@ button:active {
 	background: theme.$background-deep;
 }
 
+a:focus,
 button:focus {
 	@include theme.outline;
 }

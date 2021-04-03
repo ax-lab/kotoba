@@ -5,7 +5,20 @@ import { video } from '../api'
 
 import './video.scss'
 
-type VideoState = {
+const Video = () => {
+	return (
+		<>
+			<FilesView />
+		</>
+	)
+}
+
+export default Video
+
+/* File listing
+ * ===========================================================================*/
+
+type FilesViewProp = {
 	message?: string
 	root?: Dir
 	view?: Dir
@@ -15,8 +28,8 @@ type OpenMap = { [key: string]: boolean }
 
 const entryKey = (entry: DirEntry) => `${entry.path}/${entry.name}`
 
-const Video = () => {
-	const [state, setState] = useState({ message: 'Loading...' } as VideoState)
+const FilesView = () => {
+	const [state, setState] = useState({ message: 'Loading...' } as FilesViewProp)
 	const [openMap, setOpenMap] = useState({} as OpenMap)
 	const setOpen = (key: string, open: boolean) => {
 		setOpenMap({ ...openMap, [key]: open })
@@ -104,8 +117,6 @@ const Video = () => {
 	}, [])
 	return (
 		<>
-			<h2>Video</h2>
-			<hr />
 			<div className="video-toolbar">
 				<button className="fas fa-sync" title="Refresh" onClick={refresh}></button>
 				<button className="fas fa-minus-square" title="Collapse all" onClick={collapseAll}></button>
@@ -120,15 +131,7 @@ const Video = () => {
 	)
 }
 
-export default Video
-
-type FileEntryProps = {
-	key: string
-	entry: DirEntry
-	openMap: OpenMap
-	setOpen: (key: string, open: boolean) => void
-}
-
+/** Displays an icon according to the entry type. */
 const FileIcon = ({ type, open }: { type: 'dir' | 'video' | 'subtitle'; open?: boolean }) => {
 	switch (type) {
 		case 'dir':
@@ -142,6 +145,14 @@ const FileIcon = ({ type, open }: { type: 'dir' | 'video' | 'subtitle'; open?: b
 	}
 }
 
+type FileEntryProps = {
+	key: string
+	entry: DirEntry
+	openMap: OpenMap
+	setOpen: (key: string, open: boolean) => void
+}
+
+/** Renders a single DirEntry in the file listing, including child items. */
 const FileEntry = ({ entry, openMap, setOpen }: FileEntryProps) => {
 	const key = `${entry.path}/${entry.name}`
 	const toggleOpen = (ev: React.MouseEvent<HTMLLIElement>) => {
@@ -169,6 +180,7 @@ type FileListProps = {
 	setOpen: (key: string, open: boolean) => void
 }
 
+/** Renders the children elements of a Dir entry. */
 const FileList = ({ root, open, openMap, setOpen }: FileListProps) => (
 	<ul className="video-file-list" style={{ display: open ? '' : 'none' }}>
 		{root.list.map((it) => (

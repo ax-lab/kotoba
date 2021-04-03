@@ -48,6 +48,7 @@ $link-hover: $highlight;
 	padding: $spacing * 2;
 	margin: $spacing;
 	border-radius: $radius;
+	margin-top: 0;
 }
 
 @mixin outline {

@@ -21,6 +21,7 @@
 	border-top: none;
 	border-radius: 0 0 theme.$radius theme.$radius;
 	overflow: auto;
+	flex: 1 1;
 }
 
 .video-file-list {

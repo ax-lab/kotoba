@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react'
 import { Dir, DirEntry } from '../../lib/video_types'
 import { video } from '../api'
 
+import * as saved_state from './saved_state'
+
 import './video.scss'
 
 const Video = () => {
@@ -29,8 +31,15 @@ type OpenMap = { [key: string]: boolean }
 const entryKey = (entry: DirEntry) => `${entry.path}/${entry.name}`
 
 const FilesView = () => {
+	const openKey = 'video-files-open'
 	const [state, setState] = useState({ message: 'Loading...' } as FilesViewProp)
-	const [openMap, setOpenMap] = useState({} as OpenMap)
+	const [openMap, doSetOpenMap] = useState(saved_state.getValue(openKey, {} as OpenMap))
+
+	const setOpenMap = (data: OpenMap) => {
+		saved_state.setValue(openKey, data)
+		doSetOpenMap(data)
+	}
+
 	const setOpen = (key: string, open: boolean) => {
 		setOpenMap({ ...openMap, [key]: open })
 	}

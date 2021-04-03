@@ -63,3 +63,29 @@ input {
 		}
 	}
 }
+
+/* Scrollbar */
+
+$scroll-color-1: color.scale(theme.$background-fore, $lightness: 10%, $alpha: -50%);
+$scroll-color-2: color.scale($scroll-color-1, $lightness: -20%);
+
+$scroll-active-1: color.scale($scroll-color-1, $lightness: 30%);
+$scroll-active-2: color.scale($scroll-active-1, $lightness: -20%);
+
+::-webkit-scrollbar {
+	width: 13px;
+	height: 13px;
+}
+::-webkit-scrollbar-thumb {
+	background: linear-gradient(13deg, $scroll-color-2 14%, $scroll-color-1 64%);
+	border-radius: theme.$radius;
+}
+::-webkit-scrollbar-thumb:hover {
+	background: linear-gradient(13deg, $scroll-active-2 14%, $scroll-active-1 64%);
+}
+::-webkit-scrollbar-track {
+	transition: 0.5s;
+	background: color.scale(theme.$background-deep, $lightness: -50%);
+	border-radius: theme.$radius;
+	box-shadow: inset 7px 10px 12px color.scale(theme.$background-deep, $lightness: -60%);
+}

@@ -170,7 +170,7 @@ const FileEntry = ({ entry, openMap, setOpen }: FileEntryProps) => {
 		if (entry.type == 'dir') {
 			setOpen(key, !openMap[key])
 		} else if (entry.type == 'video') {
-			video.open({ filename: `${entry.path}/${entry.name}`, paused: false }).catch((err) => console.error(err))
+			video.open({ filename: `${entry.path}/${entry.name}` }).catch((err) => console.error(err))
 		}
 		ev.stopPropagation()
 	}

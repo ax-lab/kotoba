@@ -83,7 +83,10 @@ interface EventsForMPV {
 	log: (args: { text: string; level: string; prefix: string }) => void
 
 	/** Event generated for any IPC message received. */
-	ipc: (data: { [key: string]: unknown }) => void
+	ipc: (data: Record<string, unknown>) => void
+
+	/** Event generated whenever an IPC message is sent. */
+	ipc_send: (data: Record<string, unknown>) => void
 
 	/** Event generated whatever the current playback state is changed. */
 	playback: (info?: PlaybackInfo) => void
@@ -186,7 +189,7 @@ export class MPV extends EventEmitter {
 	 * Sets a property.
 	 */
 	set_property(name: string, value: unknown) {
-		this.send_command('set', name, value)
+		this.send_command('set_property', name, value)
 	}
 
 	/**
@@ -442,6 +445,11 @@ export class MPV extends EventEmitter {
 		const cmd = { command: [name, ...args], request_id: id, async }
 		if (this._socket) {
 			try {
+				try {
+					this.emit('ipc_send', cmd)
+				} catch (e) {
+					// ignore handler errors
+				}
 				this._socket.write(JSON.stringify(cmd) + '\n')
 			} catch (e) {
 				this.emit('error', e)

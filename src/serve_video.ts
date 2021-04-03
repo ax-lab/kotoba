@@ -41,7 +41,6 @@ async function list_files(): Promise<Dir> {
 		let wait = 0
 
 		for (const it of config().media) {
-			console.log(it)
 			const media: Dir = { type: 'dir', name: it.name, path: '', list: [] }
 			read_dir(it.path, media)
 			root.list.push(media)

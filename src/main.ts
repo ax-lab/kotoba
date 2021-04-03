@@ -3,6 +3,7 @@ import { start_server } from './server'
 
 const DEBUG_IPC = false
 const DEBUG_LOG = false
+const DEBUG_PLAY = false
 const SHOW_PLAYER = false
 const START_SERVER = true
 
@@ -18,6 +19,12 @@ async function main() {
 	player.on('ipc', (data) => {
 		if (DEBUG_IPC) {
 			console.log('IPC:', JSON.stringify(data))
+		}
+	})
+
+	player.on('ipc_send', (data) => {
+		if (DEBUG_IPC) {
+			console.log('IPC: [SEND] -', JSON.stringify(data))
 		}
 	})
 
@@ -37,6 +44,9 @@ async function main() {
 	player.on('error', (line) => console.error(`ERR: ${line.toString()}`))
 
 	player.on('playback', (playback) => {
+		if (!DEBUG_PLAY) {
+			return
+		}
 		if (playback) {
 			console.log('PLAYBACK:', playback)
 		} else {

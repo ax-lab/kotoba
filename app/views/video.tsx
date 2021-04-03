@@ -166,16 +166,18 @@ type FileEntryProps = {
 /** Renders a single DirEntry in the file listing, including child items. */
 const FileEntry = ({ entry, openMap, setOpen }: FileEntryProps) => {
 	const key = `${entry.path}/${entry.name}`
-	const toggleOpen = (ev: React.MouseEvent<HTMLLIElement>) => {
+	const onClick = (ev: React.MouseEvent<HTMLLIElement>) => {
 		if (entry.type == 'dir') {
 			setOpen(key, !openMap[key])
+		} else if (entry.type == 'video') {
+			video.open({ filename: `${entry.path}/${entry.name}`, paused: false }).catch((err) => console.error(err))
 		}
 		ev.stopPropagation()
 	}
 	const isOpen = entry.type == 'dir' && openMap[key]
 	return (
 		<>
-			<li onClick={(ev) => toggleOpen(ev)} title={entry.name} className={isOpen ? 'open' : ''}>
+			<li onClick={(ev) => onClick(ev)} title={entry.name} className={isOpen ? 'open' : ''}>
 				<FileIcon type={entry.type} open={isOpen} />
 				{entry.name}
 				{entry.type == 'dir' && <FileList root={entry} open={isOpen} openMap={openMap} setOpen={setOpen} />}

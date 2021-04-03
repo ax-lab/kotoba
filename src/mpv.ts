@@ -139,8 +139,8 @@ export class MPV extends EventEmitter {
 		return MPV._main
 	}
 
-	/** Returns if the MPV player instance is open. */
-	get is_open() {
+	/** Returns if the MPV player instance is open and connected. */
+	get is_connected() {
 		return this._connected
 	}
 
@@ -152,6 +152,17 @@ export class MPV extends EventEmitter {
 	/** Opens the MPV player instance if not open. */
 	open() {
 		this.try_spawn()
+	}
+
+	/**
+	 * Opens the MPV player instance if not open, and optionally loads the given
+	 * file.
+	 */
+	open_file(filename: string, { paused = false } = {}) {
+		this.open()
+		if (filename) {
+			this.queue(() => this.load_file(filename, { paused }))
+		}
 	}
 
 	/**
@@ -201,7 +212,7 @@ export class MPV extends EventEmitter {
 	 */
 	queue(fn: () => void) {
 		process.nextTick(() => {
-			if (this.is_open) {
+			if (this.is_connected) {
 				fn()
 			} else {
 				this._command_queue.push(fn)
@@ -302,6 +313,7 @@ export class MPV extends EventEmitter {
 			const ps = spawn(mpv_path, [
 				'--quiet',
 				'--idle=yes',
+				'--ontop', //spell-checker: ignore ontop
 				'--keep-open=yes',
 				'--force-window=yes',
 				'--no-resume-playback',

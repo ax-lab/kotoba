@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react'
 
-import { Dir, DirEntry } from '../../lib/video_types'
+import { Dir, DirEntry } from '../../lib/entities'
 import { video } from '../api'
-
-import * as saved_state from './saved_state'
-import Splitter from './splitter'
+import Splitter from '../components/splitter'
+import State from '../util/state'
 
 import './video.scss'
 
@@ -21,7 +20,7 @@ const Video = () => {
 export default Video
 
 /* File listing
- * ===========================================================================*/
+ * ========================================================================== */
 
 type FilesViewProp = {
 	message?: string
@@ -36,10 +35,10 @@ const entryKey = (entry: DirEntry) => `${entry.path}/${entry.name}`
 const FilesView = () => {
 	const openKey = 'video-files-open'
 	const [state, setState] = useState({ message: 'Loading...' } as FilesViewProp)
-	const [openMap, doSetOpenMap] = useState(saved_state.getValue(openKey, {} as OpenMap))
+	const [openMap, doSetOpenMap] = useState(State.get(openKey, {} as OpenMap))
 
 	const setOpenMap = (data: OpenMap) => {
-		saved_state.setValue(openKey, data)
+		State.set(openKey, data)
 		doSetOpenMap(data)
 	}
 

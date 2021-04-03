@@ -1,1 +1,1 @@
-export * as video from './video'
+export * as video from './video_client'

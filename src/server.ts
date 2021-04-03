@@ -8,8 +8,8 @@ import { json as jsonParser } from 'body-parser'
 import express from 'express'
 import { v4 as uuid } from 'uuid'
 
-import { register_video_api } from './api_video'
 import { version } from './lib'
+import { register_video_api } from './serve_video'
 
 /** Server listening port */
 const PORT = 8086

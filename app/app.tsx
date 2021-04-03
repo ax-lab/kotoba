@@ -3,9 +3,9 @@ import { Switch } from 'react-router'
 import { NavLink, Route, BrowserRouter as Router } from 'react-router-dom'
 
 import { Events } from './api/events'
-import Demo from './components/demo'
-import Home from './components/home'
-import Video from './components/video'
+import Demo from './views/demo'
+import Home from './views/home'
+import Video from './views/video'
 
 Events.get().register((data) => console.log('EVENT', data))
 

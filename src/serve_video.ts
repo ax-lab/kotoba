@@ -3,7 +3,7 @@ import path from 'path'
 
 import { Express } from 'express'
 
-import { Dir } from '../lib/video_types'
+import { Dir } from '../lib'
 
 import config from './config'
 import { MPV } from './mpv'

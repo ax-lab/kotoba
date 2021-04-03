@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 
 import './splitter.scss'
 
-import * as saved_state from './saved_state'
+import State from '../util/state'
 
 /** Stored state for a registered splitter. */
 type SplitState = {
@@ -67,7 +67,7 @@ class SplitterManager {
 		})
 
 		// Restore the saved siblings size if any.
-		const target = saved_state.getValue(`split-${name}`, { prev: 0, next: 0 })
+		const target = State.get(`split-${name}`, { prev: 0, next: 0 })
 		if (target.prev + target.next && element.current) {
 			const prev = element.current.previousElementSibling as HTMLElement
 			const next = element.current.nextElementSibling as HTMLElement
@@ -125,7 +125,7 @@ class SplitterManager {
 
 			this.setSize(prev, prevTarget, next, nextTarget)
 
-			saved_state.setValue(`split-${it.name}`, { prev: prevTarget, next: nextTarget })
+			State.set(`split-${it.name}`, { prev: prevTarget, next: nextTarget })
 		}
 	}
 

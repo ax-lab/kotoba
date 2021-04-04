@@ -12,43 +12,26 @@ import { MPV } from './mpv'
 const RE_VIDEO_EXTENSION = /\.(mp4|avi|mkv|webm|wmv)$/i
 const RE_SUB_EXTENSION = /\.(ass|srt)$/i
 
-let last_playback: PlaybackInfo | undefined
-let play_timestamp = new Date()
+/*============================================================================*
+ * Event handling
+ *============================================================================*/
 
+// Keep the last playback event
+let last_playback: EventVideoPlayback
 MPV.get().on('playback', (info) => {
-	last_playback = info
-	play_timestamp = new Date()
-	send_playback_info(info)
-})
-
-// Make sure to send playback events even when paused in case a client reloads
-// or connects mid-stream.
-setInterval(() => {
-	if (last_playback) {
-		const dt = new Date().getTime() - play_timestamp.getTime()
-		if (dt > 200) {
-			play_timestamp = new Date()
-			send_playback_info(last_playback)
-		}
-	}
-}, 100)
-
-/**
- * Get a current playback event.
- */
-export function get_playback_event(): EventVideoPlayback {
-	return {
-		type: 'video-playback',
-		play: last_playback,
-	}
-}
-
-function send_playback_info(info?: PlaybackInfo) {
-	events.post<EventVideoPlayback>({
+	last_playback = {
 		type: 'video-playback',
 		play: info,
-	})
-}
+	}
+	events.post(last_playback)
+})
+
+// Initialize the playback state
+events.add_initializer(() => last_playback || { type: 'video-playback' })
+
+/*============================================================================*
+ * Public API
+ *============================================================================*/
 
 function open_video(filename: string, paused = false) {
 	const parts = filename.replace(/^\\/g, '/').replace(/^\//, '').split('/')

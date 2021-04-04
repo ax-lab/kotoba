@@ -4,7 +4,6 @@ import { v4 as uuid } from 'uuid'
 import { ServerEvent } from '../lib'
 
 import { events } from './event_dispatcher'
-import { get_playback_event } from './serve_video'
 
 const clients = new Map<string, (data: string) => void>()
 
@@ -39,6 +38,8 @@ export default function serve_events(app: Express, base: string) {
 		post(JSON.stringify({ id, type: 'connected' }))
 
 		// force a playback event to initialize the client state
-		post(JSON.stringify(get_playback_event()))
+		for (const ev of events.get_snapshot()) {
+			post(JSON.stringify(ev))
+		}
 	})
 }

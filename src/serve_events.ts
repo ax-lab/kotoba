@@ -1,11 +1,13 @@
 import { Express } from 'express'
 import { v4 as uuid } from 'uuid'
 
-import { event, Event } from './events'
+import { ServerEvent } from '../lib'
+
+import { events } from './event_dispatcher'
 
 const clients = new Map<string, (data: string) => void>()
 
-event.handle((event: Event) => {
+events.handle((event: ServerEvent) => {
 	const data = JSON.stringify(event)
 	for (const post of clients.values()) {
 		post(data)

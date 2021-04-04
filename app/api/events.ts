@@ -1,23 +1,37 @@
-export type EventCallback = (data: unknown) => void
+import { ServerEvent } from '../../lib'
 
-export class Events {
-	private constructor() {
+export type EventCallback = (data: ServerEvent) => void
+
+/**
+ * Server side event handling.
+ */
+class Events {
+	constructor() {
 		const source = new EventSource('/api/events')
 		source.onmessage = (ev) => {
-			const data = JSON.parse(ev.data) as unknown
-			this._callbacks.forEach((fn) => fn(data))
+			const data = JSON.parse(ev.data) as ServerEvent
+			for (const handler of this._handlers.values()) {
+				handler(data)
+			}
 		}
 	}
 
-	static _instance = new Events()
+	private _handlerID = 0
+	private _handlers = new Map<number, EventCallback>()
 
-	static get() {
-		return this._instance
-	}
-
-	_callbacks: EventCallback[] = []
-
+	/**
+	 * Register an event handler for server events.
+	 *
+	 * This returns a function that when called will unregister the handler.
+	 */
 	register(callback: EventCallback) {
-		this._callbacks.push(callback)
+		const id = ++this._handlerID
+		this._handlers.set(id, callback)
+		return () => {
+			this._handlers.delete(id)
+		}
 	}
 }
+
+/** Instance of Events for handling server-side events. */
+export const events = new Events()

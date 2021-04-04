@@ -57,7 +57,18 @@ export type Dir = {
  * Server events
  *============================================================================*/
 
-export type EventVideoPlayback = {
-	type: 'video-playback'
-	play: PlaybackInfo | null
+/**
+ * Interface for a generic event.
+ */
+export interface BaseEvent {
+	/** Type for this event. */
+	type: string
+	[key: string]: unknown
 }
+
+export interface EventVideoPlayback extends BaseEvent {
+	type: 'video-playback'
+	play: PlaybackInfo | undefined
+}
+
+export type ServerEvent = EventVideoPlayback

@@ -3,21 +3,42 @@ import path from 'path'
 
 import { Express } from 'express'
 
-import { Dir, EventVideoPlayback } from '../lib'
+import { Dir, EventVideoPlayback, PlaybackInfo } from '../lib'
 
 import config from './config'
-import { event } from './events'
+import { events } from './event_dispatcher'
 import { MPV } from './mpv'
 
 const RE_VIDEO_EXTENSION = /\.(mp4|avi|mkv|webm|wmv)$/i
 const RE_SUB_EXTENSION = /\.(ass|srt)$/i
 
+let last_playback: PlaybackInfo | undefined
+let play_timestamp = new Date()
+
 MPV.get().on('playback', (info) => {
-	event.post<EventVideoPlayback>({
-		type: 'video-playback',
-		play: info || null,
-	})
+	last_playback = info
+	play_timestamp = new Date()
+	send_playback_info(info)
 })
+
+// Make sure to send playback events even when paused in case a client reloads
+// or connects mid-stream.
+setInterval(() => {
+	if (last_playback) {
+		const dt = new Date().getTime() - play_timestamp.getTime()
+		if (dt > 200) {
+			play_timestamp = new Date()
+			send_playback_info(last_playback)
+		}
+	}
+}, 100)
+
+function send_playback_info(info?: PlaybackInfo) {
+	events.post<EventVideoPlayback>({
+		type: 'video-playback',
+		play: info,
+	})
+}
 
 function open_video(filename: string, paused = false) {
 	const parts = filename.replace(/^\\/g, '/').replace(/^\//, '').split('/')

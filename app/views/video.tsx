@@ -5,22 +5,28 @@ import { video } from '../api'
 import Splitter from '../components/splitter'
 import State from '../util/state'
 
+import Player from './player'
+
 import './video.scss'
 
 const Video = () => {
 	return (
 		<div className="video-view">
-			<FilesView />
-			<Splitter name="video-view-splitter" />
-			<div style={{ flex: 0.5 }}>Test</div>
+			<div className="video-view-main">
+				<FilesView />
+				<Splitter name="video-view-splitter" />
+				<div style={{ flex: 0.5 }}>Test</div>
+			</div>
+			<Player />
 		</div>
 	)
 }
 
 export default Video
 
-/* File listing
- * ========================================================================== */
+/*============================================================================*
+ * File listing
+ *============================================================================*/
 
 type FilesViewProp = {
 	message?: string

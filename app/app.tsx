@@ -2,12 +2,9 @@ import React from 'react'
 import { Switch } from 'react-router'
 import { NavLink, Route, BrowserRouter as Router } from 'react-router-dom'
 
-import { Events } from './api/events'
 import Demo from './views/demo'
 import Home from './views/home'
 import Video from './views/video'
-
-Events.get().register((data) => console.log('EVENT', data))
 
 const App = () => (
 	<Router>

@@ -1,0 +1,13 @@
+@use '../css/theme';
+
+.video-player {
+	@include theme.toolbar;
+	border-radius: 0;
+	border-right: none;
+	border-left: none;
+	border-bottom: none;
+
+	button {
+		font-size: 1.5rem;
+	}
+}

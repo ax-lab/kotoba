@@ -164,6 +164,33 @@ export class MPV extends EventEmitter {
 	}
 
 	/**
+	 * Seek to a position.
+	 */
+	seek(pos: number, absolute = true) {
+		this.send_command('seek', pos, absolute ? 'absolute' : 'relative')
+	}
+
+	/**
+	 * Starts a playback loop between the two given positions. Giving negative
+	 * or equal values to `a` and `b` will stop looping.
+	 */
+	loop(a: number, b: number) {
+		if (a > b) {
+			const c = a
+			a = b
+			b = c
+		}
+		if (a < 0 || b < 0 || a == b) {
+			this.set_property('ab-loop-a', 'no')
+			this.set_property('ab-loop-b', 'no')
+		} else {
+			this.set_property('ab-loop-a', a)
+			this.set_property('ab-loop-b', b)
+			this.seek(a)
+		}
+	}
+
+	/**
 	 * Closes the player if open.
 	 */
 	close() {

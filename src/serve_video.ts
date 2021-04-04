@@ -33,6 +33,16 @@ setInterval(() => {
 	}
 }, 100)
 
+/**
+ * Get a current playback event.
+ */
+export function get_playback_event(): EventVideoPlayback {
+	return {
+		type: 'video-playback',
+		play: last_playback,
+	}
+}
+
 function send_playback_info(info?: PlaybackInfo) {
 	events.post<EventVideoPlayback>({
 		type: 'video-playback',
@@ -154,6 +164,14 @@ export default function serve_video(app: Express, base: string) {
 
 	app.post(`${base}/video/pause`, (req, res) => {
 		MPV.get().pause()
+		res.json({ ok: true })
+	})
+
+	app.post(`${base}/video/loop`, (req, res) => {
+		const params = req.body as Record<string, unknown>
+		const a = params && params.a != null && typeof params.a == 'number' ? params.a : -1
+		const b = params && params.b != null && typeof params.b == 'number' ? params.b : -1
+		MPV.get().loop(a, b)
 		res.json({ ok: true })
 	})
 

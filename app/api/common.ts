@@ -6,6 +6,7 @@ export const URL_VIDEO_OPEN = `${API_BASE}/video/open`
 export const URL_VIDEO_CLOSE = `${API_BASE}/video/close`
 export const URL_VIDEO_PLAY = `${API_BASE}/video/play`
 export const URL_VIDEO_PAUSE = `${API_BASE}/video/pause`
+export const URL_VIDEO_LOOP = `${API_BASE}/video/loop`
 
 export function get<T>(url: string) {
 	return fetch(url).then((x) => x.json() as Promise<T>)

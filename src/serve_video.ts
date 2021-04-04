@@ -2,12 +2,16 @@ import fs from 'fs'
 import path from 'path'
 
 import { Express } from 'express'
+import { v4 as uuid } from 'uuid'
 
-import { Dir, EventVideoPlayback, PlaybackInfo } from '../lib'
+import { Dir, EventVideoPlayback, MediaHistoryEntry } from '../lib'
 
 import config from './config'
 import { events } from './event_dispatcher'
 import { MPV } from './mpv'
+import Store from './store'
+
+const MAX_MEDIA_HISTORY = 100
 
 const RE_VIDEO_EXTENSION = /\.(mp4|avi|mkv|webm|wmv)$/i
 const RE_SUB_EXTENSION = /\.(ass|srt)$/i
@@ -29,6 +33,15 @@ MPV.get().on('playback', (info) => {
 // Initialize the playback state
 events.add_initializer(() => last_playback || { type: 'video-playback' })
 
+// Send the current media history state
+events.add_initializer(() => {
+	const ls = query_media_history()
+	if (ls.length) {
+		return { type: 'media-history', mode: 'add', data: ls }
+	}
+	return
+})
+
 /*============================================================================*
  * Public API
  *============================================================================*/
@@ -47,6 +60,44 @@ function open_video(filename: string, paused = false) {
 			.shift()
 	if (media) {
 		const fullpath = path.join(media.path, ...parts)
+		fs.stat(fullpath, (err, stat) => {
+			if (!err && stat.isFile()) {
+				const history_removed: MediaHistoryEntry[] = []
+				const history_new: MediaHistoryEntry = {
+					id: uuid(),
+					type: 'video',
+					date: new Date().toJSON(),
+					file: filename,
+				}
+
+				query_media_history((ls) => {
+					ls = ls.filter((x) => {
+						if (x.file == history_new.file) {
+							history_removed.push(x)
+							return false
+						}
+						return true
+					})
+					ls.unshift(history_new)
+					if (ls.length > MAX_MEDIA_HISTORY) {
+						ls.length = MAX_MEDIA_HISTORY
+					}
+					return ls
+				})
+
+				events.post({
+					type: 'media-history',
+					mode: 'del',
+					data: history_removed,
+				})
+				events.post({
+					type: 'media-history',
+					mode: 'add',
+					data: [history_new],
+				})
+			}
+		})
+
 		if (RE_VIDEO_EXTENSION.test(fullpath)) {
 			MPV.get().open_file(fullpath, { paused })
 			return
@@ -164,4 +215,26 @@ export default function serve_video(app: Express, base: string) {
 			(error) => res.status(500).json({ error: `${error as string}` }),
 		)
 	})
+}
+
+/*============================================================================*
+ * Persistent state management
+ *============================================================================*/
+
+function store_media_history() {
+	return Store.named('media-history')
+}
+
+function query_media_history(updater?: (history: MediaHistoryEntry[]) => MediaHistoryEntry[] | undefined) {
+	const store = store_media_history()
+	const prop = 'list'
+	const prev = store.get<MediaHistoryEntry[]>(prop, [])!
+	if (updater) {
+		const next = updater(prev)
+		if (next !== undefined) {
+			store.set(prop, next)
+			return next
+		}
+	}
+	return prev
 }

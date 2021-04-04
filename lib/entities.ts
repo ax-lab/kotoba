@@ -53,6 +53,16 @@ export type Dir = {
 	list: DirEntry[]
 }
 
+/**
+ * One entry in the media history.
+ */
+export type MediaHistoryEntry = {
+	id: string
+	file: string
+	type: 'video' | 'subtitle'
+	date: string
+}
+
 /*============================================================================*
  * Server events
  *============================================================================*/
@@ -71,4 +81,10 @@ export interface EventVideoPlayback extends BaseEvent {
 	play: PlaybackInfo | undefined
 }
 
-export type ServerEvent = EventVideoPlayback
+export interface EventMediaHistory extends BaseEvent {
+	type: 'media-history'
+	mode: 'add' | 'del' | 'clear'
+	data: MediaHistoryEntry[]
+}
+
+export type ServerEvent = EventVideoPlayback | EventMediaHistory

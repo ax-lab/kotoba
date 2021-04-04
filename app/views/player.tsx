@@ -5,6 +5,7 @@ import './player.scss'
 
 import { EventVideoPlayback } from '../../lib'
 import { events, video } from '../api'
+import Japanese from '../util/japanese'
 
 // The Player component listens to `video-playback` events, but since those are
 // asynchronous we also maintain a global listener to provide the initial value.
@@ -59,6 +60,8 @@ const Player = () => {
 	const [pos, pos_ms] = timer(position)
 	const [duration] = timer(playback?.play?.file_name && playback.play.duration)
 
+	const subtitle = playback?.play?.subtitle?.text
+
 	const btn = (icon: string, ...extra: string[]) => `fas fa-${icon}` + (extra ? ` ${extra.join(' ')}` : '')
 
 	const update_loop = (a?: number, b?: number) => {
@@ -78,63 +81,88 @@ const Player = () => {
 		update_loop(saved_loop_a, value)
 	}
 
+	const el_player = React.createRef<HTMLDivElement>()
+	const el_subs = React.createRef<HTMLDivElement>()
+	let next_layout: number
+
+	function layout_subs() {
+		const el = el_subs.current
+		const player = el && el_player.current?.getBoundingClientRect()
+		if (el && player) {
+			el.style.bottom = `${Math.ceil(player.height) + 10}px`
+		}
+		next_layout = requestAnimationFrame(layout_subs)
+	}
+
+	useEffect(() => {
+		next_layout = requestAnimationFrame(layout_subs)
+		return () => cancelAnimationFrame(next_layout)
+	})
+
 	return (
-		<div className="video-player">
-			{playback?.play?.file_name && (
-				<>
-					<div className="timer">
-						<label>
-							{pos}
-							{pos_ms && <small>{pos_ms}</small>}
-						</label>
-						<label>🢒 {duration} 🢐</label>
-					</div>
-					{playback.play.paused ? (
-						<button title="Play" className={btn('play-circle')} onClick={() => video.play()} />
-					) : (
-						<button title="Pause" className={btn('pause-circle')} onClick={() => video.pause()} />
-					)}
-					<button title="Stop Player" className={btn('stop-circle')} onClick={() => video.close()} />
-					{show_cc ? (
-						<button
-							title="Hide CC"
-							className={btn('closed-captioning')}
-							onClick={() => set_show_cc(false)}
-						/>
-					) : (
-						<button
-							title="Show CC"
-							className={btn('closed-captioning', 'inactive')}
-							onClick={() => set_show_cc(true)}
-						/>
-					)}
-					<button title="Bookmark" className={btn('bookmark')} />
-					<button
-						title={`Mark Loop A (${loop_a_hint.join('.')})`}
-						className={cls(btn('quote-left'), { inactive: saved_loop_a == null })}
-						onClick={() => position >= 0 && set_loop_a(position)}
-					/>
-					<button
-						title={`Mark Loop B (${loop_b_hint.join('.')})`}
-						className={cls(btn('quote-right'), { inactive: saved_loop_b == null })}
-						onClick={() => position >= 0 && set_loop_b(position)}
-					/>
-					{loop_a != null && loop_b != null && position >= loop_a && position <= loop_b ? (
-						<button title="Leave Loop" className={btn('redo-alt')} onClick={() => video.stop_loop()} />
-					) : (
-						<button
-							title="Cycle Loop"
-							className={cls(btn('sync-alt'), { inactive: !can_loop })}
-							onClick={() => can_loop && video.loop({ a: saved_loop_a, b: saved_loop_b })}
-						/>
-					)}
-				</>
+		<>
+			{show_cc && subtitle && (
+				<div ref={el_subs} className="video-subtitles">
+					{Japanese(subtitle || '')}
+				</div>
 			)}
-			<label className="media-title" title={title_hint}>
-				<span>{title_text || 'Nothing is playing.'}</span>
-				<span>{chapter ? ' - ' + chapter : ''}</span>
-			</label>
-		</div>
+			<div ref={el_player} className="video-player">
+				{playback?.play?.file_name && (
+					<>
+						<div className="timer">
+							<label>
+								{pos}
+								{pos_ms && <small>{pos_ms}</small>}
+							</label>
+							<label>🢒 {duration} 🢐</label>
+						</div>
+						{playback.play.paused ? (
+							<button title="Play" className={btn('play-circle')} onClick={() => video.play()} />
+						) : (
+							<button title="Pause" className={btn('pause-circle')} onClick={() => video.pause()} />
+						)}
+						<button title="Stop Player" className={btn('stop-circle')} onClick={() => video.close()} />
+						{show_cc ? (
+							<button
+								title="Hide CC"
+								className={btn('closed-captioning')}
+								onClick={() => set_show_cc(false)}
+							/>
+						) : (
+							<button
+								title="Show CC"
+								className={btn('closed-captioning', 'inactive')}
+								onClick={() => set_show_cc(true)}
+							/>
+						)}
+						<button title="Bookmark" className={btn('bookmark')} />
+						<button
+							title={`Mark Loop A (${loop_a_hint.join('.')})`}
+							className={cls(btn('quote-left'), { inactive: saved_loop_a == null })}
+							onClick={() => position >= 0 && set_loop_a(position)}
+						/>
+						<button
+							title={`Mark Loop B (${loop_b_hint.join('.')})`}
+							className={cls(btn('quote-right'), { inactive: saved_loop_b == null })}
+							onClick={() => position >= 0 && set_loop_b(position)}
+						/>
+						{loop_a != null && loop_b != null && position >= loop_a && position <= loop_b ? (
+							<button title="Leave Loop" className={btn('redo-alt')} onClick={() => video.stop_loop()} />
+						) : (
+							<button
+								title="Cycle Loop"
+								className={cls(btn('sync-alt'), { inactive: !can_loop })}
+								onClick={() => can_loop && video.loop({ a: saved_loop_a, b: saved_loop_b })}
+							/>
+						)}
+					</>
+				)}
+				<label className="media-title" title={title_hint}>
+					<span>{title_text || 'Nothing is playing.'}</span>
+					<span>{chapter ? ' - ' + chapter : ''}</span>
+				</label>
+			</div>
+		</>
 	)
 }
 

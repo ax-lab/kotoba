@@ -1,3 +1,4 @@
+@use 'sass:color';
 @use '../css/theme';
 
 .video-player {
@@ -38,4 +39,19 @@
 			text-align: center;
 		}
 	}
+}
+
+.video-subtitles {
+	background: rgba(0, 0, 0, 0.95);
+	border-radius: theme.$radius;
+	padding: theme.$spacing;
+	width: 80%;
+	left: 50%;
+	transform: translateX(-50%);
+	margin: auto;
+	white-space: pre;
+	font-size: 1.5rem;
+	position: fixed;
+	text-align: center;
+	cursor: default;
 }

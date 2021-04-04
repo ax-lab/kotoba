@@ -44,6 +44,7 @@ const Player = () => {
 		}
 		return ''
 	})()
+	const chapter = playback?.play?.chapter
 
 	const saved_loop_a = playback?.data?.loop_a
 	const saved_loop_b = playback?.data?.loop_b
@@ -130,7 +131,8 @@ const Player = () => {
 				</>
 			)}
 			<label className="media-title" title={title_hint}>
-				{title_text || 'Nothing is playing.'}
+				<span>{title_text || 'Nothing is playing.'}</span>
+				<span>{chapter ? ' - ' + chapter : ''}</span>
 			</label>
 		</div>
 	)

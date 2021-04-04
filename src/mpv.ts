@@ -33,6 +33,8 @@ const PROP_AB_LOOP_A = 'ab-loop-a'
 const PROP_AB_LOOP_B = 'ab-loop-b'
 /** Property name for the paused state */
 const PROP_PAUSED = 'pause'
+/** Property name for the chapter title */
+const PROP_CHAPTER_TITLE = 'chapter-metadata/by-key/title'
 
 // Find the `mpv.exe` executable
 const mpv_path = (() => {
@@ -456,6 +458,7 @@ export class MPV extends EventEmitter {
 			PROP_AB_LOOP_A,
 			PROP_AB_LOOP_B,
 			PROP_PAUSED,
+			PROP_CHAPTER_TITLE,
 		].forEach((prop) => this.observe_property(prop))
 
 		// execute commands
@@ -543,6 +546,9 @@ export class MPV extends EventEmitter {
 						break
 					case PROP_PAUSED:
 						this._playback.paused = value ? (value as boolean) : undefined
+						break
+					case PROP_CHAPTER_TITLE:
+						this._playback.chapter = value ? (value as string) : undefined
 						break
 					default:
 						changed = false

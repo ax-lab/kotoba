@@ -34,6 +34,7 @@ export type PlaybackInfo = {
 	file_path?: string
 	file_size?: number
 	title?: string
+	chapter?: string
 	paused?: boolean
 	position?: number
 	duration?: number

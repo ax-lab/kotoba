@@ -18,6 +18,9 @@ async function main() {
 
 	player.on('ipc', (data) => {
 		if (DEBUG_IPC) {
+			if ((data as { event?: string }).event == 'log-message' && !DEBUG_LOG) {
+				return
+			}
 			console.log('IPC:', JSON.stringify(data))
 		}
 	})

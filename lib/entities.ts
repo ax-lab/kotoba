@@ -7,6 +7,26 @@
  *============================================================================*/
 
 /**
+ * Arguments to the `video/loop` endpoint.
+ */
+export type VideoLoopParams = {
+	save?: boolean
+	a?: number
+	b?: number
+}
+
+/**
+ * Saved state for a particular media file.
+ */
+export type MediaSavedState = {
+	/** Saved AB loop start time. */
+	loop_a?: number
+
+	/** Saved AB loop end time. */
+	loop_b?: number
+}
+
+/**
  * Playback info for the current media file.
  */
 export type PlaybackInfo = {
@@ -78,7 +98,8 @@ export interface BaseEvent {
 
 export interface EventVideoPlayback extends BaseEvent {
 	type: 'video-playback'
-	play: PlaybackInfo | undefined
+	play?: PlaybackInfo
+	data?: MediaSavedState
 }
 
 export interface EventMediaHistory extends BaseEvent {

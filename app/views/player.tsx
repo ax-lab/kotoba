@@ -3,22 +3,18 @@ import React, { useEffect, useState } from 'react'
 
 import './player.scss'
 
-import { PlaybackInfo } from '../../lib'
+import { EventVideoPlayback } from '../../lib'
 import { events, video } from '../api'
 
 // The Player component listens to `video-playback` events, but since those are
 // asynchronous we also maintain a global listener to provide the initial value.
-let current_playback: PlaybackInfo | undefined
+let current_playback: EventVideoPlayback | undefined
 
 events.register((ev) => {
 	if (ev.type == 'video-playback') {
-		current_playback = ev.play
+		current_playback = ev
 	}
 })
-
-type PlayerState = {
-	play?: PlaybackInfo
-}
 
 /**
  * Provides a self-synchronizing media player UI. This will listen to events
@@ -27,15 +23,11 @@ type PlayerState = {
 const Player = () => {
 	// The player state is provided through server events, we just need to
 	// listen to those events and update accordingly.
-	const [player, set_player] = useState<PlayerState>({
-		// We use the state provided by the global listener as our initial state
-		play: current_playback,
-	})
-
+	const [playback, set_playback] = useState(current_playback)
 	useEffect(() => {
 		const unregister = events.register((ev) => {
 			if (ev.type == 'video-playback') {
-				set_player({ ...player, play: ev.play })
+				set_playback(ev)
 			}
 		})
 		return () => unregister()
@@ -43,32 +35,51 @@ const Player = () => {
 
 	// CC and AB loop state are local.
 	const [show_cc, set_show_cc] = useState(true)
-	const [loop_a, set_loop_a] = useState(-1)
-	const [loop_b, set_loop_b] = useState(-1)
-	const can_loop = loop_a >= 0 && loop_b > loop_a
-	const loop_a_hint = loop_a >= 0 ? timer(loop_a) : ['unset']
-	const loop_b_hint = loop_b >= 0 ? timer(loop_b) : ['unset']
 
-	const play = player.play
-	const title_text = play && (play.title || play.file_name || '')
+	const title_text = playback?.play && (playback.play.title || playback.play.file_name || '')
 	const title_hint = (() => {
-		const { file_path, file_size } = play || {}
+		const { file_path, file_size } = playback?.play || {}
 		if (file_path) {
 			return file_size ? `${file_path} (${bytes(file_size)})` : file_path
 		}
 		return ''
 	})()
-	const is_open = play && title_text
 
-	const position = is_open ? play!.position || 0 : -1
+	const saved_loop_a = playback?.data?.loop_a
+	const saved_loop_b = playback?.data?.loop_b
+	const loop_a_hint = saved_loop_a! >= 0 ? timer(saved_loop_a) : ['unset']
+	const loop_b_hint = saved_loop_b! >= 0 ? timer(saved_loop_b) : ['unset']
+
+	const can_loop = saved_loop_a! >= 0 && saved_loop_b! > saved_loop_a!
+
+	const loop_a = playback?.play?.loop_a
+	const loop_b = playback?.play?.loop_b
+	const position = playback?.play?.file_name ? playback.play.position || 0 : -1
 	const [pos, pos_ms] = timer(position)
-	const [duration] = timer(is_open && play!.duration)
+	const [duration] = timer(playback?.play?.file_name && playback.play.duration)
 
 	const btn = (icon: string, ...extra: string[]) => `fas fa-${icon}` + (extra ? ` ${extra.join(' ')}` : '')
 
+	const update_loop = (a?: number, b?: number) => {
+		if (a! > b!) {
+			const c = a
+			a = b
+			b = c
+		}
+		void video.loop({ a, b, save: true })
+		playback && set_playback({ ...playback, data: { ...playback.data, loop_a: a, loop_b: b } })
+	}
+
+	const set_loop_a = (value: number) => {
+		update_loop(value, saved_loop_b)
+	}
+	const set_loop_b = (value: number) => {
+		update_loop(saved_loop_a, value)
+	}
+
 	return (
 		<div className="video-player">
-			{is_open && (
+			{playback?.play?.file_name && (
 				<>
 					<div className="timer">
 						<label>
@@ -77,7 +88,7 @@ const Player = () => {
 						</label>
 						<label>🢒 {duration} 🢐</label>
 					</div>
-					{play!.paused ? (
+					{playback.play.paused ? (
 						<button title="Play" className={btn('play-circle')} onClick={() => video.play()} />
 					) : (
 						<button title="Pause" className={btn('pause-circle')} onClick={() => video.pause()} />
@@ -99,21 +110,21 @@ const Player = () => {
 					<button title="Bookmark" className={btn('bookmark')} />
 					<button
 						title={`Mark Loop A (${loop_a_hint.join('.')})`}
-						className={cls(btn('quote-left'), { inactive: loop_a < 0 })}
+						className={cls(btn('quote-left'), { inactive: saved_loop_a == null })}
 						onClick={() => position >= 0 && set_loop_a(position)}
 					/>
 					<button
 						title={`Mark Loop B (${loop_b_hint.join('.')})`}
-						className={cls(btn('quote-right'), { inactive: loop_b < 0 })}
+						className={cls(btn('quote-right'), { inactive: saved_loop_b == null })}
 						onClick={() => position >= 0 && set_loop_b(position)}
 					/>
-					{play!.loop_a && play!.loop_b ? (
+					{loop_a != null && loop_b != null && position >= loop_a && position <= loop_b ? (
 						<button title="Leave Loop" className={btn('redo-alt')} onClick={() => video.stop_loop()} />
 					) : (
 						<button
 							title="Cycle Loop"
 							className={cls(btn('sync-alt'), { inactive: !can_loop })}
-							onClick={() => can_loop && video.loop({ a: loop_a, b: loop_b })}
+							onClick={() => can_loop && video.loop({ a: saved_loop_a, b: saved_loop_b })}
 						/>
 					)}
 				</>

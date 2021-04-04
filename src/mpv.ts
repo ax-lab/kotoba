@@ -133,6 +133,11 @@ export class MPV extends EventEmitter {
 		return this._playback ? { ...this._playback } : undefined
 	}
 
+	/** Return true if the player is looping. */
+	get is_looping() {
+		return this._playback?.loop_a != null && this._playback.loop_b != null
+	}
+
 	/** Opens the MPV player instance if not open. */
 	open() {
 		this.try_spawn()
@@ -174,19 +179,19 @@ export class MPV extends EventEmitter {
 	 * Starts a playback loop between the two given positions. Giving negative
 	 * or equal values to `a` and `b` will stop looping.
 	 */
-	loop(a: number, b: number) {
-		if (a > b) {
-			const c = a
-			a = b
-			b = c
-		}
-		if (a < 0 || b < 0 || a == b) {
+	loop(a: number | undefined, b: number | undefined, seek: boolean) {
+		if (a == null || b == null || a == b) {
 			this.set_property('ab-loop-a', 'no')
 			this.set_property('ab-loop-b', 'no')
 		} else {
+			if (a > b) {
+				const c = a
+				a = b
+				b = c
+			}
 			this.set_property('ab-loop-a', a)
 			this.set_property('ab-loop-b', b)
-			this.seek(a)
+			seek && this.seek(a)
 		}
 	}
 

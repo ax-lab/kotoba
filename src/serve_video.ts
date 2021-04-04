@@ -4,7 +4,7 @@ import path from 'path'
 import { Express } from 'express'
 import { v4 as uuid } from 'uuid'
 
-import { Dir, EventVideoPlayback, MediaHistoryEntry } from '../lib'
+import { Dir, EventVideoPlayback, MediaHistoryEntry, MediaSavedState, VideoLoopParams } from '../lib'
 
 import config from './config'
 import { events } from './event_dispatcher'
@@ -21,11 +21,12 @@ const RE_SUB_EXTENSION = /\.(ass|srt)$/i
  *============================================================================*/
 
 // Keep the last playback event
-let last_playback: EventVideoPlayback
+let last_playback: EventVideoPlayback | undefined
 MPV.get().on('playback', (info) => {
 	last_playback = {
 		type: 'video-playback',
 		play: info,
+		data: info?.file_name ? query_media_state(info.file_name) : undefined,
 	}
 	events.post(last_playback)
 })
@@ -202,11 +203,40 @@ export default function serve_video(app: Express, base: string) {
 	})
 
 	app.post(`${base}/video/loop`, (req, res) => {
-		const params = req.body as Record<string, unknown>
-		const a = params && params.a != null && typeof params.a == 'number' ? params.a : -1
-		const b = params && params.b != null && typeof params.b == 'number' ? params.b : -1
-		MPV.get().loop(a, b)
-		res.json({ ok: true })
+		const params = (req.body as VideoLoopParams) || {}
+		const file_name = last_playback?.play?.file_name
+		if (file_name) {
+			let new_a = params.a
+			let new_b = params.b
+			if (new_a! > new_b!) {
+				const c = new_a
+				new_a = new_b
+				new_b = c
+			}
+
+			const mpv = MPV.get()
+			if (params.save) {
+				query_media_state(file_name, (state) => {
+					let a = state?.loop_a
+					let b = state?.loop_b
+
+					const playback = mpv.playback
+					const is_looping = mpv.is_looping && playback?.loop_a == a && playback?.loop_b == b
+					new_a != null && (a = new_a)
+					new_b != null && (b = new_b)
+					if (is_looping) {
+						mpv.loop(a, b, false)
+					}
+
+					return { ...state, loop_a: a, loop_b: b }
+				})
+			} else {
+				mpv.loop(new_a, new_b, true)
+			}
+			res.json({ ok: true })
+		} else {
+			res.json({ ok: false, error: 'no file is currently being played' })
+		}
 	})
 
 	app.get(`${base}/video/files`, (req, res) => {
@@ -221,20 +251,33 @@ export default function serve_video(app: Express, base: string) {
  * Persistent state management
  *============================================================================*/
 
+function store_media_state() {
+	return Store.named('media-state')
+}
+
+function query_media_state(filename: string, updater?: (state?: MediaSavedState) => MediaSavedState | undefined) {
+	const store = store_media_state()
+	const prev = store.get<MediaSavedState>(filename)
+	if (updater) {
+		const next = updater(prev)
+		store.set(filename, next)
+		return next
+	}
+	return prev
+}
+
 function store_media_history() {
 	return Store.named('media-history')
 }
 
-function query_media_history(updater?: (history: MediaHistoryEntry[]) => MediaHistoryEntry[] | undefined) {
+function query_media_history(updater?: (history: MediaHistoryEntry[]) => MediaHistoryEntry[]) {
 	const store = store_media_history()
 	const prop = 'list'
 	const prev = store.get<MediaHistoryEntry[]>(prop, [])!
 	if (updater) {
 		const next = updater(prev)
-		if (next !== undefined) {
-			store.set(prop, next)
-			return next
-		}
+		store.set(prop, next)
+		return next
 	}
 	return prev
 }

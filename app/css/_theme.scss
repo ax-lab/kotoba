@@ -12,6 +12,8 @@ $highlight: hsl(37, 100%, 50%);
 // Computed
 //============================================================================//
 
+$color-inactive: color.scale($color, $lightness: -40%);
+
 $background-deep: color.scale($background, $lightness: -20%);
 $background-fore: color.scale($background, $lightness: +10%);
 

@@ -34,6 +34,10 @@ button {
 	padding: theme.$spacing;
 }
 
+button.inactive {
+	color: theme.$color-inactive;
+}
+
 button:hover,
 button:active {
 	background: theme.$background-deep;

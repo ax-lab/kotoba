@@ -10,4 +10,31 @@
 	button {
 		font-size: 1.5rem;
 	}
+
+	.media-title {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.timer {
+		display: flex;
+		flex-direction: column;
+		font-family: 'Helvetica', 'Arial', sans-serif;
+		label {
+			display: block;
+			flex: 1;
+			margin-left: 0;
+			small {
+				font-size: 0.9rem;
+			}
+		}
+		label:first-of-type {
+			font-size: 1.5rem;
+		}
+		label:last-of-type {
+			font-size: 0.6rem;
+			text-align: center;
+		}
+	}
 }

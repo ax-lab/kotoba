@@ -147,6 +147,16 @@ export default function serve_video(app: Express, base: string) {
 		res.json({ ok: true })
 	})
 
+	app.post(`${base}/video/play`, (req, res) => {
+		MPV.get().play()
+		res.json({ ok: true })
+	})
+
+	app.post(`${base}/video/pause`, (req, res) => {
+		MPV.get().pause()
+		res.json({ ok: true })
+	})
+
 	app.get(`${base}/video/files`, (req, res) => {
 		list_files().then(
 			(result) => res.json(result),

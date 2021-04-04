@@ -150,6 +150,20 @@ export class MPV extends EventEmitter {
 	}
 
 	/**
+	 * Enables the playback of the currently media.
+	 */
+	play() {
+		this.set_property('pause', false)
+	}
+
+	/**
+	 * Pauses the playback of the current media.
+	 */
+	pause() {
+		this.set_property('pause', true)
+	}
+
+	/**
 	 * Closes the player if open.
 	 */
 	close() {
@@ -472,7 +486,7 @@ export class MPV extends EventEmitter {
 						this._playback.file_size = value ? (value as number) : undefined
 						break
 					case PROP_TITLE:
-						this._playback.file_size = value ? (value as number) : undefined
+						this._playback.title = value ? (value as string) : undefined
 						break
 					case PROP_DURATION:
 						this._playback.duration = value ? (value as number) : undefined

@@ -1,6 +1,7 @@
 {
 	"watch": [
 		"src/",
+		"lib/",
 		"config/"
 	],
 	"ext": "ts,json",

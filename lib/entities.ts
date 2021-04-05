@@ -38,13 +38,13 @@ export type PlaybackInfo = {
 	paused?: boolean
 	position?: number
 	duration?: number
-	subtitle?: Subtitle
+	subtitle?: SubtitleLine
 	loop_a?: number
 	loop_b?: number
 }
 
 /** A single subtitle line. */
-export type Subtitle = {
+export type SubtitleLine = {
 	text: string
 	start: number
 	end: number

@@ -4,7 +4,7 @@ import fs from 'fs'
 import net from 'net'
 import path from 'path'
 
-import { PlaybackInfo, Subtitle } from '../lib'
+import { PlaybackInfo, SubtitleLine } from '../lib'
 
 const BIN_DIR = `bin`
 const MPV_EXE = `mpv.exe`
@@ -557,7 +557,7 @@ export class MPV extends EventEmitter {
 				if (changed) {
 					const sub = this._subtitle
 					if (sub && sub.text && sub.start != null && sub.end != null && sub.end > sub.start) {
-						this._playback.subtitle = sub as Subtitle
+						this._playback.subtitle = sub as SubtitleLine
 					} else {
 						this._playback.subtitle = undefined
 					}

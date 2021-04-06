@@ -237,14 +237,18 @@ class SubParserASS implements SubParser {
 				const start = this.parse_time(fields[1])
 				const end = this.parse_time(fields[2])
 				const text_raw = fields.slice(9).join(',')
-				out.push({
-					line_start: i,
-					line_count: 1,
-					start,
-					end,
-					text_raw,
-					text: this.strip_format(text_raw),
-				})
+				const text = this.strip_format(text_raw)
+
+				if (text.trim()) {
+					out.push({
+						line_start: i,
+						line_count: 1,
+						start,
+						end,
+						text_raw,
+						text,
+					})
+				}
 			}
 		}
 		return out

@@ -6,6 +6,7 @@ import Splitter from '../components/splitter'
 import State from '../util/state'
 
 import Player from './player'
+import SubtitleView from './subtitles'
 
 import './video.scss'
 
@@ -15,7 +16,7 @@ const Video = () => {
 			<div className="video-view-main">
 				<FilesView />
 				<Splitter name="video-view-splitter" />
-				<div style={{ flex: 0.5 }}>Test</div>
+				<SubtitleView />
 			</div>
 			<Player />
 		</div>

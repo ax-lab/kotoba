@@ -1,0 +1,9 @@
+@use 'sass:color';
+@use '../css/theme';
+
+.subtitle-view {
+	overflow: auto;
+	div:not(:last-of-type) {
+		border-bottom: 1px solid black;
+	}
+}

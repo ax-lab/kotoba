@@ -11,7 +11,11 @@
 
 	$subtitle-entry-color: theme.$background;
 
-	div.subtitle-entry {
+	p {
+		padding: theme.$spacing-thin;
+	}
+
+	.subtitle-entry {
 		display: flex;
 		flex-direction: row;
 		padding: theme.$spacing - 2px;
@@ -19,10 +23,6 @@
 		border: 2px solid $subtitle-entry-color;
 		border-radius: theme.$radius;
 		background-color: $subtitle-entry-color;
-
-		&:hover {
-			border-color: color.scale($subtitle-entry-color, $lightness: 50%);
-		}
 
 		&:not(:last-of-type) {
 			margin-bottom: theme.$spacing;
@@ -64,17 +64,12 @@
 			}
 		}
 
-		&:hover .subtitle-toolbar {
-			visibility: visible;
-		}
-
 		&:not(:hover) .popup {
 			visibility: hidden !important;
 		}
 
 		.subtitle-toolbar {
 			flex: 0;
-			visibility: hidden;
 
 			& > button:not(:hover) {
 				color: color.change(theme.$color, $alpha: 0.5);
@@ -121,7 +116,29 @@
 		}
 	}
 
-	p {
-		padding: theme.$spacing-thin;
+	// Subtitle entry toolbar
+	& {
+		.subtitle-entry {
+			.subtitle-toolbar {
+				opacity: 0;
+				transition: opacity 100ms ease;
+			}
+		}
+	}
+
+	&:not(.disable-hover) {
+		.subtitle-entry:hover {
+			border-color: color.scale($subtitle-entry-color, $lightness: 50%);
+
+			.subtitle-toolbar {
+				opacity: 1;
+			}
+		}
+	}
+
+	&.disable-hover {
+		.popup {
+			visibility: hidden !important;
+		}
 	}
 }

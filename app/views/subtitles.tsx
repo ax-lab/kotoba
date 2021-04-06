@@ -28,7 +28,16 @@ const SubtitleView = () => {
 	}, [])
 
 	return (
-		<div className="subtitle-view">
+		<div
+			className="subtitle-view"
+			onScroll={(ev) => {
+				const cls = 'disable-hover'
+				const el = ev.target as Element & { hoverTimer?: number }
+				el.classList.add(cls)
+				clearTimeout(el.hoverTimer)
+				el.hoverTimer = window.setTimeout(() => el.classList.remove(cls), 500)
+			}}
+		>
 			{subtitle?.data?.map((dialog) => (
 				<Dialog key={dialog.line_start} entry={dialog} />
 			))}
@@ -44,8 +53,12 @@ const Dialog = ({ entry }: { entry: SubtitleDialog }) => {
 			set_popup(false)
 		}
 		document.addEventListener('click', fn)
+
+		const parent = popup_el.current?.closest('.subtitle-view')
+		parent && parent.addEventListener('scroll', fn)
 		return () => {
 			document.removeEventListener('click', fn)
+			parent && parent.removeEventListener('scroll', fn)
 		}
 	})
 

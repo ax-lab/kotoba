@@ -21,7 +21,7 @@
 	.timer {
 		display: flex;
 		flex-direction: column;
-		font-family: 'Helvetica', 'Arial', sans-serif;
+		font-family: theme.$numeric-font;
 		label {
 			display: block;
 			flex: 1;

@@ -3,7 +3,66 @@
 
 .subtitle-view {
 	overflow: auto;
-	div:not(:last-of-type) {
-		border-bottom: 1px solid black;
+	font-size: 1.5rem;
+	cursor: default;
+	padding: theme.$spacing;
+
+	background-color: theme.$background-deep;
+
+	$subtitle-entry-color: theme.$background;
+
+	div.subtitle-entry {
+		display: flex;
+		flex-direction: row;
+		padding: theme.$spacing - 2px;
+
+		border: 2px solid $subtitle-entry-color;
+		border-radius: theme.$radius;
+		background-color: $subtitle-entry-color;
+
+		&:hover {
+			border-color: color.scale($subtitle-entry-color, $lightness: 50%);
+		}
+
+		&:not(:last-of-type) {
+			margin-bottom: theme.$spacing;
+		}
+
+		&:last-of-type {
+			margin-bottom: 500px;
+		}
+
+		.subtitle-text {
+			flex: 1;
+		}
+
+		.time-label {
+			color: theme.$color-ui-light;
+			font-family: theme.$numeric-font;
+			flex: 0 0;
+			font-size: 0.9rem;
+			padding-left: theme.$spacing;
+
+			user-select: none;
+
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+
+			span {
+				width: 5rem;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+
+				small {
+					font-size: 60%;
+				}
+			}
+		}
+	}
+
+	p {
+		padding: theme.$spacing-thin;
 	}
 }

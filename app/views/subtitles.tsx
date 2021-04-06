@@ -36,6 +36,30 @@ const SubtitleView = () => {
 	)
 }
 
-const Dialog = ({ entry }: { entry: SubtitleDialog }) => <div>{Japanese(entry.text)}</div>
+const Dialog = ({ entry }: { entry: SubtitleDialog }) => (
+	<div className="subtitle-entry">
+		<div className="time-label">
+			<TimeLabel time={entry.start.time} />
+			<TimeLabel time={entry.end.time} />
+		</div>
+		<div className="subtitle-text">{Japanese(entry.text)}</div>
+	</div>
+)
+
+const TimeLabel = ({ time }: { time?: number }) => {
+	if (!time) return <span />
+
+	const pad = (v: number) => Math.floor(v).toString().padStart(2, '0')
+	const h = Math.floor(time / 3600)
+	const m = pad((time % 3600) / 60)
+	const s = pad(time % 60)
+	const hs = pad((time % 1) * 100)
+	return (
+		<span>
+			{h}:{m}:{s}
+			<small>{hs}</small>
+		</span>
+	)
+}
 
 export default SubtitleView

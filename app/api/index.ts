@@ -1,2 +1,3 @@
 export { events, EventCallback } from './events'
-export * as video from './video_client'
+export * as subtitle from './client_subtitle'
+export * as video from './client_video'

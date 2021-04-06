@@ -8,6 +8,7 @@ import { Dir, EventVideoPlayback, MediaHistoryEntry, MediaSavedState, VideoLoopP
 
 import config from './config'
 import { events } from './event_dispatcher'
+import { get_media_path } from './media'
 import { MPV } from './mpv'
 import Store from './store'
 
@@ -48,19 +49,8 @@ events.add_initializer(() => {
  *============================================================================*/
 
 function open_video(filename: string, paused = false) {
-	const parts = filename.replace(/^\\/g, '/').replace(/^\//, '').split('/')
-	if (parts.indexOf('..') >= 0) {
-		parts.length = 0
-	}
-
-	const root = parts.shift()
-	const media =
-		root &&
-		config()
-			.media.filter((x) => x.name == root)
-			.shift()
-	if (media) {
-		const fullpath = path.join(media.path, ...parts)
+	const fullpath = get_media_path(filename)
+	if (fullpath) {
 		fs.stat(fullpath, (err, stat) => {
 			if (!err && stat.isFile()) {
 				const history_removed: MediaHistoryEntry[] = []

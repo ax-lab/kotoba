@@ -9,6 +9,7 @@ import express from 'express'
 
 import { version } from './lib'
 import serve_events from './serve_events'
+import serve_subtitle from './serve_subtitle'
 import serve_video from './serve_video'
 
 /** Server listening port */
@@ -33,8 +34,9 @@ app.get('/api', (req, res) => {
 	res.json({ app: 'Kotoba', version: version() })
 })
 
-serve_video(app, API_BASE)
 serve_events(app, API_BASE)
+serve_subtitle(app, API_BASE)
+serve_video(app, API_BASE)
 
 /** Handle any unmatched request as the index (we need this for routes to work) */
 app.get('*', (req, res) => {

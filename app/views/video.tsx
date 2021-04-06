@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 
 import { Dir, DirEntry } from '../../lib/entities'
-import { video } from '../api'
+import { subtitle, video } from '../api'
 import Splitter from '../components/splitter'
 import State from '../util/state'
 
@@ -171,16 +171,18 @@ type FileEntryProps = {
 
 /** Renders a single DirEntry in the file listing, including child items. */
 const FileEntry = ({ entry, openMap, setOpen }: FileEntryProps) => {
-	const key = `${entry.path}/${entry.name}`
+	const path = `${entry.path}/${entry.name}`
 	const onClick = (ev: React.MouseEvent<HTMLLIElement>) => {
 		if (entry.type == 'dir') {
-			setOpen(key, !openMap[key])
+			setOpen(path, !openMap[path])
 		} else if (entry.type == 'video') {
-			video.open({ filename: `${entry.path}/${entry.name}` }).catch((err) => console.error(err))
+			video.open({ filename: path }).catch((err) => console.error(err))
+		} else if (entry.type == 'subtitle') {
+			subtitle.load({ filename: path }).catch((err) => console.error(err))
 		}
 		ev.stopPropagation()
 	}
-	const isOpen = entry.type == 'dir' && openMap[key]
+	const isOpen = entry.type == 'dir' && openMap[path]
 	return (
 		<>
 			<li onClick={(ev) => onClick(ev)} title={entry.name} className={isOpen ? 'open' : ''}>

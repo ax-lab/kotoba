@@ -2,12 +2,14 @@
  * @file Shared entity definitions between the front-end and backend.
  */
 
+import { SubtitleDialog } from './subtitles'
+
 /*============================================================================*
  * Media API
  *============================================================================*/
 
 /**
- * Arguments to the `video/loop` endpoint.
+ * Parameters to the `video/loop` endpoint.
  */
 export type VideoLoopParams = {
 	save?: boolean
@@ -85,8 +87,21 @@ export type MediaHistoryEntry = {
 }
 
 /*============================================================================*
+ * Subtitle API
+ *============================================================================*/
+
+/**
+ * Parameters to the `subtitle/load` endpoint
+ */
+export type SubtitleLoadParams = {
+	filename?: string
+}
+
+/*============================================================================*
  * Server events
  *============================================================================*/
+
+export type ServerEvent = EventVideoPlayback | EventMediaHistory | EventSubtitleChange
 
 /**
  * Interface for a generic event.
@@ -97,16 +112,31 @@ export interface BaseEvent {
 	[key: string]: unknown
 }
 
+/**
+ * Video playback state update.
+ */
 export interface EventVideoPlayback extends BaseEvent {
 	type: 'video-playback'
 	play?: PlaybackInfo
 	data?: MediaSavedState
 }
 
+/**
+ * Change to the media history.
+ */
 export interface EventMediaHistory extends BaseEvent {
 	type: 'media-history'
-	mode: 'add' | 'del' | 'clear'
+	mode: 'add' | 'del'
 	data: MediaHistoryEntry[]
 }
 
-export type ServerEvent = EventVideoPlayback | EventMediaHistory
+/**
+ * Subtitle has been opened or closed.
+ */
+export interface EventSubtitleChange extends BaseEvent {
+	type: 'subtitle-change'
+	open: boolean
+	data?: SubtitleDialog[]
+	file?: string
+	text?: string
+}

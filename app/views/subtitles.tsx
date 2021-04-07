@@ -8,6 +8,7 @@ import './subtitles.scss'
 
 type SubtitleViewProps = {
 	on_load?: () => void
+	editable?: boolean
 }
 
 const SubtitleView = (args: SubtitleViewProps) => {
@@ -45,13 +46,13 @@ const SubtitleView = (args: SubtitleViewProps) => {
 				<button title="Scroll to current dialog" className="fas fa-comment-dots" />
 			</div>
 			{subs?.data?.map((dialog) => (
-				<Dialog key={dialog.line_start} entry={dialog} />
+				<Dialog key={dialog.line_start} entry={dialog} editable={args.editable} />
 			))}
 		</div>
 	)
 }
 
-const Dialog = ({ entry }: { entry: SubtitleDialog }) => {
+const Dialog = ({ entry, editable }: { entry: SubtitleDialog; editable?: boolean }) => {
 	const [popup, set_popup] = useState(false)
 	const popup_el = React.createRef<HTMLDivElement>()
 	useEffect(() => {
@@ -89,29 +90,42 @@ const Dialog = ({ entry }: { entry: SubtitleDialog }) => {
 			</div>
 			<div className="subtitle-text">{Japanese(entry.text)}</div>
 			<div className="subtitle-toolbar">
-				<button className="fas fa-play" title="Play" onClick={copy} />
-				<button className="fas fa-sync-alt" title="Loop Dialog" />
-				<button
-					className="fas fa-bars"
-					onClick={(ev) => {
-						const btn = (ev.target as Element).getBoundingClientRect()
-						const el = popup_el.current
-						if (el) {
-							const size = el.getBoundingClientRect()
-							const style = window.getComputedStyle(el)
-							const padR = parseFloat(style.paddingRight)
-							const padT = parseFloat(style.paddingTop)
-							el.style.left = `${btn.x - size.width - 2 * padR}px`
-							el.style.top = `${btn.y - padT}px`
-							// We need a timeout here because of the global click
-							// handler that dismisses the menu
-							setTimeout(() => {
-								set_popup(!popup)
-							}, 0)
-						}
-					}}
-				/>
-				<div ref={popup_el} className="popup" style={{ visibility: popup ? 'visible' : 'hidden' }}>
+				{editable ? (
+					<>
+						<button className="fas fa-play" title="Play" onClick={copy} />
+						<button className="fas fa-sync-alt" title="Loop Dialog" />
+						<button
+							className="fas fa-bars"
+							onClick={(ev) => {
+								const btn = (ev.target as Element).getBoundingClientRect()
+								const el = popup_el.current
+								if (el) {
+									const size = el.getBoundingClientRect()
+									const style = window.getComputedStyle(el)
+									const padR = parseFloat(style.paddingRight)
+									const padT = parseFloat(style.paddingTop)
+									el.style.left = `${btn.x - size.width - 2 * padR}px`
+									el.style.top = `${btn.y - padT}px`
+									// We need a timeout here because of the global click
+									// handler that dismisses the menu
+									setTimeout(() => {
+										set_popup(!popup)
+									}, 0)
+								}
+							}}
+						/>
+					</>
+				) : (
+					<>
+						<button className="far fa-clipboard" title="Copy to Clipboard" onClick={copy} />
+						<button className="fas fa-globe" title="Translate" onClick={translate} />
+					</>
+				)}
+				<div
+					ref={popup_el}
+					className="popup"
+					style={{ visibility: popup ? 'visible' : 'hidden', display: !editable ? 'none' : undefined }}
+				>
 					<button className="far fa-clipboard" title="Copy to Clipboard" onClick={copy} />
 					<button className="fas fa-globe" title="Translate" onClick={translate} />
 					<span className="separator" />

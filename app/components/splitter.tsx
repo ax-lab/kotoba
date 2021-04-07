@@ -7,7 +7,7 @@ import State from '../util/state'
 /** Stored state for a registered splitter. */
 type SplitState = {
 	name: string
-	element: React.RefObject<HTMLDivElement>
+	element: HTMLDivElement
 
 	// All fields below are set on drag start (mousedown on the splitter)
 
@@ -60,7 +60,7 @@ class SplitterManager {
 	 * Register a splitter element. This should be called on the initial
 	 * rendering of the element.
 	 */
-	register(element: React.RefObject<HTMLDivElement>, name: string) {
+	register(element: HTMLDivElement, name: string) {
 		this.map.set(name, {
 			name: name,
 			element: element,
@@ -68,13 +68,15 @@ class SplitterManager {
 
 		// Restore the saved siblings size if any.
 		const target = State.get(`split-${name}`, { prev: 0, next: 0 })
-		if (target.prev + target.next && element.current) {
-			const prev = element.current.previousElementSibling as HTMLElement
-			const next = element.current.nextElementSibling as HTMLElement
+		if (target.prev + target.next && element) {
+			const prev = element.previousElementSibling as HTMLElement
+			const next = element.nextElementSibling as HTMLElement
 			if (prev && next) {
 				this.setSize(prev, target.prev, next, target.next)
 			}
 		}
+
+		return () => this.map.delete(name)
 	}
 
 	/**
@@ -83,7 +85,7 @@ class SplitterManager {
 	 */
 	start(name: string, x: number, y: number) {
 		const state = this.map.get(name)
-		if (!state || !state.element.current) {
+		if (!state || !state.element) {
 			return
 		}
 
@@ -93,8 +95,8 @@ class SplitterManager {
 		state.startY = y
 
 		// Store the sibling elements.
-		state.prev = state.element.current.previousElementSibling as HTMLElement
-		state.next = state.element.current.nextElementSibling as HTMLElement
+		state.prev = state.element.previousElementSibling as HTMLElement
+		state.next = state.element.nextElementSibling as HTMLElement
 		if (!state.prev || !state.next) {
 			return
 		}
@@ -155,7 +157,10 @@ const manager = new SplitterManager()
 const Splitter = ({ name }: { name: string }) => {
 	const el = React.createRef<HTMLDivElement>()
 	useEffect(() => {
-		manager.register(el, name)
+		const cleanup = manager.register(el.current!, name)
+		return () => {
+			cleanup()
+		}
 	}, [])
 	return (
 		<>

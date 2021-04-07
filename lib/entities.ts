@@ -26,14 +26,25 @@ export type MediaSavedState = {
 
 	/** Saved AB loop end time. */
 	loop_b?: number
+
+	/** Subtitle to load when the media is loaded. */
+	subtitle?: string
+}
+
+/**
+ * Media file associated with a subtitle.
+ */
+export type SavedSubtitleMedia = {
+	media_path?: string
 }
 
 /**
  * Playback info for the current media file.
  */
 export type PlaybackInfo = {
-	file_name?: string
-	file_path?: string
+	media_path?: string // Media path as visible in the public API
+	file_name?: string // File name without path
+	file_path?: string // File system path for the file
 	file_size?: number
 	title?: string
 	chapter?: string
@@ -139,4 +150,5 @@ export interface EventSubtitleChange extends BaseEvent {
 	data?: SubtitleDialog[]
 	file?: string
 	text?: string
+	path?: string
 }

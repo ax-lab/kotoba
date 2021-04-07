@@ -16,7 +16,7 @@ export default function serve_video(app: Express, base: string) {
 	})
 
 	app.post(`${base}/video/close`, (req, res) => {
-		MPV.get().close()
+		App.get().close_video()
 		res.json({ ok: true })
 	})
 

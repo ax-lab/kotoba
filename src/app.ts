@@ -7,6 +7,7 @@ import {
 	EventVideoPlayback,
 	MediaHistoryEntry,
 	MediaSavedState,
+	SavedSubtitleMedia,
 	SubtitleFile,
 	VideoLoopParams,
 } from '../lib'
@@ -37,10 +38,20 @@ export default class App {
 		})
 
 		MPV.get().on('playback', (info) => {
+			const media_path = this._media_file == info?.file_path ? this._media_path : undefined
+
+			// Detect the end of playback (e.g. player quit)
+			if (!info?.file_path && this._media_file == this._playback?.play?.file_path && this._subtitle?.open) {
+				this.load_subtitle('')
+			}
+
 			this._playback = {
 				type: 'video-playback',
-				play: info,
-				data: info?.file_name ? this.query_media_state(info.file_name) : undefined,
+				play: info && {
+					...info,
+					...(media_path ? { media_path } : undefined),
+				},
+				data: media_path ? this.query_media_state(media_path) : undefined,
 			}
 			server_events.post(this._playback)
 		})
@@ -48,6 +59,8 @@ export default class App {
 
 	private _subtitle?: EventSubtitleChange
 	private _playback?: EventVideoPlayback
+	private _media_path?: string
+	private _media_file?: string
 
 	get subtitle() {
 		return this._subtitle
@@ -57,7 +70,7 @@ export default class App {
 		return this._playback
 	}
 
-	load_subtitle(filename?: string) {
+	load_subtitle(filename?: string, no_video?: boolean) {
 		if (!filename) {
 			this._subtitle = { type: 'subtitle-change', open: false }
 			server_events.post(this._subtitle)
@@ -78,9 +91,27 @@ export default class App {
 									data: sub.dialogues,
 									text: sub.text,
 									file: sub.name,
+									path: filename,
 							  }),
 					}
 					server_events.post(this._subtitle)
+
+					const media_path = this._playback?.play?.media_path
+					if (media_path) {
+						this.query_media_state(media_path, (media) => {
+							return { ...media, subtitle: filename }
+						})
+						this.query_subtitle_media(filename, (media) => {
+							return { ...media, media_path: media_path }
+						})
+					} else if (!no_video && !this._playback?.play?.file_name) {
+						// If we are not playing anything, load the associated
+						// media file.
+						const media = this.query_subtitle_media(filename)
+						if (media?.media_path) {
+							this.open_video(media.media_path, true)
+						}
+					}
 				} else {
 					console.error('Could not load subtitle', err)
 				}
@@ -90,7 +121,10 @@ export default class App {
 
 	open_video(filename: string, paused = false) {
 		const fullpath = get_media_path(filename)
-		if (fullpath) {
+		if (fullpath && RE_VIDEO_EXTENSION.test(fullpath)) {
+			if (fullpath == this._playback?.play?.file_path) {
+				return
+			}
 			fs.stat(fullpath, (err, stat) => {
 				if (!err && stat.isFile()) {
 					const history_removed: MediaHistoryEntry[] = []
@@ -126,21 +160,28 @@ export default class App {
 						mode: 'add',
 						data: [history_new],
 					})
+
+					this._media_file = fullpath
+					this._media_path = filename
+					MPV.get().open_file(fullpath, { paused })
+
+					const state = this.query_media_state(filename)
+					this.load_subtitle(state?.subtitle, true)
 				}
 			})
-
-			if (RE_VIDEO_EXTENSION.test(fullpath)) {
-				MPV.get().open_file(fullpath, { paused })
-				return
-			}
 		}
 
 		MPV.get().open()
 	}
 
+	close_video() {
+		this.load_subtitle('')
+		MPV.get().close()
+	}
+
 	loop_video(params: VideoLoopParams) {
-		const file_name = this._playback?.play?.file_name
-		if (file_name) {
+		const media_path = this._playback?.play?.media_path
+		if (media_path) {
 			let new_a = params.a
 			let new_b = params.b
 			if (new_a! > new_b!) {
@@ -151,7 +192,7 @@ export default class App {
 
 			const mpv = MPV.get()
 			if (params.save) {
-				App.get().query_media_state(file_name, (state) => {
+				App.get().query_media_state(media_path, (state) => {
 					let a = state?.loop_a
 					let b = state?.loop_b
 
@@ -183,12 +224,27 @@ export default class App {
 		return Store.named('media-history')
 	}
 
-	query_media_state(filename: string, updater?: (state?: MediaSavedState) => MediaSavedState | undefined) {
+	private store_subtitle_media() {
+		return Store.named('subtitle-media')
+	}
+
+	query_media_state(media_file: string, updater?: (state?: MediaSavedState) => MediaSavedState | undefined) {
 		const store = this.store_media_state()
-		const prev = store.get<MediaSavedState>(filename)
+		const prev = store.get<MediaSavedState>(media_file)
 		if (updater) {
 			const next = updater(prev)
-			store.set(filename, next)
+			store.set(media_file, next)
+			return next
+		}
+		return prev
+	}
+
+	query_subtitle_media(subtitle: string, updater?: (state?: SavedSubtitleMedia) => SavedSubtitleMedia | undefined) {
+		const store = this.store_subtitle_media()
+		const prev = store.get<SavedSubtitleMedia>(subtitle)
+		if (updater) {
+			const next = updater(prev)
+			store.set(subtitle, next)
 			return next
 		}
 		return prev

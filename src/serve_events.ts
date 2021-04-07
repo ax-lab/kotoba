@@ -3,11 +3,11 @@ import { v4 as uuid } from 'uuid'
 
 import { ServerEvent } from '../lib'
 
-import { events } from './event_dispatcher'
+import { server_events } from './event_dispatcher'
 
 const clients = new Map<string, (data: string) => void>()
 
-events.handle((event: ServerEvent) => {
+server_events.handle((event: ServerEvent) => {
 	const data = JSON.stringify(event)
 	for (const post of clients.values()) {
 		post(data)
@@ -38,7 +38,7 @@ export default function serve_events(app: Express, base: string) {
 		post(JSON.stringify({ id, type: 'connected' }))
 
 		// force a playback event to initialize the client state
-		for (const ev of events.get_snapshot()) {
+		for (const ev of server_events.get_snapshot()) {
 			post(JSON.stringify(ev))
 		}
 	})

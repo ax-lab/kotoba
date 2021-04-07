@@ -46,4 +46,4 @@ class Dispatcher {
 	}
 }
 
-export const events = new Dispatcher()
+export const server_events = new Dispatcher()

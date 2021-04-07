@@ -5,7 +5,7 @@ import { Express } from 'express'
 import { EventSubtitleChange, SubtitleFile, SubtitleLoadParams } from '../lib'
 
 import { events } from './event_dispatcher'
-import { get_media_path } from './media'
+import { get_media_path, list_files } from './media'
 
 let current_subtitle: SubtitleFile | undefined
 
@@ -49,5 +49,12 @@ export default function serve_subtitle(app: Express, base: string) {
 			events.post(get_change_event())
 		}
 		res.json({ ok: true })
+	})
+
+	app.get(`${base}/subtitle/files`, (req, res) => {
+		list_files('subtitle').then(
+			(result) => res.json(result),
+			(error) => res.status(500).json({ error: `${error as string}` }),
+		)
 	})
 }

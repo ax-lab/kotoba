@@ -1,21 +1,16 @@
 import fs from 'fs'
-import path from 'path'
 
 import { Express } from 'express'
 import { v4 as uuid } from 'uuid'
 
-import { Dir, EventVideoPlayback, MediaHistoryEntry, MediaSavedState, VideoLoopParams } from '../lib'
+import { EventVideoPlayback, MediaHistoryEntry, MediaSavedState, VideoLoopParams } from '../lib'
 
-import config from './config'
 import { events } from './event_dispatcher'
-import { get_media_path } from './media'
+import { get_media_path, list_files, RE_VIDEO_EXTENSION } from './media'
 import { MPV } from './mpv'
 import Store from './store'
 
 const MAX_MEDIA_HISTORY = 100
-
-const RE_VIDEO_EXTENSION = /\.(mp4|avi|mkv|webm|wmv)$/i
-const RE_SUB_EXTENSION = /\.(ass|srt)$/i
 
 /*============================================================================*
  * Event handling
@@ -98,76 +93,6 @@ function open_video(filename: string, paused = false) {
 	MPV.get().open()
 }
 
-async function list_files(): Promise<Dir> {
-	return new Promise((resolve) => {
-		const root: Dir = { type: 'dir', name: '', path: '', list: [] }
-
-		let wait = 0
-
-		for (const it of config().media) {
-			const media: Dir = { type: 'dir', name: it.name, path: '', list: [] }
-			read_dir(it.path, media)
-			root.list.push(media)
-		}
-
-		function read_dir(base: string, parent: Dir) {
-			wait++
-			fs.readdir(base, { withFileTypes: true }, (err, files) => {
-				for (const it of files || []) {
-					const fullpath = parent.path ? `${parent.path}/${parent.name}` : parent.name
-					if (it.isFile()) {
-						if (RE_VIDEO_EXTENSION.test(it.name)) {
-							parent.list.push({
-								type: 'video',
-								name: it.name,
-								path: fullpath,
-							})
-						} else if (RE_SUB_EXTENSION.test(it.name)) {
-							parent.list.push({
-								type: 'subtitle',
-								name: it.name,
-								path: fullpath,
-							})
-						}
-					} else {
-						const dir: Dir = {
-							type: 'dir',
-							name: it.name,
-							path: fullpath,
-							list: [],
-						}
-						parent.list.push(dir)
-						read_dir(path.join(base, dir.name), dir)
-					}
-				}
-				wait--
-				if (wait == 0) {
-					root.list.forEach((x) => sort_dir(x as Dir))
-					resolve(root)
-				}
-			})
-		}
-
-		function sort_dir(root: Dir): boolean {
-			root.list = root.list.filter((it) => {
-				if (it.type == 'dir') {
-					return sort_dir(it)
-				}
-				return true
-			})
-			root.list.sort((a, b) => {
-				if (a.type != b.type) {
-					if (a.type == 'dir' || b.type == 'dir') {
-						return a.type == 'dir' ? +1 : -1
-					}
-				}
-				return a.name.localeCompare(b.name)
-			})
-			return root.list.length > 0
-		}
-	})
-}
-
 export default function serve_video(app: Express, base: string) {
 	app.post(`${base}/video/open`, (req, res) => {
 		const params = req.body as Record<string, unknown>
@@ -230,7 +155,7 @@ export default function serve_video(app: Express, base: string) {
 	})
 
 	app.get(`${base}/video/files`, (req, res) => {
-		list_files().then(
+		list_files('video').then(
 			(result) => res.json(result),
 			(error) => res.status(500).json({ error: `${error as string}` }),
 		)

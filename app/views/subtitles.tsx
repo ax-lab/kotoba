@@ -1,30 +1,23 @@
 import React, { useEffect, useState } from 'react'
 
-import { EventSubtitleChange } from '../../lib'
 import { SubtitleDialog } from '../../lib/subtitles'
-import { events } from '../api'
+import { subtitle } from '../api'
 import Japanese from '../util/japanese'
 
 import './subtitles.scss'
 
-let current_subtitle: EventSubtitleChange | undefined
+type SubtitleViewProps = {
+	on_load?: () => void
+}
 
-events.register((ev) => {
-	if (ev.type == 'subtitle-change') {
-		current_subtitle = ev
-	}
-})
+const SubtitleView = (args: SubtitleViewProps) => {
+	const [subs, set_subs] = useState(subtitle.get_current_subtitle())
 
-const SubtitleView = () => {
-	const [subtitle, set_subtitle] = useState(current_subtitle)
+	const name = subs?.file?.split('/').pop()
 
 	useEffect(() => {
-		const unregister = events.register((ev) => {
-			if (ev.type == 'subtitle-change') {
-				set_subtitle(ev)
-			}
-		})
-		return () => unregister()
+		const cleanup = subtitle.on_change((ev) => set_subs(ev))
+		return () => cleanup()
 	}, [])
 
 	return (
@@ -32,13 +25,26 @@ const SubtitleView = () => {
 			className="subtitle-view"
 			onScroll={(ev) => {
 				const cls = 'disable-hover'
-				const el = ev.target as Element & { hoverTimer?: number }
+				const el = ev.target as Element & { hover_timer?: number }
 				el.classList.add(cls)
-				clearTimeout(el.hoverTimer)
-				el.hoverTimer = window.setTimeout(() => el.classList.remove(cls), 500)
+				clearTimeout(el.hover_timer)
+				el.hover_timer = window.setTimeout(() => el.classList.remove(cls), 500)
 			}}
 		>
-			{subtitle?.data?.map((dialog) => (
+			<div className="subtitle-toolbar">
+				<label title={subs?.file}>{name}</label>
+				<button
+					title="Select subtitle file"
+					className="fas fa-folder-open"
+					onClick={() => {
+						if (args.on_load) {
+							args.on_load()
+						}
+					}}
+				/>
+				<button title="Scroll to current dialog" className="fas fa-comment-dots" />
+			</div>
+			{subs?.data?.map((dialog) => (
 				<Dialog key={dialog.line_start} entry={dialog} />
 			))}
 		</div>
@@ -83,7 +89,7 @@ const Dialog = ({ entry }: { entry: SubtitleDialog }) => {
 			</div>
 			<div className="subtitle-text">{Japanese(entry.text)}</div>
 			<div className="subtitle-toolbar">
-				<button className="far fa-clipboard" title="Copy to Clipboard" onClick={copy} />
+				<button className="fas fa-play" title="Play" onClick={copy} />
 				<button className="fas fa-sync-alt" title="Loop Dialog" />
 				<button
 					className="fas fa-bars"
@@ -106,6 +112,7 @@ const Dialog = ({ entry }: { entry: SubtitleDialog }) => {
 					}}
 				/>
 				<div ref={popup_el} className="popup" style={{ visibility: popup ? 'visible' : 'hidden' }}>
+					<button className="far fa-clipboard" title="Copy to Clipboard" onClick={copy} />
 					<button className="fas fa-globe" title="Translate" onClick={translate} />
 					<span className="separator" />
 					<button className="fas fa-step-forward" title="Set Loop B" />

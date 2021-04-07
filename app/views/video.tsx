@@ -11,12 +11,34 @@ import SubtitleView from './subtitles'
 import './video.scss'
 
 const Video = () => {
+	const [subs, set_subs] = useState(subtitle.get_current_subtitle())
+	const [loading_sub, set_loading_sub] = useState(false)
+
+	useEffect(() => {
+		const cleanup = subtitle.on_change((ev) => {
+			set_subs(ev)
+			set_loading_sub(false)
+		})
+		return () => cleanup()
+	}, [])
+
+	const show_subs = subs?.open && !loading_sub
+	const load_subs = () => set_loading_sub(true)
+
+	const cancel_load = loading_sub ? () => set_loading_sub(false) : undefined
+
 	return (
 		<div className="video-view">
 			<div className="video-view-main">
-				<FilesView />
+				<FilesView type="video" />
 				<Splitter name="video-view-splitter" />
-				<SubtitleView />
+				<div className="video-view-subtitle">
+					{show_subs ? (
+						<SubtitleView on_load={load_subs} />
+					) : (
+						<FilesView type="subtitle" cancel={cancel_load} />
+					)}
+				</div>
 			</div>
 			<Player />
 		</div>
@@ -29,7 +51,12 @@ export default Video
  * File listing
  *============================================================================*/
 
-type FilesViewProp = {
+type FilesViewProps = {
+	type: 'video' | 'subtitle'
+	cancel?: () => void
+}
+
+type FilesViewState = {
 	message?: string
 	root?: Dir
 	view?: Dir
@@ -39,48 +66,58 @@ type OpenMap = { [key: string]: boolean }
 
 const entryKey = (entry: DirEntry) => `${entry.path}/${entry.name}`
 
-const FilesView = () => {
-	const openKey = 'video-files-open'
-	const [state, setState] = useState({ message: 'Loading...' } as FilesViewProp)
-	const [openMap, doSetOpenMap] = useState(State.get(openKey, {} as OpenMap))
+const FilesView = ({ type, cancel }: FilesViewProps) => {
+	const openKey = `${type}-files-open`
+	const [view_state, do_set_view_state] = useState({ message: 'Loading...' } as FilesViewState)
+	const [open_map, do_set_open_map] = useState(State.get(openKey, {} as OpenMap))
 
-	const setOpenMap = (data: OpenMap) => {
+	let unmounted = false
+	useEffect(() => {
+		return () => {
+			unmounted = true
+		}
+	}, [])
+
+	const set_open_map = (data: OpenMap) => {
 		State.set(openKey, data)
-		doSetOpenMap(data)
+		do_set_open_map(data)
 	}
 
-	const setOpen = (key: string, open: boolean) => {
-		setOpenMap({ ...openMap, [key]: open })
+	const set_open = (key: string, open: boolean) => {
+		set_open_map({ ...open_map, [key]: open })
 	}
 
-	const collapseAll = () => setOpenMap({})
+	const set_view_state = (state: FilesViewState) => {
+		!unmounted && do_set_view_state(state)
+	}
 
-	function expandDir(out: OpenMap, dir: Dir) {
+	const collapse_all = () => set_open_map({})
+
+	function expand_dir(out: OpenMap, dir: Dir) {
 		dir.list.forEach((x) => {
 			if (x.type == 'dir') {
 				out[entryKey(x)] = true
-				expandDir(out, x)
+				expand_dir(out, x)
 			}
 		})
 		return out
 	}
 
-	const expandAll = () => {
-		if (state.root) {
-			setOpenMap(expandDir({}, state.root))
+	const expand_all = () => {
+		if (view_state.root) {
+			set_open_map(expand_dir({}, view_state.root))
 		}
 	}
 
 	const refresh = () => {
-		const to = setTimeout(() => setState({ ...state, message: 'Loading...' }), 500)
-		video
-			.fetch_files()
+		const to = setTimeout(() => set_view_state({ ...view_state, message: 'Loading...' }), 500)
+		;(type == 'video' ? video.fetch_files() : subtitle.fetch_files())
 			.then((root) => {
-				setState({ ...state, root, message: '' })
+				set_view_state({ ...view_state, root, message: '' })
 			})
 			.catch((err) => {
-				setState({ ...state, message: 'Load failed' })
-				console.error('Loading video files:', err)
+				set_view_state({ ...view_state, message: 'Load failed' })
+				console.error(`Loading ${type} files:`, err)
 			})
 			.finally(() => clearTimeout(to))
 	}
@@ -121,12 +158,12 @@ const FilesView = () => {
 	const filter = () => {
 		const txt = txtFilter.current && txtFilter.current.value
 		const words = txt && txt.length > 2 && txt.split(/\s+/).map((x) => x.toLowerCase())
-		if (state.root && words && words.length) {
-			const view = filterDir(words, state.root)
-			setState({ ...state, view: view, message: view.list.length ? '' : 'No results' })
-			setOpenMap(expandDir({}, view))
+		if (view_state.root && words && words.length) {
+			const view = filterDir(words, view_state.root)
+			set_view_state({ ...view_state, view: view, message: view.list.length ? '' : 'No results' })
+			set_open_map(expand_dir({}, view))
 		} else {
-			setState({ ...state, view: undefined, message: '' })
+			set_view_state({ ...view_state, view: undefined, message: '' })
 		}
 	}
 
@@ -136,14 +173,22 @@ const FilesView = () => {
 	return (
 		<div className="video-files-view">
 			<div className="video-toolbar">
-				<button className="fas fa-sync" title="Refresh" onClick={refresh}></button>
-				<button className="fas fa-minus-square" title="Collapse all" onClick={collapseAll}></button>
-				<button className="fas fa-plus-square" title="Expand all" onClick={expandAll}></button>
+				<button className="fas fa-sync" title="Refresh" onClick={refresh} />
+				<button className="fas fa-minus-square" title="Collapse all" onClick={collapse_all} />
+				<button className="fas fa-plus-square" title="Expand all" onClick={expand_all} />
+				{cancel && (
+					<>
+						&nbsp;
+						<button className="fas fa-ban" title="Cancel" onClick={cancel} />
+					</>
+				)}
 				<input ref={txtFilter} type="search" placeholder="Filter..." spellCheck={false} onInput={filter} />
 			</div>
 			<div className="video-files">
-				{state.message && <div>{state.message}</div>}
-				{state.root && <FileList root={state.view || state.root} open openMap={openMap} setOpen={setOpen} />}
+				{view_state.message && <div>{view_state.message}</div>}
+				{view_state.root && (
+					<FileList root={view_state.view || view_state.root} open openMap={open_map} setOpen={set_open} />
+				)}
 			</div>
 		</div>
 	)

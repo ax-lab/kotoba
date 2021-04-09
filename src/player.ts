@@ -4,7 +4,9 @@ import fs from 'fs'
 import net from 'net'
 import path from 'path'
 
-const DEBUG_IPC = true // debug IPC connection and messages
+import { PlaybackInfo, SubtitleLine } from '../lib'
+
+const DEBUG_IPC = false // debug IPC connection and messages
 const DEBUG_IPC_LOG = false // also include extremely verbose log messages
 
 // Player executable location
@@ -13,6 +15,10 @@ const MPV_EXE = `mpv.exe`
 
 // Timeout on the IPC connection attempt after the player process spawns
 const IPC_CONN_TIMEOUT_MS = 5000
+
+// Minimum initial delay and interval between `playback` events.
+const PLAYBACK_THROTTLE_MS = 50
+const PLAYBACK_DELAY_MS = 10
 
 // Name for the socket used for IPC
 const IPC_PIPE = 'mpv-kotoba-control'
@@ -48,6 +54,19 @@ interface PlayerEvents {
 
 	/** This is called for any property change on the player. */
 	change: (property: string, value: unknown) => void
+
+	/**
+	 * Similar to change, this is called for property changes, but those related
+	 * to playback (which are basically most of them).
+	 *
+	 * What makes this different is that it provides a more convenient interface
+	 * by providing all properties in a `PlaybackInfo` object.
+	 *
+	 * Also, as opposed to `change` which is generated immediately and for
+	 * each property changed, the `playback` event is throttled for performance
+	 * reasons and can combine multiple property changes.
+	 */
+	playback: (info: PlaybackInfo) => void
 }
 
 // Inject "PlayerEvents" into the Player class.
@@ -110,6 +129,17 @@ export abstract class Player extends EventEmitter {
 	/** Length of the current file in bytes */
 	readonly file_size = this.property<number>('file-size')
 
+	private _media_path = ''
+
+	/**
+	 * The media path for the currently open file. The media path is a virtual
+	 * path name that is controlled by the media settings, and is not the same
+	 * as the file path.
+	 */
+	get media_path() {
+		return this._media_path
+	}
+
 	/** Title tag for the current file, or `filename` if not available. */
 	readonly title = this.property<string>('media-title')
 
@@ -138,27 +168,65 @@ export abstract class Player extends EventEmitter {
 	readonly ab_loop_b = this.property<number | 'no'>('ab-loop-b')
 
 	/** Chapter title */
-	readonly chapter_title = this.property<number>('chapter-metadata/by-key/title')
+	readonly chapter_title = this.property<string>('chapter-metadata/by-key/title')
+
+	_subtitle_id?: number
+	_subtitle_file?: string
+	_subtitle_name?: string
+
+	/**
+	 * Full path to the currently loaded subtitle file. This is only available
+	 * if the subtitle has been loaded through the player interface.
+	 */
+	get subtitle_file() {
+		return this._subtitle_file
+	}
+
+	/**
+	 * User given name for the current subtitle file. Same as `subtitle_file`
+	 * this is only available if the subtitle has been loaded through the
+	 * player interface.
+	 */
+	get subtitle_name() {
+		return this._subtitle_name
+	}
 
 	/**
 	 * Opens a file in the player.
 	 */
-	async open_file(filename: string, { paused = false } = {}) {
+	async open_file(filename: string, { media_path = '', paused = false } = {}) {
 		const main = this.send_command('loadfile', filename)
 		const pause = paused && this.paused.set(true)
 
-		const result = (await main).success
-		if (pause) {
+		const success = (await main).success
+		if (success) {
+			this._media_path = media_path
+		}
+		if (success && pause) {
 			await pause
 		}
-		return result
+		return success
 	}
 
 	/**
 	 * Loads a subtitle.
 	 */
-	async load_subtitle(filename: string) {
-		const res = await this.send_command('sub-add', filename, 'select', 'Kotoba')
+	async load_subtitle(filename: string, { name = '', label = '' } = {}) {
+		if (this._subtitle_file) {
+			// remove the active subtitle if it was one of our own
+			void this.send_command('sub-remove', this._subtitle_id)
+		}
+
+		// add the subtitle file
+		const res = await this.send_command('sub-add', filename, 'select', label || 'Kotoba')
+		if (res.success) {
+			// retrieve the id so that we can remove it later
+			const sub = await this.get_property<number>('sub')
+			this._subtitle_file = filename
+			this._subtitle_name = name
+			this._subtitle_id = sub
+			this.trigger_playback()
+		}
 		return res.success
 	}
 
@@ -222,6 +290,11 @@ export abstract class Player extends EventEmitter {
 	/*=========================================================================*
 	 * Private implementation
 	 *=========================================================================*/
+
+	protected async get_property<T>(name: string) {
+		const res = await this.send_command('get_property', name)
+		return res.success && res.data ? (res.data as T) : undefined
+	}
 
 	/** Send a command to the player */
 	protected async send_command(name: string, ...args: unknown[]) {
@@ -321,6 +394,9 @@ export abstract class Player extends EventEmitter {
 					// Also emit a player-level change event. Note that only
 					// observed properties will generate events.
 					this.emit('change', msg.name, msg.data)
+
+					// Also trigger the playback event.
+					this.trigger_playback()
 					break
 				}
 
@@ -339,6 +415,57 @@ export abstract class Player extends EventEmitter {
 					this.cmd_pending.clear()
 				}
 			}
+		}
+	}
+
+	private last_playback?: number
+	private next_playback?: NodeJS.Timeout
+
+	/**
+	 * Trigger a playback event. The playback event is similar to `change` but
+	 * provides a more convenient interface to access all the playback info.
+	 *
+	 * As opposed to change which is triggered immediately, this event is
+	 * throttled to improve performance in handlers. As such, this method will
+	 * not necessarily trigger the event immediately.
+	 */
+	protected trigger_playback() {
+		if (this.next_playback) {
+			return // already triggered
+		}
+
+		const now = new Date().getTime()
+		const delta = now - (this.last_playback || -1)
+		if (delta > PLAYBACK_THROTTLE_MS) {
+			this.last_playback = now
+			this.next_playback = setTimeout(() => {
+				this.next_playback = undefined
+
+				const sub_text = this.sub_text.value
+				const sub_start = this.sub_start.value
+				const sub_end = this.sub_end.value
+				const sub: SubtitleLine | undefined =
+					sub_text && sub_start != null && sub_end != null && sub_end > sub_start
+						? { text: sub_text, start: sub_start, end: sub_end }
+						: undefined
+
+				const loop_a = this.ab_loop_a.value
+				const loop_b = this.ab_loop_b.value
+				this.emit('playback', {
+					chapter: this.chapter_title.value,
+					duration: this.duration.value,
+					file_name: this.file_name.value,
+					file_path: this.file_path.value,
+					file_size: this.file_size.value,
+					loop_a: loop_a != null && loop_a != 'no' ? loop_a : undefined,
+					loop_b: loop_b != null && loop_b != 'no' ? loop_b : undefined,
+					media_path: this.media_path,
+					paused: this.paused.value,
+					position: this.position.value,
+					subtitle: sub,
+					title: this.title.value,
+				})
+			}, PLAYBACK_DELAY_MS)
 		}
 	}
 

@@ -53,6 +53,7 @@ export default class App {
 
 		Player.events.on('exit', () => {
 			void this.load_subtitle('')
+			server_events.post(App.current_playback)
 		})
 
 		Player.events.on('playback', () => {
@@ -183,6 +184,13 @@ export default class App {
 			App.query_subtitle_media(filename, (media) => {
 				return { ...media, media_path: media_path }
 			})
+
+			// Load the subtitle in the video
+			const ok = await Player.current?.load_subtitle(fullpath, {
+				name: media_path,
+				label: 'Kotoba',
+			})
+			return ok != null ? ok : false
 		} else if (!no_video && !Player.current?.has_file) {
 			// If we are not playing anything, load the associated
 			// media file, if any.

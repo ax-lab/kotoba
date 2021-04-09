@@ -6,7 +6,7 @@ import path from 'path'
 
 import { PlaybackInfo, SubtitleLine } from '../lib'
 
-const DEBUG_IPC = false // debug IPC connection and messages
+const DEBUG_IPC = true // debug IPC connection and messages
 const DEBUG_IPC_LOG = false // also include extremely verbose log messages
 
 // Player executable location
@@ -107,6 +107,8 @@ export abstract class Player extends EventEmitter {
 		return super.emit(event, ...args)
 	}
 
+	protected has_exit = false
+
 	// The singleton instance of this class. We only want one player to be
 	// active at any given point.
 	static _player?: Player
@@ -116,7 +118,7 @@ export abstract class Player extends EventEmitter {
 	 * player if it is not open already.
 	 */
 	static get current() {
-		return this._player
+		return this._player && !this._player.has_exit ? this._player : undefined
 	}
 
 	/**
@@ -653,8 +655,6 @@ class PlayerController extends Player {
 	push_stderr(line: string) {
 		this.exec(() => this.emit('error', line))
 	}
-
-	private has_exit = false
 
 	/**
 	 * This is called by the process exit or error events.

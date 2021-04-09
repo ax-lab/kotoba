@@ -4,7 +4,7 @@ import fs from 'fs'
 import net from 'net'
 import path from 'path'
 
-const DEBUG_IPC = false // debug IPC connection and messages
+const DEBUG_IPC = true // debug IPC connection and messages
 const DEBUG_IPC_LOG = false // also include extremely verbose log messages
 
 // Player executable location
@@ -102,13 +102,43 @@ export abstract class Player extends EventEmitter {
 	 *=========================================================================*/
 
 	/** Currently open filename without path. */
-	readonly filename = this.property<string>('filename')
+	readonly file_name = this.property<string>('filename')
+
+	/** Fullpath for the currently open file. */
+	readonly file_path = this.property<string>('path')
+
+	/** Length of the current file in bytes */
+	readonly file_size = this.property<number>('file-size')
+
+	/** Title tag for the current file, or `filename` if not available. */
+	readonly title = this.property<string>('media-title')
 
 	/** Current playback position in seconds. */
 	readonly position = this.property<number>('playback-time')
 
+	/** Duration of the file in seconds */
+	readonly duration = this.property<number>('duration')
+
 	/** Is the playback paused? */
 	readonly paused = this.property<boolean>('pause')
+
+	/** Current subtitle text */
+	readonly sub_text = this.property<string>('sub-text')
+
+	/** Current subtitle start time in seconds */
+	readonly sub_start = this.property<number>('sub-start')
+
+	/** Current subtitle end time in seconds */
+	readonly sub_end = this.property<number>('sub-end')
+
+	/** First looping point */
+	readonly ab_loop_a = this.property<number | 'no'>('ab-loop-a')
+
+	/** Second looping point */
+	readonly ab_loop_b = this.property<number | 'no'>('ab-loop-b')
+
+	/** Chapter title */
+	readonly chapter_title = this.property<number>('chapter-metadata/by-key/title')
 
 	/**
 	 * Opens a file in the player.
@@ -116,11 +146,77 @@ export abstract class Player extends EventEmitter {
 	async open_file(filename: string, { paused = false } = {}) {
 		const main = this.send_command('loadfile', filename)
 		const pause = paused && this.paused.set(true)
-		const result = await main
+
+		const result = (await main).success
 		if (pause) {
 			await pause
 		}
 		return result
+	}
+
+	/**
+	 * Loads a subtitle.
+	 */
+	async load_subtitle(filename: string) {
+		const res = await this.send_command('sub-add', filename, 'select', 'Kotoba')
+		return res.success
+	}
+
+	/**
+	 * Closes the player.
+	 */
+	async close() {
+		const res = await this.send_command('quit')
+		return res.success
+	}
+
+	/**
+	 * Resumes playback.
+	 */
+	async play() {
+		return await this.paused.set(false)
+	}
+
+	/**
+	 * Pauses playback.
+	 */
+	async pause() {
+		return await this.paused.set(true)
+	}
+
+	/**
+	 * Seek to the position in the file.
+	 */
+	async seek(position: number, { absolute = true } = {}) {
+		const res = await this.send_command('seek', position, absolute ? 'absolute' : 'relative')
+		return res.success
+	}
+
+	/**
+	 * Starts a playback loop between the two given positions. Giving negative
+	 * or equal values to `a` and `b` will stop looping.
+	 */
+	async loop(a: number | undefined, b: number | undefined, { seek = false } = {}) {
+		let ok = true
+		if (a == null || b == null || a == b) {
+			const set_a = this.ab_loop_a.set('no')
+			const set_b = this.ab_loop_b.set('no')
+			ok &&= await set_a
+			ok &&= await set_b
+		} else {
+			if (a > b) {
+				const c = a
+				a = b
+				b = c
+			}
+			const set_a = this.ab_loop_a.set(a)
+			const set_b = this.ab_loop_b.set(b)
+			const set_p = seek && this.seek(a)
+			ok &&= await set_a
+			ok &&= await set_b
+			ok &&= await set_p
+		}
+		return ok
 	}
 
 	/*=========================================================================*

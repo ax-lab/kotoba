@@ -8,8 +8,14 @@ import { list_files } from './media'
 export default function serve_subtitle(app: Express, base: string) {
 	app.post(`${base}/subtitle/load`, (req, res) => {
 		const params = (req.body || {}) as SubtitleLoadParams
-		App.get().load_subtitle(params.filename)
-		res.json({ ok: true })
+		App.get()
+			.load_subtitle(params.filename)
+			.then((ok) => {
+				res.json({ ok })
+			})
+			.catch((err) => {
+				res.status(500).write({ error: String(err) })
+			})
 	})
 
 	app.get(`${base}/subtitle/files`, (req, res) => {

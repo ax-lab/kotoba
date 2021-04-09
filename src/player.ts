@@ -77,14 +77,34 @@ export interface Player {
 	emit<K extends keyof PlayerEvents>(event: K, ...args: Parameters<PlayerEvents[K]>): boolean
 }
 
+interface GlobalPlayerEvents extends EventEmitter {
+	on<K extends keyof PlayerEvents>(event: K, listener: PlayerEvents[K]): this
+	once<K extends keyof PlayerEvents>(event: K, listener: PlayerEvents[K]): this
+	emit<K extends keyof PlayerEvents>(event: K, ...args: Parameters<PlayerEvents[K]>): boolean
+}
+
 /**
  * Player controls an instance of the MPV player.
  */
 export abstract class Player extends EventEmitter {
+	/**
+	 * Provides access to player events globally, independent of the active
+	 * instance.
+	 *
+	 * This is useful to handle player events without independently of the
+	 * player current state.
+	 */
+	static readonly events: GlobalPlayerEvents = new EventEmitter()
+
 	// We don't want this class to be instantiated directly. All setup is done
 	// through the PlayerController derived class.
 	protected constructor() {
 		super()
+	}
+
+	emit<K extends keyof PlayerEvents>(event: K, ...args: Parameters<PlayerEvents[K]>) {
+		;(Player.events as EventEmitter).emit(event, ...args)
+		return super.emit(event, ...args)
 	}
 
 	// The singleton instance of this class. We only want one player to be
@@ -92,9 +112,17 @@ export abstract class Player extends EventEmitter {
 	static _player?: Player
 
 	/**
+	 * Returns the active player instance, if any. This will not spawn the
+	 * player if it is not open already.
+	 */
+	static get current() {
+		return this._player
+	}
+
+	/**
 	 * Returns the active player instance, if any, or spawn a new player process.
 	 */
-	static async get(): Promise<Player> {
+	static async open(): Promise<Player> {
 		if (!this._player) {
 			const player = await spawn_mpv()
 			player.once('exit', () => {
@@ -119,6 +147,11 @@ export abstract class Player extends EventEmitter {
 	/*=========================================================================*
 	 * Properties & methods
 	 *=========================================================================*/
+
+	/** Returns true if any file is open  */
+	get has_file() {
+		return !!this.file_name.value
+	}
 
 	/** Currently open filename without path. */
 	readonly file_name = this.property<string>('filename')
@@ -167,12 +200,19 @@ export abstract class Player extends EventEmitter {
 	/** Second looping point */
 	readonly ab_loop_b = this.property<number | 'no'>('ab-loop-b')
 
+	/** Return true if the player is looping. */
+	get is_looping() {
+		const a = this.ab_loop_a.value
+		const b = this.ab_loop_b.value
+		return a && b && a != 'no' && b != 0
+	}
+
 	/** Chapter title */
 	readonly chapter_title = this.property<string>('chapter-metadata/by-key/title')
 
-	_subtitle_id?: number
-	_subtitle_file?: string
-	_subtitle_name?: string
+	private _subtitle_id?: number
+	private _subtitle_file?: string
+	private _subtitle_name?: string
 
 	/**
 	 * Full path to the currently loaded subtitle file. This is only available
@@ -189,6 +229,33 @@ export abstract class Player extends EventEmitter {
 	 */
 	get subtitle_name() {
 		return this._subtitle_name
+	}
+
+	get playback_info(): PlaybackInfo {
+		const sub_text = this.sub_text.value
+		const sub_start = this.sub_start.value
+		const sub_end = this.sub_end.value
+		const sub: SubtitleLine | undefined =
+			sub_text && sub_start != null && sub_end != null && sub_end > sub_start
+				? { text: sub_text, start: sub_start, end: sub_end }
+				: undefined
+
+		const loop_a = this.ab_loop_a.value
+		const loop_b = this.ab_loop_b.value
+		return {
+			chapter: this.chapter_title.value,
+			duration: this.duration.value,
+			file_name: this.file_name.value,
+			file_path: this.file_path.value,
+			file_size: this.file_size.value,
+			loop_a: loop_a != null && loop_a != 'no' ? loop_a : undefined,
+			loop_b: loop_b != null && loop_b != 'no' ? loop_b : undefined,
+			media_path: this.media_path,
+			paused: this.paused.value,
+			position: this.position.value,
+			subtitle: sub,
+			title: this.title.value,
+		}
 	}
 
 	/**
@@ -440,31 +507,7 @@ export abstract class Player extends EventEmitter {
 			this.last_playback = now
 			this.next_playback = setTimeout(() => {
 				this.next_playback = undefined
-
-				const sub_text = this.sub_text.value
-				const sub_start = this.sub_start.value
-				const sub_end = this.sub_end.value
-				const sub: SubtitleLine | undefined =
-					sub_text && sub_start != null && sub_end != null && sub_end > sub_start
-						? { text: sub_text, start: sub_start, end: sub_end }
-						: undefined
-
-				const loop_a = this.ab_loop_a.value
-				const loop_b = this.ab_loop_b.value
-				this.emit('playback', {
-					chapter: this.chapter_title.value,
-					duration: this.duration.value,
-					file_name: this.file_name.value,
-					file_path: this.file_path.value,
-					file_size: this.file_size.value,
-					loop_a: loop_a != null && loop_a != 'no' ? loop_a : undefined,
-					loop_b: loop_b != null && loop_b != 'no' ? loop_b : undefined,
-					media_path: this.media_path,
-					paused: this.paused.value,
-					position: this.position.value,
-					subtitle: sub,
-					title: this.title.value,
-				})
+				this.emit('playback', this.playback_info)
 			}, PLAYBACK_DELAY_MS)
 		}
 	}

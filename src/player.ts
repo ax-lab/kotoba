@@ -31,6 +31,7 @@ const MPV_ARGS = [
 	'--keep-open=yes',
 	'--force-window=yes',
 	'--no-resume-playback',
+	'--geometry=50%',
 	`--input-ipc-server=${IPC_PIPE}`,
 ]
 

@@ -11,12 +11,12 @@ import SubtitleView from './subtitles'
 import './video.scss'
 
 const Video = () => {
-	const [subs, set_subs] = useState(subtitle.get_current_subtitle())
+	const [subs, set_subs] = useState(!!events.current_subtitle?.open)
 	const [loading_sub, set_loading_sub] = useState(false)
 
 	useEffect(() => {
-		const cleanup = subtitle.on_change((ev) => {
-			set_subs(ev)
+		const cleanup = events.watch_subtitle('video', (ev) => {
+			set_subs(ev.open)
 			set_loading_sub(false)
 		})
 		return () => cleanup()
@@ -24,11 +24,11 @@ const Video = () => {
 
 	const [playback, set_playback] = useState(events.current_playback)
 	useEffect(() => {
-		const cleanup = events.watch_playback(set_playback)
+		const cleanup = events.watch_playback('video', set_playback)
 		return () => cleanup()
 	}, [])
 
-	const show_subs = subs?.open && !loading_sub
+	const show_subs = subs && !loading_sub
 	const load_subs = () => set_loading_sub(true)
 
 	const cancel_load = loading_sub ? () => set_loading_sub(false) : undefined
@@ -39,11 +39,8 @@ const Video = () => {
 				<FilesView type="video" />
 				<Splitter name="video-view-splitter" />
 				<div className="video-view-subtitle">
-					{show_subs ? (
-						<SubtitleView on_load={load_subs} editable={!!playback?.play?.file_name} />
-					) : (
-						<FilesView type="subtitle" cancel={cancel_load} />
-					)}
+					<SubtitleView on_load={load_subs} editable={!!playback?.play?.file_name} hidden={!show_subs} />
+					<FilesView type="subtitle" cancel={cancel_load} hidden={show_subs} />
 				</div>
 			</div>
 			<Player />
@@ -60,6 +57,7 @@ export default Video
 type FilesViewProps = {
 	type: 'video' | 'subtitle'
 	cancel?: () => void
+	hidden?: boolean
 }
 
 type FilesViewState = {
@@ -72,7 +70,7 @@ type OpenMap = { [key: string]: boolean }
 
 const entryKey = (entry: DirEntry) => `${entry.path}/${entry.name}`
 
-const FilesView = ({ type, cancel }: FilesViewProps) => {
+const FilesView = ({ type, cancel, hidden }: FilesViewProps) => {
 	const openKey = `${type}-files-open`
 	const [view_state, do_set_view_state] = useState({ message: 'Loading...' } as FilesViewState)
 	const [open_map, do_set_open_map] = useState(State.get(openKey, {} as OpenMap))
@@ -177,7 +175,7 @@ const FilesView = ({ type, cancel }: FilesViewProps) => {
 		refresh()
 	}, [])
 	return (
-		<div className="video-files-view">
+		<div className="video-files-view" style={{ display: hidden ? 'none' : undefined }}>
 			<div className="video-toolbar">
 				<button className="fas fa-sync" title="Refresh" onClick={refresh} />
 				<button className="fas fa-minus-square" title="Collapse all" onClick={collapse_all} />

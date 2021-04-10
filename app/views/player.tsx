@@ -15,7 +15,7 @@ const Player = () => {
 	// listen to those events and update accordingly.
 	const [playback, set_playback] = useState(events.current_playback)
 	useEffect(() => {
-		const cleanup = events.watch_playback(set_playback)
+		const cleanup = events.watch_playback('player', set_playback)
 		return () => cleanup()
 	}, [])
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 
 import { SubtitleDialog } from '../../lib/subtitles'
-import { subtitle } from '../api'
+import { events } from '../api'
 import Japanese from '../util/japanese'
 
 import './subtitles.scss'
@@ -12,12 +12,12 @@ type SubtitleViewProps = {
 }
 
 const SubtitleView = (args: SubtitleViewProps) => {
-	const [subs, set_subs] = useState(subtitle.get_current_subtitle())
+	const [subs, set_subs] = useState(events.current_subtitle)
 
 	const name = subs?.file?.split('/').pop()
 
 	useEffect(() => {
-		const cleanup = subtitle.on_change((ev) => set_subs(ev))
+		const cleanup = events.watch_subtitle('subtitle-view', (ev) => set_subs(ev))
 		return () => cleanup()
 	}, [])
 
@@ -67,7 +67,7 @@ const Dialog = ({ entry, editable }: { entry: SubtitleDialog; editable?: boolean
 			document.removeEventListener('click', fn)
 			parent && parent.removeEventListener('scroll', fn)
 		}
-	})
+	}, [])
 
 	const copy = () => {
 		try {

@@ -6,7 +6,7 @@ import path from 'path'
 
 import { PlaybackInfo, SubtitleLine } from '../lib'
 
-const DEBUG_IPC = true // debug IPC connection and messages
+const DEBUG_IPC = false // debug IPC connection and messages
 const DEBUG_IPC_LOG = false // also include extremely verbose log messages
 
 // Player executable location
@@ -506,12 +506,17 @@ export abstract class Player extends EventEmitter {
 
 		const now = new Date().getTime()
 		const delta = now - (this.last_playback || -1)
+		const emit = () => {
+			this.next_playback = undefined
+			this.emit('playback', this.playback_info)
+		}
+
 		if (delta > PLAYBACK_THROTTLE_MS) {
 			this.last_playback = now
-			this.next_playback = setTimeout(() => {
-				this.next_playback = undefined
-				this.emit('playback', this.playback_info)
-			}, PLAYBACK_DELAY_MS)
+			this.next_playback = setTimeout(emit, PLAYBACK_DELAY_MS)
+		} else {
+			const dt = PLAYBACK_THROTTLE_MS - delta
+			this.next_playback = setTimeout(emit, dt)
 		}
 	}
 

@@ -66,32 +66,36 @@ const Player = () => {
 		update_loop(saved_loop_a, value)
 	}
 
-	const el_player = React.createRef<HTMLDivElement>()
-	const el_subs = React.createRef<HTMLDivElement>()
-	let next_layout: number
-
-	function layout_subs() {
-		const el = el_subs.current
-		const player = el && el_player.current?.getBoundingClientRect()
-		if (el && player) {
-			el.style.bottom = `${Math.ceil(player.height) + 10}px`
-		}
-		next_layout = requestAnimationFrame(layout_subs)
-	}
+	const player_root = React.createRef<HTMLDivElement>()
+	const subs_root = React.createRef<HTMLDivElement>()
 
 	useEffect(() => {
+		const el_player = player_root.current!
+		const el_subs = subs_root.current
+
+		let next_layout: number
 		next_layout = requestAnimationFrame(layout_subs)
 		return () => cancelAnimationFrame(next_layout)
-	})
+
+		function layout_subs() {
+			const player = el_player.getBoundingClientRect()
+			if (el_subs && player) {
+				el_subs.style.bottom = `${Math.ceil(player.height) + 10}px`
+			}
+			next_layout = requestAnimationFrame(layout_subs)
+		}
+	}, [])
 
 	return (
 		<>
-			{show_cc && subtitle && (
-				<div ref={el_subs} className="video-subtitles">
-					{Japanese(subtitle || '')}
-				</div>
-			)}
-			<div ref={el_player} className="video-player">
+			<div
+				ref={subs_root}
+				className="video-subtitles"
+				style={{ display: !(show_cc && subtitle) ? 'none' : undefined }}
+			>
+				{Japanese(subtitle || '')}
+			</div>
+			<div ref={player_root} className="video-player">
 				{playback?.play?.file_name && (
 					<>
 						<div className="timer">

@@ -18,6 +18,13 @@ export type VideoLoopParams = {
 }
 
 /**
+ * Parameters to the `video/seek` endpoint.
+ */
+export type VideoSeekParams = {
+	position: number
+}
+
+/**
  * Saved state for a particular media file.
  */
 export type MediaSavedState = {

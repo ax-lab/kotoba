@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 
 import { SubtitleDialog } from '../../lib/subtitles'
-import { events } from '../api'
+import { events, video } from '../api'
 import Japanese from '../util/japanese'
 
 import './subtitles.scss'
@@ -135,8 +135,16 @@ const Dialog = ({ entry, editable }: { entry: SubtitleDialog; editable?: boolean
 			<div className="subtitle-toolbar">
 				{editable ? (
 					<>
-						<button className="fas fa-play" title="Play" onClick={copy} />
-						<button className="fas fa-sync-alt" title="Loop Dialog" />
+						<button
+							className="fas fa-play"
+							title="Play"
+							onClick={() => video.seek({ position: entry.start.time })}
+						/>
+						<button
+							className="fas fa-sync-alt"
+							title="Loop Dialog"
+							onClick={() => video.loop({ a: entry.start.time, b: entry.end.time })}
+						/>
 						<button
 							className="fas fa-bars"
 							onClick={(ev) => {
@@ -172,8 +180,16 @@ const Dialog = ({ entry, editable }: { entry: SubtitleDialog; editable?: boolean
 					<button className="far fa-clipboard" title="Copy to Clipboard" onClick={copy} />
 					<button className="fas fa-globe" title="Translate" onClick={translate} />
 					<span className="separator" />
-					<button className="fas fa-step-forward" title="Set Loop B" />
-					<button className="fas fa-step-backward" title="Set Loop A" />
+					<button
+						className="fas fa-step-forward"
+						title="Set Loop B"
+						onClick={() => video.loop({ b: entry.end.time, save: true })}
+					/>
+					<button
+						className="fas fa-step-backward"
+						title="Set Loop A"
+						onClick={() => video.loop({ a: entry.start.time, save: true })}
+					/>
 					<span className="separator" />
 					<button
 						className="far fa-hourglass"

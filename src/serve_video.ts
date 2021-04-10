@@ -1,6 +1,6 @@
 import { Express } from 'express'
 
-import { VideoLoopParams } from '../lib'
+import { VideoLoopParams, VideoSeekParams } from '../lib'
 
 import App from './app'
 import { list_files } from './media'
@@ -74,6 +74,21 @@ export default function serve_video(app: Express, base: string) {
 			.catch((err) => {
 				res.status(500).json({ error: String(err) })
 			})
+	})
+
+	app.post(`${base}/video/seek`, (req, res) => {
+		const params = (req.body as VideoSeekParams) || {}
+		const player = Player.current
+		if (!player) {
+			res.json({ ok: false })
+		} else {
+			player
+				.seek(params.position)
+				.then((ok) => res.json({ ok }))
+				.catch((err) => {
+					res.status(500).json({ error: String(err) })
+				})
+		}
 	})
 
 	app.get(`${base}/video/files`, (req, res) => {

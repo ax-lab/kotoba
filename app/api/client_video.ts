@@ -1,4 +1,4 @@
-import { Dir, VideoLoopParams } from '../../lib'
+import { Dir, VideoLoopParams, VideoSeekParams } from '../../lib'
 
 import * as common from './common'
 
@@ -24,6 +24,10 @@ export async function pause() {
 
 export async function loop(args: VideoLoopParams) {
 	return common.post<{ ok: boolean }>(common.URL_VIDEO_LOOP, args)
+}
+
+export async function seek(args: VideoSeekParams) {
+	return common.post<{ ok: boolean }>(common.URL_VIDEO_SEEK, args)
 }
 
 export async function stop_loop() {

@@ -32,7 +32,7 @@ const SubtitleView = (args: SubtitleViewProps) => {
 				el.hover_timer = window.setTimeout(() => el.classList.remove(cls), 500)
 			}}
 		>
-			<div className="subtitle-toolbar">
+			<div className="subtitle-main-toolbar">
 				<label title={subs?.file}>{name}</label>
 				<button
 					title="Select subtitle file"
@@ -102,8 +102,8 @@ const Dialog = ({ entry, editable }: { entry: SubtitleDialog; editable?: boolean
 								if (el) {
 									const size = el.getBoundingClientRect()
 									const style = window.getComputedStyle(el)
-									const padR = parseFloat(style.paddingRight)
-									const padT = parseFloat(style.paddingTop)
+									const padR = parseFloat(style.paddingRight) + parseFloat(style.borderRightWidth)
+									const padT = parseFloat(style.paddingTop) + parseFloat(style.borderTopWidth)
 									el.style.left = `${btn.x - size.width - 2 * padR}px`
 									el.style.top = `${btn.y - padT}px`
 									// We need a timeout here because of the global click

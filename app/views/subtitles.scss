@@ -1,37 +1,47 @@
 @use 'sass:color';
 @use '../css/theme';
 
+// Main container for the subtitle listing
 .subtitle-view {
-	overflow: auto;
+	overflow: auto; // enable scrolling
 	font-size: 1.5rem;
-	cursor: default;
+	cursor: default; // disables text cursor
 	padding: theme.$spacing;
 
 	background-color: theme.$background-deep;
 
+	// Background color for the entries
 	$subtitle-entry-color: theme.$background;
 
+	// Each subtitle line in a dialog is rendered as a <p>
 	p {
 		padding: theme.$spacing-thin;
 	}
 
+	// Container for a complete subtitle dialog.
 	.subtitle-entry {
 		display: flex;
 		flex-direction: row;
-		padding: theme.$spacing - 2px;
-
-		border: 2px solid $subtitle-entry-color;
+		padding: theme.$spacing - 2px; // account for border
 		border-radius: theme.$radius;
 		background-color: $subtitle-entry-color;
 
+		// use the border to display the current entry
+		border: 2px solid $subtitle-entry-color;
+		&.active {
+			border-color: color.scale($subtitle-entry-color, $lightness: 50%);
+		}
+
+		// for the last entry, we give additional spacing to allow scrolling
+		// the entry to top
 		&:not(:last-of-type) {
 			margin-bottom: theme.$spacing;
 		}
-
 		&:last-of-type {
 			margin-bottom: 500px;
 		}
 
+		// Container for the <p> lines of dialog
 		.subtitle-text {
 			flex: 1;
 			display: flex;
@@ -39,6 +49,7 @@
 			justify-content: center;
 		}
 
+		// Container for the timestamp labels
 		.time-label {
 			color: theme.$color-ui-light;
 			font-family: theme.$numeric-font;
@@ -64,10 +75,12 @@
 			}
 		}
 
+		// Hide the toolbar's popup menu for un-hovered entries
 		&:not(:hover) .popup {
 			visibility: hidden !important;
 		}
 
+		// Container for the entry toolbar
 		.subtitle-toolbar {
 			flex: 0;
 
@@ -90,14 +103,15 @@
 				width: 2rem;
 			}
 
+			// Popup menu activated when clicking the last button
 			.popup {
 				display: flex;
 				flex-direction: row-reverse;
 				align-items: center;
 				position: fixed;
 				background: color.scale(theme.$background-fore, $alpha: -20%);
-				padding: 2px;
-
+				padding: 1px;
+				border: 1px solid color.scale(theme.$background-fore, $lightness: 10%);
 				button {
 					margin: 0;
 					&:hover {
@@ -116,7 +130,7 @@
 		}
 	}
 
-	// Subtitle entry toolbar
+	// Default non-hover state for subtitle entry toolbar
 	& {
 		.subtitle-entry {
 			.subtitle-toolbar {
@@ -126,9 +140,11 @@
 		}
 	}
 
+	// Hover state for an entry. We use `.disable-hover` during scroll to avoid
+	// repaints.
 	&:not(.disable-hover) {
 		.subtitle-entry:hover {
-			border-color: color.scale($subtitle-entry-color, $lightness: 50%);
+			background-color: color.scale($subtitle-entry-color, $lightness: 2%);
 
 			.subtitle-toolbar {
 				opacity: 1;
@@ -143,7 +159,8 @@
 	}
 }
 
-.subtitle-toolbar {
+// This is the main toolbar for the subtitle view.
+.subtitle-main-toolbar {
 	display: flex;
 	flex-direction: row;
 

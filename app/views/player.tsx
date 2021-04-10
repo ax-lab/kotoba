@@ -3,19 +3,8 @@ import React, { useEffect, useState } from 'react'
 
 import './player.scss'
 
-import { EventVideoPlayback } from '../../lib'
 import { events, video } from '../api'
 import Japanese from '../util/japanese'
-
-// The Player component listens to `video-playback` events, but since those are
-// asynchronous we also maintain a global listener to provide the initial value.
-let current_playback: EventVideoPlayback | undefined
-
-events.register((ev) => {
-	if (ev.type == 'video-playback') {
-		current_playback = ev
-	}
-})
 
 /**
  * Provides a self-synchronizing media player UI. This will listen to events
@@ -24,14 +13,10 @@ events.register((ev) => {
 const Player = () => {
 	// The player state is provided through server events, we just need to
 	// listen to those events and update accordingly.
-	const [playback, set_playback] = useState(current_playback)
+	const [playback, set_playback] = useState(events.current_playback)
 	useEffect(() => {
-		const unregister = events.register((ev) => {
-			if (ev.type == 'video-playback') {
-				set_playback(ev)
-			}
-		})
-		return () => unregister()
+		const cleanup = events.watch_playback(set_playback)
+		return () => cleanup()
 	}, [])
 
 	// CC and AB loop state are local.

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 
 import { Dir, DirEntry } from '../../lib/entities'
-import { subtitle, video } from '../api'
+import { events, subtitle, video } from '../api'
 import Splitter from '../components/splitter'
 import State from '../util/state'
 
@@ -22,6 +22,12 @@ const Video = () => {
 		return () => cleanup()
 	}, [])
 
+	const [playback, set_playback] = useState(events.current_playback)
+	useEffect(() => {
+		const cleanup = events.watch_playback(set_playback)
+		return () => cleanup()
+	}, [])
+
 	const show_subs = subs?.open && !loading_sub
 	const load_subs = () => set_loading_sub(true)
 
@@ -34,7 +40,7 @@ const Video = () => {
 				<Splitter name="video-view-splitter" />
 				<div className="video-view-subtitle">
 					{show_subs ? (
-						<SubtitleView on_load={load_subs} />
+						<SubtitleView on_load={load_subs} editable={!!playback?.play?.file_name} />
 					) : (
 						<FilesView type="subtitle" cancel={cancel_load} />
 					)}

@@ -1,4 +1,4 @@
-import { ServerEvent } from '../../lib'
+import { EventVideoPlayback, ServerEvent } from '../../lib'
 
 export type EventCallback = (data: ServerEvent) => void
 
@@ -14,6 +14,10 @@ class Events {
 				handler(data)
 			}
 		}
+
+		this.watch_playback((ev) => {
+			this._current_playback = ev
+		})
 	}
 
 	private _handlerID = 0
@@ -30,6 +34,20 @@ class Events {
 		return () => {
 			this._handlers.delete(id)
 		}
+	}
+
+	private _current_playback?: EventVideoPlayback
+
+	get current_playback() {
+		return this._current_playback
+	}
+
+	watch_playback(callback: (ev: EventVideoPlayback) => void) {
+		return this.register((ev) => {
+			if (ev.type == 'video-playback') {
+				callback(ev)
+			}
+		})
 	}
 }
 

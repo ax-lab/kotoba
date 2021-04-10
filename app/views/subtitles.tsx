@@ -9,6 +9,7 @@ import './subtitles.scss'
 type SubtitleViewProps = {
 	on_load?: () => void
 	editable?: boolean
+	hidden?: boolean
 }
 
 const SubtitleView = (args: SubtitleViewProps) => {
@@ -21,8 +22,49 @@ const SubtitleView = (args: SubtitleViewProps) => {
 		return () => cleanup()
 	}, [])
 
+	// Monitor current playback state to select active subtitle.
+	const subtitle_view = React.createRef<HTMLDivElement>()
+	useEffect(() => {
+		const root = subtitle_view.current!
+		let layout_id = requestAnimationFrame(do_layout)
+		let layout_pos: number | undefined
+		let layout_sub: string | undefined
+		return () => {
+			cancelAnimationFrame(layout_id)
+		}
+		// Select the active subtitle and scroll it into view
+		function do_layout() {
+			try {
+				const subs = events.current_subtitle?.data
+				const cur = events.current_playback?.play?.position
+				const sub = events.current_subtitle?.path
+				if (cur !== layout_pos || sub !== layout_sub || true) {
+					const active = cur != null && subs?.filter((x) => x.start.time <= cur && x.end.time >= cur).shift()
+					const last_active = root.querySelector('.subtitle-entry.active')
+					const clear_active = () => last_active?.classList.remove('active')
+					layout_pos = cur
+					layout_sub = sub
+					if (active) {
+						const last_active = root.querySelector('.subtitle-entry.active')
+						const next_active =
+							active && root.querySelector(`.subtitle-entry[data-line="${active.line_start}"]`)
+						if (last_active != next_active) {
+							console.log(next_active)
+							clear_active()
+							next_active && next_active.classList.add('active')
+							next_active?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+						}
+					}
+				}
+			} finally {
+				layout_id = requestAnimationFrame(do_layout)
+			}
+		}
+	}, [])
+
 	return (
 		<div
+			ref={subtitle_view}
 			className="subtitle-view"
 			onScroll={(ev) => {
 				const cls = 'disable-hover'
@@ -31,6 +73,7 @@ const SubtitleView = (args: SubtitleViewProps) => {
 				clearTimeout(el.hover_timer)
 				el.hover_timer = window.setTimeout(() => el.classList.remove(cls), 500)
 			}}
+			style={{ display: args.hidden ? 'none' : undefined }}
 		>
 			<div className="subtitle-main-toolbar">
 				<label title={subs?.file}>{name}</label>
@@ -83,7 +126,7 @@ const Dialog = ({ entry, editable }: { entry: SubtitleDialog; editable?: boolean
 	}
 
 	return (
-		<div className="subtitle-entry">
+		<div className="subtitle-entry" data-line={entry.line_start}>
 			<div className="time-label">
 				<TimeLabel time={entry.start.time} />
 				<TimeLabel time={entry.end.time} />

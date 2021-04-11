@@ -191,12 +191,12 @@ const Dialog = ({ entry, editable }: { entry: SubtitleDialog; editable?: boolean
 					<button className="fas fa-globe" title="Translate" onClick={translate} />
 					<span className="separator" />
 					<button
-						className="fas fa-step-forward"
+						className="fas fa-quote-right"
 						title="Set Loop B"
 						onClick={() => video.loop({ b: entry.end.time, save: true })}
 					/>
 					<button
-						className="fas fa-step-backward"
+						className="fas fa-quote-left"
 						title="Set Loop A"
 						onClick={() => video.loop({ a: entry.start.time, save: true })}
 					/>

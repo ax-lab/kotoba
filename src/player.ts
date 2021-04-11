@@ -326,7 +326,7 @@ export abstract class Player extends EventEmitter {
 	 * Seek to the position in the file.
 	 */
 	async seek(position: number, { absolute = true } = {}) {
-		const res = await this.send_command('seek', position, absolute ? 'absolute' : 'relative')
+		const res = await this.send_command('seek', position, absolute ? 'absolute' : 'relative+exact')
 		return res.success
 	}
 

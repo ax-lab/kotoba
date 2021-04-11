@@ -144,6 +144,16 @@ const Player = () => {
 								onClick={() => can_loop && video.loop({ a: saved_loop_a, b: saved_loop_b })}
 							/>
 						)}
+						<button
+							title="Step Backward"
+							className={btn('step-backward')}
+							onClick={() => video.seek({ position: -0.2, relative: true })}
+						/>
+						<button
+							title="Step Forward"
+							className={btn('step-forward')}
+							onClick={() => video.seek({ position: +0.2, relative: true })}
+						/>
 					</>
 				)}
 				<label className="media-title" title={title_hint}>

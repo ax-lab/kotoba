@@ -83,7 +83,7 @@ export default function serve_video(app: Express, base: string) {
 			res.json({ ok: false })
 		} else {
 			player
-				.seek(params.position)
+				.seek(params.position, { absolute: !params.relative })
 				.then((ok) => res.json({ ok }))
 				.catch((err) => {
 					res.status(500).json({ error: String(err) })

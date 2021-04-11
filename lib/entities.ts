@@ -22,6 +22,7 @@ export type VideoLoopParams = {
  */
 export type VideoSeekParams = {
 	position: number
+	relative?: boolean
 }
 
 /**

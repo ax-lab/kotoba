@@ -1,4 +1,109 @@
 /**
+ * Available edit operations for subtitles.
+ */
+export type SubtitleEdit = SubEditSyncStart | SubEditSyncEnd | SubEditDelete | SubEditChange
+
+export type SubEditSyncStart = {
+	type: 'start'
+	line: number
+	to_position: number
+	mode?: 'all' | 'forward' | 'single'
+}
+
+export type SubEditSyncEnd = {
+	type: 'end'
+	line: number
+	to_position: number
+}
+
+export type SubEditDelete = {
+	type: 'delete'
+	line: number
+}
+
+export type SubEditChange = {
+	type: 'change'
+	line: number
+	text_raw?: string
+	start?: number
+	end?: number
+}
+
+/**
+ * Allows editing of a SubtitleFile.
+ */
+export class SubtitleEditor {
+	readonly file: SubtitleFile
+	readonly edits: SubtitleEdit[] = []
+
+	constructor(file: SubtitleFile) {
+		this.file = file
+	}
+
+	apply(edit: SubtitleEdit) {
+		if (this.do_apply(edit)) {
+			this.edits.push(edit)
+			return true
+		}
+		return false
+	}
+
+	private do_apply(edit: SubtitleEdit) {
+		const dialog = this.file.dialogues.find((x) => x.line_start == edit.line)
+		if (!dialog) {
+			return false
+		}
+
+		switch (edit.type) {
+			case 'change':
+				if (edit.start == null && edit.end == null && !edit.text_raw) {
+					return false
+				}
+				this.file.update({
+					line: dialog.line_start,
+					start: edit.start,
+					end: edit.end,
+					text_raw: edit.text_raw,
+				})
+				return true
+			case 'delete':
+				this.file.update({ line: dialog.line_start, delete: true })
+				return true
+			case 'end':
+				if (edit.to_position <= dialog.start.time) {
+					return false
+				}
+				this.file.update({
+					line: dialog.line_start,
+					end: edit.to_position,
+				})
+				return true
+			case 'start': {
+				const delta = edit.to_position - dialog.start.time
+				const list =
+					edit.mode == 'all'
+						? this.file.dialogues
+						: edit.mode == 'forward'
+						? this.file.dialogues.filter((x) => x.start.time >= dialog.start.time)
+						: [dialog]
+				if (!list.length) {
+					return false
+				}
+				this.file.update(
+					...list.map<SubtitleDialogUpdate>((x) => ({
+						line: x.line_start,
+						start: x.start.time + delta,
+						end: x.end.time + delta,
+					})),
+				)
+				return true
+			}
+		}
+		return false
+	}
+}
+
+/**
  * Handle subtitles from a file.
  */
 export class SubtitleFile {
@@ -18,15 +123,7 @@ export class SubtitleFile {
 	get dialogues() {
 		if (this._dialogues == null) {
 			this._dialogues = this.parser.parse_dialog(this.lines)
-			this._dialogues.sort((a, b) => {
-				if (a.start.time != b.start.time) {
-					return a.start.time - b.start.time
-				} else if (a.end.time != b.end.time) {
-					return a.end.time - b.end.time
-				} else {
-					return a.line_start - b.line_start
-				}
-			})
+			this.sort_dialogues()
 		}
 		return [...this._dialogues]
 	}
@@ -78,28 +175,44 @@ export class SubtitleFile {
 
 		// Apply the updates in order
 		let line_offset = 0
-		this._dialogues = ls.map((dialog) => {
-			const update = per_line.get(dialog.line_start)
+		this._dialogues = ls
+			.map((dialog) => {
+				const update = per_line.get(dialog.line_start)
 
-			// apply the offset of added/removed lines from previous updates
-			dialog.line_start += line_offset
-			if (update) {
-				update.line += line_offset // just for consistency
+				// apply the offset of added/removed lines from previous updates
+				dialog.line_start += line_offset
+				if (update) {
+					update.line += line_offset // just for consistency
 
-				// Apply the update
-				const src = this.lines.slice(dialog.line_start, dialog.line_start + dialog.line_count)
-				const src_count = src.length
-				const lines = this.parser.update(update, dialog, src)
+					// Apply the update
+					const src = this.lines.slice(dialog.line_start, dialog.line_start + dialog.line_count)
+					const src_count = src.length
+					const lines = update.delete ? [] : this.parser.update(update, dialog, src)
 
-				// Insert the resulting text lines into the raw array
-				this.lines.splice(dialog.line_start, src_count, ...lines)
+					// Insert the resulting text lines into the raw array
+					this.lines.splice(dialog.line_start, src_count, ...lines)
 
-				// Update line count and offset
-				line_offset += lines.length - src_count
-				dialog.line_count = lines.length
-			}
-			return dialog
-		})
+					// Update line count and offset
+					line_offset += lines.length - src_count
+					dialog.line_count = lines.length
+				}
+				return dialog
+			})
+			.filter((x) => x.line_count > 0)
+		this.sort_dialogues()
+	}
+
+	private sort_dialogues() {
+		this._dialogues &&
+			this._dialogues.sort((a, b) => {
+				if (a.start.time != b.start.time) {
+					return a.start.time - b.start.time
+				} else if (a.end.time != b.end.time) {
+					return a.end.time - b.end.time
+				} else {
+					return a.line_start - b.line_start
+				}
+			})
 	}
 }
 
@@ -136,6 +249,7 @@ type SubtitleDialogUpdate = {
 	text_raw?: string
 	start?: number
 	end?: number
+	delete?: boolean
 }
 
 /** Parser for a subtitle file. */

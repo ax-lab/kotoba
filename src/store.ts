@@ -8,6 +8,10 @@ export default class Store {
 	private name: string
 	private store: Record<string, unknown> = {}
 
+	static get storage_dir() {
+		return STORE_DIR
+	}
+
 	private static map = new Map<string, Store>()
 
 	get path() {
@@ -105,7 +109,7 @@ export default class Store {
 	private pending?: () => void
 
 	private serialize() {
-		const json = JSON.stringify(this.store, null, '    ')
+		const json = JSON.stringify(this.store, null, '\t')
 		const tmp = `${this.path}.tmp`
 		const bck = `${this.path}.bck`
 		const write = () => {

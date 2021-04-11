@@ -10,6 +10,8 @@ export const URL_VIDEO_LOOP = `${API_BASE}/video/loop`
 export const URL_VIDEO_SEEK = `${API_BASE}/video/seek`
 
 export const URL_SUBTITLE_LOAD = `${API_BASE}/subtitle/load`
+export const URL_SUBTITLE_EDIT = `${API_BASE}/subtitle/edit`
+export const URL_SUBTITLE_UNDO = `${API_BASE}/subtitle/undo`
 export const URL_SUBTITLE_FILES = `${API_BASE}/subtitle/files`
 
 export function get<T>(url: string) {

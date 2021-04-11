@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 
-import { SubtitleDialog } from '../../lib/subtitles'
-import { events, video } from '../api'
+import { SubtitleDialog, SubtitleEdit } from '../../lib/subtitles'
+import { events, subtitle, video } from '../api'
 import Japanese from '../util/japanese'
 
 import './subtitles.scss'
@@ -37,7 +37,7 @@ const SubtitleView = (args: SubtitleViewProps) => {
 			try {
 				const subs = events.current_subtitle?.data
 				const cur = events.current_playback?.play?.position
-				const sub = events.current_subtitle?.path
+				const sub = events.current_subtitle?.file
 				if (cur !== layout_pos || sub !== layout_sub || true) {
 					const active = cur != null && subs?.filter((x) => x.start.time <= cur && x.end.time >= cur).shift()
 					const last_active = root.querySelector('.subtitle-entry.active')
@@ -86,6 +86,7 @@ const SubtitleView = (args: SubtitleViewProps) => {
 						}
 					}}
 				/>
+				<button title="Undo last change" className="fas fa-undo" onClick={() => subtitle.undo()} />
 				<button title="Scroll to current dialog" className="fas fa-comment-dots" />
 			</div>
 			{subs?.data?.map((dialog) => (
@@ -123,6 +124,15 @@ const Dialog = ({ entry, editable }: { entry: SubtitleDialog; editable?: boolean
 	const translate = () => {
 		const encoded = window.encodeURIComponent(entry.text)
 		window.open(`https://www.deepl.com/translator#ja/en/${encoded}`, '_blank')
+	}
+
+	const apply_edit = (factory: (pos: number) => SubtitleEdit) => {
+		const pos = events.current_playback?.play?.position
+		editable &&
+			pos != null &&
+			subtitle.edit({
+				list: [factory(pos)],
+			})
 	}
 
 	return (
@@ -194,22 +204,62 @@ const Dialog = ({ entry, editable }: { entry: SubtitleDialog; editable?: boolean
 					<button
 						className="far fa-hourglass"
 						title="Sync All&#013;Syncs subtitle and apply delta to all subtitles"
+						onClick={() =>
+							apply_edit((pos) => ({
+								line: entry.line_start,
+								type: 'start',
+								mode: 'all',
+								to_position: pos,
+							}))
+						}
 					/>
 					<button
 						className="fas fa-hourglass-end"
 						title="Sync Forward&#013;Syncs subtitle and apply delta to all subtitles going forward"
+						onClick={() =>
+							apply_edit((pos) => ({
+								line: entry.line_start,
+								type: 'start',
+								mode: 'forward',
+								to_position: pos,
+							}))
+						}
 					/>
 					<button
 						className="fas fa-stopwatch"
 						title="Sync Current&#013;Syncs subtitle to start at current playback position"
+						onClick={() =>
+							apply_edit((pos) => ({
+								line: entry.line_start,
+								type: 'start',
+								mode: 'single',
+								to_position: pos,
+							}))
+						}
 					/>
 					<button
 						className="far fa-clock"
 						title="Sync Duration&#013;Changes subtitle duration to end at current playback position"
+						onClick={() =>
+							apply_edit((pos) => ({
+								line: entry.line_start,
+								type: 'end',
+								to_position: pos,
+							}))
+						}
 					/>
 					<span className="separator" />
 					<button className="far fa-edit" title="Edit" />
-					<button className="far fa-trash-alt" title="Delete" />
+					<button
+						className="far fa-trash-alt"
+						title="Delete"
+						onClick={() =>
+							apply_edit(() => ({
+								line: entry.line_start,
+								type: 'delete',
+							}))
+						}
+					/>
 				</div>
 			</div>
 		</div>

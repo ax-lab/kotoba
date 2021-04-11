@@ -2,7 +2,7 @@
  * @file Shared entity definitions between the front-end and backend.
  */
 
-import { SubtitleDialog } from './subtitles'
+import { SubtitleDialog, SubtitleEdit } from './subtitles'
 
 /*============================================================================*
  * Media API
@@ -22,6 +22,13 @@ export type VideoLoopParams = {
  */
 export type VideoSeekParams = {
 	position: number
+}
+
+/**
+ * Parameters to the `subtitle/edit` endpoint.
+ */
+export type SubtitleEditParams = {
+	list: SubtitleEdit[]
 }
 
 /**
@@ -157,5 +164,4 @@ export interface EventSubtitleChange extends BaseEvent {
 	data?: SubtitleDialog[]
 	file?: string
 	text?: string
-	path?: string
 }

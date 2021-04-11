@@ -1,4 +1,5 @@
 import fs from 'fs'
+import path from 'path'
 import util from 'util'
 
 import { v4 as uuid } from 'uuid'
@@ -9,6 +10,9 @@ import {
 	MediaHistoryEntry,
 	MediaSavedState,
 	SavedSubtitleMedia,
+	SubtitleEdit,
+	SubtitleEditor,
+	SubtitleEditParams,
 	SubtitleFile,
 	VideoLoopParams,
 } from '../lib'
@@ -62,6 +66,7 @@ export default class App {
 	}
 
 	private _subtitle?: EventSubtitleChange
+	private _subtitle_file?: SubtitleFile
 
 	get subtitle() {
 		return this._subtitle
@@ -145,14 +150,21 @@ export default class App {
 
 	async load_subtitle(filename?: string, { no_video = false } = {}) {
 		if (!filename) {
-			this._subtitle = { type: 'subtitle-change', open: false }
-			server_events.post(this._subtitle)
+			this.update_subtitle_file(undefined)
 			return true
 		}
 
-		const fullpath = get_media_path(filename)
+		let fullpath = get_media_path(filename)
 		if (!fullpath || !RE_SUB_EXTENSION.test(fullpath)) {
 			return false
+		}
+
+		const media_path = Player.current?.media_path
+		if (media_path) {
+			const edits = App.query_subtitle_edits(media_path, filename)
+			if (edits?.cached_file) {
+				fullpath = edits.cached_file
+			}
 		}
 
 		const text = await read_file(fullpath, 'utf-8')
@@ -161,21 +173,8 @@ export default class App {
 		}
 
 		const sub = new SubtitleFile(filename, text)
-		this._subtitle = {
-			type: 'subtitle-change',
-			open: !!sub,
-			...(!sub
-				? {}
-				: {
-						data: sub.dialogues,
-						text: sub.text,
-						file: sub.name,
-						path: filename,
-				  }),
-		}
-		server_events.post(this._subtitle)
+		this.update_subtitle_file(sub)
 
-		const media_path = Player.current?.media_path
 		if (media_path) {
 			// If there is a media open, associate it with this subtitle.
 			App.query_media_state(media_path, (media) => {
@@ -258,9 +257,106 @@ export default class App {
 		}
 	}
 
-	/*========================================================================*
+	/*=========================================================================*
+	 * Subtitle editing
+	 *=========================================================================*/
+
+	undo_subtitle() {
+		return this.do_edit_subtitle('undo')
+	}
+
+	edit_subtitle(params: SubtitleEditParams) {
+		return this.do_edit_subtitle(params)
+	}
+
+	private async do_edit_subtitle(params: SubtitleEditParams | 'undo') {
+		const subtitle_path = this._subtitle_file?.name
+		const media_path = App.current_playback.play?.media_path
+		if (!(subtitle_path && media_path)) {
+			return false
+		}
+
+		const fullpath = get_media_path(subtitle_path)
+		if (!fullpath || !RE_SUB_EXTENSION.test(fullpath)) {
+			return false
+		}
+
+		const text = await read_file(fullpath, 'utf-8')
+		if (!text) {
+			return false
+		}
+
+		const sub = new SubtitleFile(subtitle_path, text)
+
+		const saved = App.query_subtitle_edits(media_path, sub.name)
+		const editor = new SubtitleEditor(sub)
+
+		const saved_edits = saved?.edits || []
+		if (params == 'undo') {
+			if (!saved_edits.length) {
+				return true
+			}
+			saved_edits.length--
+		}
+		for (const it of saved_edits) {
+			editor.apply(it)
+		}
+
+		if (params != 'undo') {
+			for (const it of params.list) {
+				editor.apply(it)
+			}
+		}
+
+		const name = path.basename(sub.name)
+
+		const cache_dir = `${Store.storage_dir}/subtitles`
+		if (!(await mkdir(cache_dir))) {
+			return false
+		}
+
+		const save_path = saved?.cached_file || `${cache_dir}/${uuid()}-${name}`
+		if (!(await write_file(save_path, sub.text))) {
+			return false
+		}
+
+		App.query_subtitle_edits(media_path, sub.name, (saved) => {
+			return { ...saved, cached_file: save_path, edits: [...editor.edits] }
+		})
+
+		this.update_subtitle_file(sub)
+
+		const player = Player.current
+		if (player && player.media_path) {
+			await player.load_subtitle(save_path, { name: sub.name, label: 'Kotoba' })
+		}
+
+		return true
+	}
+
+	update_subtitle_file(sub: SubtitleFile | undefined) {
+		this._subtitle_file = sub
+		this._subtitle = {
+			type: 'subtitle-change',
+			open: !!sub,
+			...(!sub
+				? {}
+				: {
+						data: sub.dialogues,
+						text: sub.text,
+						file: sub.name,
+				  }),
+		}
+		server_events.post(this._subtitle)
+	}
+
+	/*=========================================================================*
 	 * Persistent state
-	 *========================================================================*/
+	 *=========================================================================*/
+
+	private static store_subtitle_edit() {
+		return Store.named('subtitle-edit')
+	}
 
 	private static store_media_state() {
 		return Store.named('media-state')
@@ -272,6 +368,22 @@ export default class App {
 
 	private static store_subtitle_media() {
 		return Store.named('subtitle-media')
+	}
+
+	static query_subtitle_edits(
+		video_file: string,
+		subtitle_file: string,
+		updater?: (state?: SavedSubtitleEdits) => SavedSubtitleEdits | undefined,
+	) {
+		const store = this.store_subtitle_edit()
+		const key = video_file + '\n' + subtitle_file
+		const prev = store.get<SavedSubtitleEdits>(key)
+		if (updater) {
+			const next = updater(prev)
+			store.set(key, next)
+			return next
+		}
+		return prev
 	}
 
 	static query_media_state(media_file: string, updater?: (state?: MediaSavedState) => MediaSavedState | undefined) {
@@ -312,8 +424,15 @@ export default class App {
 	}
 }
 
+type SavedSubtitleEdits = {
+	cached_file: string
+	edits: SubtitleEdit[]
+}
+
 const fs_stat = util.promisify(fs.stat)
 const fs_read_file = util.promisify(fs.readFile)
+const fs_write_file = util.promisify(fs.writeFile)
+const fs_mkdir = util.promisify(fs.mkdir)
 
 /**
  * Same as `fs.stat` but async and returns undefined instead of throwing an
@@ -328,7 +447,7 @@ async function stat(...args: Parameters<typeof fs_stat>) {
 }
 
 /**
- * Save as `fs.readFile` but async and does not throw exceptions.
+ * Same as `fs.readFile` but async and does not throw exceptions.
  */
 async function read_file(...args: Parameters<typeof fs_read_file>) {
 	try {
@@ -341,4 +460,32 @@ async function read_file(...args: Parameters<typeof fs_read_file>) {
 		console.error('ERR: failed to open file:', err)
 		return
 	}
+}
+
+/**
+ * Same as `fs.writeFile` but async and does not throw exceptions.
+ */
+async function write_file(...args: Parameters<typeof fs_write_file>) {
+	try {
+		await fs_write_file(...args)
+		return true
+	} catch (err) {
+		console.error('ERR: failed to write file:', err)
+		return false
+	}
+}
+
+/**
+ * Recursively create the given directory if it does not exist.
+ */
+async function mkdir(dir: string) {
+	try {
+		await fs_mkdir(dir, { recursive: true })
+	} catch (err) {
+		if ((err as NodeJS.ErrnoException).code != 'EEXIST') {
+			console.error('ERR: failed to create directory:', err)
+			return false
+		}
+	}
+	return true
 }

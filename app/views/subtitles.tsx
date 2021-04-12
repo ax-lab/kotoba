@@ -5,6 +5,7 @@ import { events, subtitle, video } from '../api'
 import Japanese from '../util/japanese'
 
 import './subtitles.scss'
+import SubtitleEditDialog from './subtitle_edit_dialog'
 
 type SubtitleViewProps = {
 	on_load?: () => void
@@ -113,6 +114,15 @@ const Dialog = ({ entry, editable }: { entry: SubtitleDialog; editable?: boolean
 		}
 	}, [])
 
+	const [editing, set_editing] = useState(false)
+	const edit = () => {
+		if (editable) {
+			set_editing(true)
+		}
+	}
+
+	const cancel_edit = () => set_editing(false)
+
 	const copy = () => {
 		try {
 			void navigator.clipboard.writeText(entry.text)
@@ -137,6 +147,7 @@ const Dialog = ({ entry, editable }: { entry: SubtitleDialog; editable?: boolean
 
 	return (
 		<div className="subtitle-entry" data-line={entry.line_start}>
+			{editing && <SubtitleEditDialog dialog={entry} close={cancel_edit} />}
 			<div className="time-label">
 				<TimeLabel time={entry.start.time} />
 				<TimeLabel time={entry.end.time} />
@@ -249,7 +260,7 @@ const Dialog = ({ entry, editable }: { entry: SubtitleDialog; editable?: boolean
 						}
 					/>
 					<span className="separator" />
-					<button className="far fa-edit" title="Edit" />
+					<button className="far fa-edit" title="Edit" onClick={edit} />
 					<button
 						className="far fa-trash-alt"
 						title="Delete"

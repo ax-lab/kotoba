@@ -1,0 +1,83 @@
+@use 'sass:color';
+@use '../css/theme';
+
+.modal-dialog-container {
+	position: fixed;
+	z-index: 999999;
+	background: rgba(0, 0, 0, 0.7);
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	font-family: theme.$ui-font;
+	font-size: 1rem;
+
+	& > * {
+		background-color: theme.$background-fore;
+		border-radius: theme.$radius;
+		padding: theme.$spacing;
+		min-width: 60%;
+	}
+
+	$border-color: color.scale(theme.$background-deep, $lightness: -20%);
+
+	input[type='text'],
+	input[type='number'],
+	textarea {
+		color: theme.$color;
+		background: theme.$background-deep;
+		border: 1px solid $border-color;
+		outline: none;
+
+		&:focus {
+			background: color.scale(theme.$background-deep, $lightness: 2%);
+		}
+	}
+
+	input[type='number'] {
+		font: theme.$numeric-font;
+		padding: theme.$spacing-thin;
+	}
+
+	textarea {
+		display: block;
+		width: 100%;
+		height: 5rem;
+	}
+
+	fieldset:not(:last-child) {
+		margin-bottom: theme.$spacing;
+	}
+
+	.toolbar {
+		flex: 1;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+
+		button {
+			min-width: 5rem;
+		}
+	}
+}
+
+fieldset.time-edit {
+	label {
+		padding-left: theme.$spacing-thin;
+		padding-right: theme.$spacing;
+	}
+	input[type='number'] {
+		width: 4rem;
+		text-align: right;
+
+		&::-webkit-outer-spin-button,
+		&::-webkit-inner-spin-button {
+			margin-left: theme.$spacing-thin;
+		}
+	}
+}

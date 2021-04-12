@@ -1,0 +1,30 @@
+html {
+	font-size: 16px;
+}
+
+body {
+	// spell-checker: disable
+	font-family: -apple-system, BlinkMacSystemFont, 'Candara', Calibri, Segoe, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
+		'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+	// spell-checker: enable
+
+	font-size: 1rem;
+	font-weight: 400;
+	line-height: 1.5;
+	color: #333;
+}
+
+[lang='jp'] {
+	font-weight: 500;
+
+	// spell-checker: disable
+	font-family: 'ヒラギノ角ゴ ProN', 'Hiragino Kaku Gothic ProN', '游ゴシック', '游ゴシック体', YuGothic, 'Yu Gothic',
+		'Noto Sans CJK JP Thin', 'メイリオ', Meiryo, 'ＭＳ ゴシック', 'MS Gothic', HiraKakuProN-W3, 'TakaoExゴシック',
+		TakaoExGothic, 'MotoyaLCedar', 'Droid Sans Japanese', 'Candara', 'calibri', 'Segoe', 'Segoe UI', 'Optima', Arial,
+		sans-serif;
+	// spell-checker: enable
+}
+
+pre {
+	font-family: 'Fira Code', Consolas, monaco, 'Lucida Console', 'Courier New', monospace;
+}

@@ -1,3 +1,10 @@
+# Ignore build and dist files
+dist
+build
+
+config/app.local.json
+.store
+
 # Logs
 logs
 *.log

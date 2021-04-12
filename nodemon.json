@@ -1,0 +1,9 @@
+{
+	"watch": [
+		"src/",
+		"lib/",
+		"config/"
+	],
+	"ext": "ts,json",
+	"exec": "npx ts-node ./src/main.ts"
+}

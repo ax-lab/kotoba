@@ -124,7 +124,7 @@ const Player = () => {
 								onClick={() => set_show_cc(true)}
 							/>
 						)}
-						<button title="Bookmark" className={btn('bookmark')} />
+						<button title="Bookmark" className={btn('bookmark')} style={{ display: 'none' }} />
 						<button
 							title={`Mark Loop A (${loop_a_hint.join('.')})`}
 							className={cls(btn('quote-left'), { inactive: saved_loop_a == null })}

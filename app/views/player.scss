@@ -1,0 +1,57 @@
+@use 'sass:color';
+@use '../css/theme';
+
+.video-player {
+	@include theme.toolbar;
+	border-radius: 0;
+	border-right: none;
+	border-left: none;
+	border-bottom: none;
+
+	button {
+		font-size: 1.5rem;
+	}
+
+	.media-title {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.timer {
+		display: flex;
+		flex-direction: column;
+		font-family: theme.$numeric-font;
+		label {
+			display: block;
+			flex: 1;
+			margin-left: 0;
+			small {
+				font-size: 0.9rem;
+				padding-left: 2px;
+			}
+		}
+		label:first-of-type {
+			font-size: 1.5rem;
+		}
+		label:last-of-type {
+			font-size: 0.6rem;
+			text-align: center;
+		}
+	}
+}
+
+.video-subtitles {
+	background: rgba(0, 0, 0, 0.95);
+	border-radius: theme.$radius;
+	padding: theme.$spacing;
+	width: 80%;
+	left: 50%;
+	transform: translateX(-50%);
+	margin: auto;
+	white-space: pre-wrap;
+	font-size: 1.5rem;
+	position: fixed;
+	text-align: center;
+	cursor: default;
+}

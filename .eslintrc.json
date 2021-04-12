@@ -34,11 +34,12 @@
 		"sort-imports": ["error", { "ignoreDeclarationSort": true, "ignoreCase": true }],
 
 		// Custom rules:
-		"no-constant-condition": "off",
 		"@typescript-eslint/no-non-null-assertion": "off",
+		"@typescript-eslint/no-this-alias": "off",
 		"@typescript-eslint/prefer-regexp-exec": "off",
 		"@typescript-eslint/require-await": "off",
 		"jest/expect-expect": "off",
-		"jest/no-disabled-tests": "off"
+		"jest/no-disabled-tests": "off",
+		"no-constant-condition": "off"
 	}
 }

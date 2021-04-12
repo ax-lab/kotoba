@@ -1,29 +1,14 @@
-import { MPV } from './mpv'
+import { Player } from './player'
 import { start_server } from './server'
 
-const SHOW_PLAYER = false
+const START_SERVER = true
 
 async function main() {
-	const player = MPV.get()
+	Player.events.on('exit', (error) => console.log('Player closed', error ? error : ''))
 
-	player.on('connect', () => {
-		console.log('IPC connected')
-		player.send_command({ command: ['request_log_messages', 'debug'], async: true })
-	})
-
-	player.on('disconnect', () => console.log('IPC disconnected'))
-
-	player.on('data', (data) => console.log('RECV', JSON.stringify(data)))
-
-	player.on('output', (line: string) => console.log(`OUT: ${line}`))
-
-	player.on('error', (line: string) => console.error(`ERR: ${line}`))
-
-	if (SHOW_PLAYER) {
-		await player.open()
+	if (START_SERVER) {
+		start_server()
 	}
-
-	start_server()
 }
 
 main().catch((err) => {

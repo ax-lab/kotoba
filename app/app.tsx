@@ -1,30 +1,33 @@
 import React from 'react'
 import { Switch } from 'react-router'
-import { Link, Route, BrowserRouter as Router } from 'react-router-dom'
+import { NavLink, Route, BrowserRouter as Router } from 'react-router-dom'
 
-import Demo from './components/demo'
-import Home from './components/home'
-import Video from './components/video'
+import Demo from './views/demo'
+import Home from './views/home'
+import Video from './views/video'
 
 const App = () => (
 	<Router>
 		<>
-			<h1>Kotoba</h1>
-			<hr />
 			<nav>
 				<ul>
 					<li>
-						<Link to="/">Home</Link>
+						<NavLink to="/" activeClassName="active" exact>
+							Home
+						</NavLink>
 					</li>
 					<li>
-						<Link to="/video">Video</Link>
+						<NavLink to="/video" activeClassName="active">
+							Video
+						</NavLink>
 					</li>
 					<li>
-						<Link to="/demo">Demo</Link>
+						<NavLink to="/demo" activeClassName="active">
+							Demo
+						</NavLink>
 					</li>
 				</ul>
 			</nav>
-			<hr />
 			<Switch>
 				<Route exact path="/">
 					<Home />

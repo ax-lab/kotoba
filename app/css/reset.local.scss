@@ -15,28 +15,6 @@
 	margin: 0;
 }
 
-/* custom selection color */
-::-moz-selection {
-	background: #333;
-	color: #fff;
-	text-shadow: none;
-}
-::selection {
-	background: #333;
-	color: #fff;
-	text-shadow: none;
-}
-
-/* basic link styling */
-a {
-	color: #06e;
-}
-a:visited {
-	color: #037;
-}
-a:hover {
-	color: #06e;
-}
 a:focus {
 	outline: thin dotted;
 }
@@ -115,6 +93,10 @@ td {
 	vertical-align: top;
 }
 
+ul {
+	list-style-type: none;
+}
+
 /* forms */
 
 form {
@@ -126,7 +108,7 @@ fieldset {
 	padding: 0;
 }
 label {
-	cursor: pointer;
+	cursor: default;
 }
 legend {
 	border: 0;

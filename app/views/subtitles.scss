@@ -1,0 +1,174 @@
+@use 'sass:color';
+@use '../css/theme';
+
+// Main container for the subtitle listing
+.subtitle-view {
+	overflow: auto; // enable scrolling
+	font-size: 1.5rem;
+	cursor: default; // disables text cursor
+	padding: theme.$spacing;
+
+	background-color: theme.$background-deep;
+
+	// Background color for the entries
+	$subtitle-entry-color: theme.$background;
+
+	// Each subtitle line in a dialog is rendered as a <p>
+	p {
+		padding: theme.$spacing-thin;
+	}
+
+	// Container for a complete subtitle dialog.
+	.subtitle-entry {
+		display: flex;
+		flex-direction: row;
+		padding: theme.$spacing - 2px; // account for border
+		border-radius: theme.$radius;
+		background-color: $subtitle-entry-color;
+
+		// use the border to display the current entry
+		border: 2px solid $subtitle-entry-color;
+		&.active {
+			border-color: color.scale($subtitle-entry-color, $lightness: 50%);
+		}
+
+		// for the last entry, we give additional spacing to allow scrolling
+		// the entry to top
+		&:not(:last-of-type) {
+			margin-bottom: theme.$spacing;
+		}
+		&:last-of-type {
+			margin-bottom: 500px;
+		}
+
+		// Container for the <p> lines of dialog
+		.subtitle-text {
+			flex: 1;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+		}
+
+		// Container for the timestamp labels
+		.time-label {
+			color: theme.$color-ui-light;
+			font-family: theme.$numeric-font;
+			flex: 0 0;
+			font-size: 0.9rem;
+			padding-left: theme.$spacing;
+
+			user-select: none;
+
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+
+			span {
+				width: 5rem;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+
+				small {
+					font-size: 60%;
+				}
+			}
+		}
+
+		// Hide the toolbar's popup menu for un-hovered entries
+		&:not(:hover) .popup {
+			visibility: hidden !important;
+		}
+
+		// Container for the entry toolbar
+		.subtitle-toolbar {
+			flex: 0;
+
+			& > button:not(:hover) {
+				color: color.change(theme.$color, $alpha: 0.5);
+			}
+
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			font-size: 0.8rem;
+
+			button {
+				width: 2rem;
+				margin-bottom: 2px;
+			}
+
+			.menu {
+				display: flex;
+				width: 2rem;
+			}
+
+			// Popup menu activated when clicking the last button
+			.popup {
+				display: flex;
+				flex-direction: row-reverse;
+				align-items: center;
+				position: fixed;
+				background: color.scale(theme.$background-fore, $alpha: -20%);
+				padding: 1px;
+				border: 1px solid color.scale(theme.$background-fore, $lightness: 10%);
+				button {
+					margin: 0;
+					&:hover {
+						background: color.scale(theme.$background-deep, $alpha: -20%);
+					}
+				}
+
+				.separator {
+					display: block;
+					width: 1px;
+					height: 1.3rem;
+					background-color: color.change(theme.$color, $alpha: 0.2);
+					margin: 0 theme.$spacing 0 theme.$spacing;
+				}
+			}
+		}
+	}
+
+	// Default non-hover state for subtitle entry toolbar
+	& {
+		.subtitle-entry {
+			.subtitle-toolbar {
+				opacity: 0;
+				transition: opacity 100ms ease;
+			}
+		}
+	}
+
+	// Hover state for an entry. We use `.disable-hover` during scroll to avoid
+	// repaints.
+	&:not(.disable-hover) {
+		.subtitle-entry:hover {
+			background-color: color.scale($subtitle-entry-color, $lightness: 2%);
+
+			.subtitle-toolbar {
+				opacity: 1;
+			}
+		}
+	}
+
+	&.disable-hover {
+		.popup {
+			visibility: hidden !important;
+		}
+	}
+}
+
+// This is the main toolbar for the subtitle view.
+.subtitle-main-toolbar {
+	display: flex;
+	flex-direction: row;
+
+	label {
+		flex: 1;
+		min-width: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+}

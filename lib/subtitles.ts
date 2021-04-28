@@ -530,5 +530,6 @@ class SubParserSRT implements SubParser {
 		return input
 			.replace(/<[/]?(b|i|u|font)\s*>|\{[/]?(b|i|u)\}/gi, '')
 			.replace(/<font(\s*[a-z]+(=('[^']*'|"[^"]*"))?)*\s*>/gi, '')
+			.replace(/\{[^}]*\}/g, '') // this is not part of the spec, but some subs have ASS style formatting on them
 	}
 }

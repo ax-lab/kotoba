@@ -32,6 +32,7 @@ const MPV_ARGS = [
 	'--force-window=yes',
 	'--no-resume-playback',
 	'--geometry=50%',
+	'--alang=jp,jpn', // spell-checker: ignore alang
 	`--input-ipc-server=${IPC_PIPE}`,
 ]
 

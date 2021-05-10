@@ -19,6 +19,17 @@ const Player = () => {
 		return () => cleanup()
 	}, [])
 
+	const toggle_play_keydown = (ev: KeyboardEvent) => {
+		if (ev.ctrlKey && ev.code == 'Space') {
+			void video.toggle_play()
+		}
+	}
+
+	useEffect(() => {
+		document.addEventListener('keydown', toggle_play_keydown)
+		return () => document.removeEventListener('keydown', toggle_play_keydown)
+	})
+
 	// CC and AB loop state are local.
 	const [show_cc, set_show_cc] = useState(true)
 

@@ -1,6 +1,6 @@
 {
 	"language": "en",
-	"words": ["kotoba", "lcov", "prettierrc", "serializers", "unmocked", "webm"],
+	"words": ["jlpt", "jmdict", "jszip", "kotoba", "lcov", "prettierrc", "serializers", "unmocked", "webm"],
 	"flagWords": ["teh"],
 	"ignorePaths": [
 		".vscode/**",

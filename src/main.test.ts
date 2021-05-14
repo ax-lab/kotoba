@@ -1,4 +1,4 @@
-import { describe, expect, test } from './testutil'
+import { describe, expect, test } from '../lib/testutil'
 
 describe('main', () => {
 	describe('tests', () => {

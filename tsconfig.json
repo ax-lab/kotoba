@@ -6,9 +6,10 @@
 		"./lib/**/*.tsx",
 		"./src/**/*.ts",
 		"./src/**/*.tsx",
+		"./importer/**/*.ts",
 		"test/**/*.test.ts"
 	],
-	"exclude": ["node_modules/**", "./src/**/*.test.ts"],
+	"exclude": ["node_modules/**"],
 
 	"compilerOptions": {
 		/* Visit https://aka.ms/tsconfig.json to read more about this file */

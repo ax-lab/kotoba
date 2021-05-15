@@ -135,7 +135,7 @@ export type EntryReading = {
 	 *
 	 * Corresponds to `re_nokanji` in XML.
 	 */
-	no_kanji: boolean
+	no_kanji?: boolean
 
 	/**
 	 * This element is used to indicate when the reading only applies to a
@@ -241,6 +241,8 @@ export type EntrySense = {
 	 * recorded about a sense. Typical usage would be to indicate such things
 	 * as level of currency of a sense, the regional variations, etc.
 	 *
+	 * Note that this is a free text field.
+	 *
 	 * Corresponds to `s_inf` in XML.
 	 */
 	info: string[]
@@ -278,6 +280,11 @@ export type EntrySense = {
  * Corresponds to `lsource` in XML.
  */
 export type EntrySenseSource = {
+	/**
+	 * Text for the entry. If available, is the source word or phrase.
+	 */
+	text: string
+
 	/**
 	 * The language from which a loanword is drawn. It will be coded using the
 	 * three-letter language code from the ISO 639-2 standard.
@@ -338,17 +345,67 @@ export async function import_entries(filename: string) {
 	for (const it of matches) {
 		const [, entity, label] = it
 		tags[entity] = label
-		parser.ENTITIES[entity] = `<<tag:${entity}>>` // we want to preserve the entity tag
+		parser.ENTITIES[entity] = `${entity}` // we want to preserve the entity tag
 	}
 
 	// This is present on the last entry, but undeclared.
-	parser.ENTITIES['unc'] = '<<tag:unc>>'
+	parser.ENTITIES['unc'] = 'unc'
 
 	const context = {
 		tag: '',
 		tags: [] as string[],
 		text: [] as string[],
 		attr: {} as Record<string, string>,
+
+		cur_entry: null as Entry | null,
+		cur_kanji: null as EntryKanji | null,
+		cur_reading: null as EntryReading | null,
+		cur_sense: null as EntrySense | null,
+		cur_source: null as EntrySenseSource | null,
+		cur_glossary: null as EntrySenseGlossary | null,
+	}
+
+	const entries = [] as Entry[]
+
+	const at_pos = () => {
+		const entry = context.cur_entry
+		const label = entry?.kanji.length ? entry.kanji[0].expr : entry?.reading.length && entry.reading[0].expr
+		const tags = `${context.tags.join('.')}.${context.tag}`
+		return label ? `at ${label} (${tags})` : `at ${tags}`
+	}
+
+	function push<T>(ls: T[], elem: T | null, validate: (elem: T) => string | void) {
+		if (!elem) {
+			throw new Error(`pushing null element in list ${at_pos()}`)
+		}
+		const msg = validate(elem)
+		if (msg) {
+			throw new Error(`pushing invalid element in list: ${msg} ${at_pos()}`)
+		}
+		ls.push(elem)
+	}
+
+	function push_text(ls: string[], text: string) {
+		if (text) {
+			ls.push(text)
+		}
+	}
+
+	function push_tag(ls: string[], tag: string) {
+		if (tag == 'unc') {
+			return
+		}
+		if (!tags[tag]) {
+			throw new Error(`invalid tag: ${tag} ${at_pos()}`)
+		}
+		ls.push(tag)
+	}
+
+	function push_priority(ls: string[], tag: string) {
+		if (!/^(news[12]|ichi[12]|spec[12]|gai[12]|nf\d\d)$/.test(tag)) {
+			throw new Error(`invalid priority tag: ${tag} ${at_pos()}`)
+		}
+		ls.push(tag)
 	}
 
 	parser.onopentag = (node: sax.Tag) => {
@@ -356,21 +413,235 @@ export async function import_entries(filename: string) {
 			context.tags.push(context.tag)
 		}
 		context.tag = node.name
+
 		context.text.length = 0
 		context.attr = { ...node.attributes }
+
+		switch (node.name) {
+			// Top level entry
+			case 'entry':
+				context.cur_entry = {
+					sequence: '',
+					kanji: [],
+					reading: [],
+					sense: [],
+				}
+				break
+
+			// Kanji element
+			case 'k_ele':
+				context.cur_kanji = {
+					expr: '',
+					info: [],
+					priority: [],
+				}
+				break
+
+			// Reading element
+			case 'r_ele':
+				context.cur_reading = {
+					expr: '',
+					info: [],
+					priority: [],
+					restrict: [],
+				}
+				break
+			case 're_nokanji':
+				context.cur_reading!.no_kanji = true
+				break
+
+			// Sense element
+			case 'sense':
+				context.cur_sense = {
+					antonym: [],
+					dialect: [],
+					field: [],
+					glossary: [],
+					info: [],
+					misc: [],
+					pos: [],
+					sources: [],
+					stag_kanji: [],
+					stag_reading: [],
+					xref: [],
+				}
+				break
+			case 'lsource':
+				context.cur_source = {
+					lang: node.attributes['xml:lang'] || 'eng',
+					text: '',
+				}
+				if (node.attributes['ls_type'] == 'part') {
+					context.cur_source.partial = true
+				}
+				if (node.attributes['ls_wasei']) {
+					context.cur_source.wasei = true
+				}
+				break
+			case 'gloss':
+				context.cur_glossary = {
+					text: '',
+				}
+				switch (node.attributes['g_type']) {
+					case 'lit':
+						context.cur_glossary.type = 'literal'
+						break
+					case 'fig':
+						context.cur_glossary.type = 'figurative'
+						break
+					case 'expl':
+						context.cur_glossary.type = 'explanation'
+						break
+				}
+				break
+		}
 	}
 
-	parser.onclosetag = () => {
+	parser.onclosetag = (tag) => {
+		const text = context.text.join('').trim().replace(/\s+/g, ' ')
+		switch (tag.toLowerCase()) {
+			// Top level entry
+			case 'entry':
+				push(entries, context.cur_entry, (it) => {
+					if (it.kanji.length + it.reading.length == 0) {
+						return 'empty entry'
+					}
+					if (!it.sense.length) {
+						return 'entry has no sense information'
+					}
+					if (!it.sequence) {
+						return 'entry has no sequence number'
+					}
+					return
+				})
+				context.cur_entry = null
+				break
+			case 'ent_seq':
+				context.cur_entry!.sequence = text
+				break
+
+			// Kanji element
+			case 'k_ele':
+				push(context.cur_entry!.kanji, context.cur_kanji, (it) => {
+					if (!it.expr) {
+						return 'kanji element is empty'
+					}
+					return
+				})
+				context.cur_kanji = null
+				break
+			case 'keb':
+				context.cur_kanji!.expr = text
+				break
+			case 'ke_inf':
+				push_tag(context.cur_kanji!.info, text)
+				break
+			case 'ke_pri':
+				push_priority(context.cur_kanji!.priority, text)
+				break
+
+			// Reading element
+			case 'r_ele':
+				push(context.cur_entry!.reading, context.cur_reading, (it) => {
+					if (!it.expr) {
+						return 'reading element is empty'
+					}
+					return
+				})
+				context.cur_reading = null
+				break
+			case 'reb':
+				context.cur_reading!.expr = text
+				break
+			case 're_restr':
+				push_text(context.cur_reading!.restrict, text)
+				break
+			case 're_inf':
+				push_tag(context.cur_reading!.info, text)
+				break
+			case 're_pri':
+				push_priority(context.cur_reading!.priority, text)
+				break
+
+			// Sense element
+			case 'sense':
+				push(context.cur_entry!.sense, context.cur_sense, (it) => {
+					if (!it.glossary.length) {
+						return 'sense element is empty'
+					}
+					return
+				})
+				context.cur_sense = null
+				break
+			case 'lsource':
+				context.cur_source!.text = text
+				push(context.cur_sense!.sources, context.cur_source, (it) => {
+					if (!it.text && !it.lang) {
+						return 'sense language source is empty'
+					}
+					if (!it.lang) {
+						return 'sense language source has no language information'
+					}
+					return
+				})
+				context.cur_source = null
+				break
+			case 'gloss':
+				context.cur_glossary!.text = text
+				push(context.cur_sense!.glossary, context.cur_glossary, (it) => {
+					if (!it.text) {
+						return 'sense glossary is empty'
+					}
+					return
+				})
+				context.cur_glossary = null
+				break
+			case 'dial':
+				push_tag(context.cur_sense!.dialect, text)
+				break
+			case 'pos':
+				push_tag(context.cur_sense!.pos, text)
+				break
+			case 'stagk':
+				push_text(context.cur_sense!.stag_kanji, text)
+				break
+			case 'stagr':
+				push_text(context.cur_sense!.stag_reading, text)
+				break
+			case 'xref':
+				push_text(context.cur_sense!.xref, text)
+				break
+			case 'ant':
+				push_text(context.cur_sense!.antonym, text)
+				break
+			case 'field':
+				push_tag(context.cur_sense!.field, text)
+				break
+			case 'misc':
+				push_text(context.cur_sense!.misc, text)
+				break
+			case 's_inf':
+				push_text(context.cur_sense!.info, text)
+				break
+		}
+
 		context.text.length = 0
 		context.tag = context.tags.pop() || ''
 	}
 
-	parser.ontext = (text) => {
+	parser.ontext = (text: string) => {
 		context.text.push(text)
 	}
 
 	const start_xml = lib.now()
 	parser.write(data)
 	parser.close()
-	console.log(`Processed XML in ${lib.elapsed(start_xml)}`)
+	console.log(`Processed ${entries.length} entries from the XML in ${lib.elapsed(start_xml)}`)
+
+	for (let i = 0; i < 100; i++) {
+		const pos = Math.floor(Math.random() * entries.length)
+		const entry = entries[pos]
+		console.log(JSON.stringify(entry, null, '    '))
+		entries.splice(pos, 1)
+	}
 }

@@ -4,6 +4,8 @@ import * as lib from '../lib'
 
 import { open_zip } from './util'
 
+export const LIST_SEPARATOR = '||'
+
 /**
  * Data for an entry from the XML file.
  *
@@ -261,7 +263,7 @@ export type EntrySense = {
 	 *
 	 * Corresponds to `lsource` in XML.
 	 */
-	sources: EntrySenseSource[]
+	source: EntrySenseSource[]
 
 	/**
 	 * Within each sense will be one or more glossary entries, i.e. words or
@@ -386,6 +388,9 @@ export async function import_entries(filename: string) {
 	}
 
 	function push_text(ls: string[], text: string) {
+		if (/\n|\|\|/.test(text)) {
+			throw new Error(`text contains invalid characters: ${text}`)
+		}
 		if (text) {
 			ls.push(text)
 		}
@@ -460,7 +465,7 @@ export async function import_entries(filename: string) {
 					info: [],
 					misc: [],
 					pos: [],
-					sources: [],
+					source: [],
 					stag_kanji: [],
 					stag_reading: [],
 					xref: [],
@@ -575,7 +580,7 @@ export async function import_entries(filename: string) {
 				break
 			case 'lsource':
 				context.cur_source!.text = text
-				push(context.cur_sense!.sources, context.cur_source, (it) => {
+				push(context.cur_sense!.source, context.cur_source, (it) => {
 					if (!it.text && !it.lang) {
 						return 'sense language source is empty'
 					}
@@ -638,10 +643,5 @@ export async function import_entries(filename: string) {
 	parser.close()
 	console.log(`Processed ${entries.length} entries from the XML in ${lib.elapsed(start_xml)}`)
 
-	for (let i = 0; i < 100; i++) {
-		const pos = Math.floor(Math.random() * entries.length)
-		const entry = entries[pos]
-		console.log(JSON.stringify(entry, null, '    '))
-		entries.splice(pos, 1)
-	}
+	return entries
 }

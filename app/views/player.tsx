@@ -21,6 +21,8 @@ const Player = () => {
 
 	const toggle_play_keydown = (ev: KeyboardEvent) => {
 		if (ev.ctrlKey && ev.code == 'Space') {
+			ev.preventDefault()
+			ev.stopPropagation()
 			void video.toggle_play()
 		}
 	}

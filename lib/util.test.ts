@@ -7,17 +7,17 @@ describe('lib/util', () => {
 		expect(bytes(1)).toBe('1 byte')
 		expect(bytes(2)).toBe('2 bytes')
 		expect(bytes(1023)).toBe('1023 bytes')
-		expect(bytes(1024)).toBe('1.0 KB')
-		expect(bytes(2048)).toBe('2.0 KB')
-		expect(bytes(2048 + 512)).toBe('2.5 KB')
+		expect(bytes(1024)).toBe('1.0KB')
+		expect(bytes(2048)).toBe('2.0KB')
+		expect(bytes(2048 + 512)).toBe('2.5KB')
 
-		expect(bytes(1024 * 1024)).toBe('1.00 MB')
-		expect(bytes(2.0 * 1024 * 1024)).toBe('2.00 MB')
-		expect(bytes(2.5 * 1024 * 1024)).toBe('2.50 MB')
+		expect(bytes(1024 * 1024)).toBe('1.00MB')
+		expect(bytes(2.0 * 1024 * 1024)).toBe('2.00MB')
+		expect(bytes(2.5 * 1024 * 1024)).toBe('2.50MB')
 
-		expect(bytes(1024 * 1024 * 1024)).toBe('1.00 GB')
-		expect(bytes(2.0 * 1024 * 1024 * 1024)).toBe('2.00 GB')
-		expect(bytes(2.5 * 1024 * 1024 * 1024)).toBe('2.50 GB')
+		expect(bytes(1024 * 1024 * 1024)).toBe('1.00GB')
+		expect(bytes(2.0 * 1024 * 1024 * 1024)).toBe('2.00GB')
+		expect(bytes(2.5 * 1024 * 1024 * 1024)).toBe('2.50GB')
 	})
 
 	test('duration', () => {

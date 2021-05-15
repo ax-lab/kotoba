@@ -4,13 +4,13 @@ const GB = 1024 * MB
 
 export function bytes(value: number) {
 	if (value >= GB) {
-		return `${(value / GB).toFixed(2)} GB`
+		return `${(value / GB).toFixed(2)}GB`
 	}
 	if (value >= MB) {
-		return `${(value / MB).toFixed(2)} MB`
+		return `${(value / MB).toFixed(2)}MB`
 	}
 	if (value >= KB) {
-		return `${(value / KB).toFixed(1)} KB`
+		return `${(value / KB).toFixed(1)}KB`
 	}
 	if (value == 1) {
 		return '1 byte'

@@ -1,6 +1,6 @@
 import { describe, expect, test } from '../testutil'
 
-import { to_hiragana } from './hiragana'
+import { to_hiragana, to_hiragana_key } from './hiragana'
 import * as testkana from './testkana'
 
 describe('to_hiragana', () => {
@@ -278,5 +278,146 @@ describe('to_hiragana', () => {
 		expect(to_hiragana(`N'U`)).toEqual('んう')
 
 		// spell-checker: enable
+	})
+})
+
+describe('to_hiragana_key', () => {
+	const check = (input: string, expected: string) => {
+		const pre = `${input} = `
+		expect(pre + to_hiragana_key(input)).toEqual(pre + expected)
+	}
+
+	test('should convert to hiragana', () => {
+		check('koto', 'こと')
+		check('KOTO', 'こと')
+		check('コト', 'こと')
+	})
+
+	test('should strip sound marks', () => {
+		check('かが', 'かか')
+		check('きぎ', 'きき')
+		check('くぐ', 'くく')
+		check('けげ', 'けけ')
+		check('こご', 'ここ')
+		check('さざ', 'ささ')
+		check('しじ', 'しし')
+		check('すず', 'すす')
+		check('せぜ', 'せせ')
+		check('そぞ', 'そそ')
+		check('ただ', 'たた')
+		check('ちぢ', 'ちち')
+		check('つづ', 'つつ')
+		check('てで', 'てて')
+		check('とど', 'とと')
+		check('はばぱ', 'ははは')
+		check('ひびぴ', 'ひひひ')
+		check('ふぶぷ', 'ふふふ')
+		check('へべぺ', 'へへへ')
+		check('ほぼぽ', 'ほほほ')
+		check('ヴヴ', 'うう')
+	})
+
+	test('should convert fullwidth to ASCII', () => {
+		check('ＡＢＣ１２３', 'ABC123')
+	})
+
+	test('should strip non-word', () => {
+		check('㊉（漢字）　〖Ａ／Ｂ・Ｃ〗、１ー２～３(;-;) かか 123', '漢字ABC123かか123')
+	})
+
+	test('should handle small chars', () => {
+		check('ゃゅょかった-ぁぃぅぇぉ', 'やゆよかたあいうえお')
+	})
+
+	test('should strip つ where っ is possible', () => {
+		// We don't want to strip in those cases
+		check('つく', 'つく')
+		check('つづく', 'つつく')
+		check('つつく', 'つつく')
+		check('づつく', 'つつく')
+		check('！つつ', 'つつ')
+		check('あつあ', 'あつあ')
+		check('いつい', 'いつい')
+		check('うつう', 'うつ') // this is actually a long vowel pair
+		check('えつえ', 'えつえ')
+		check('おつお', 'おつお')
+
+		// We want to strip in those
+		check('かつた', 'かた')
+		check('かたつ', 'かた')
+		check('かたつー', 'かた')
+		check('かたつ！', 'かた')
+
+		// Check all possible combinations
+		const consonants =
+			'かきくけこさしすせそたちてとなにぬねのはひふへほらりるれろ' +
+			'がぎくげござじずぜぞだぢでどばびぶべぼぱぴぷぺぽ'
+		for (const chr of consonants) {
+			const res = chr.normalize('NFD').replace(/[\u3099\u309A]/g, '')
+			check('つ' + chr, 'つ' + res)
+			check(chr + 'つ', res)
+			check(chr + 'つ' + chr, res + res)
+		}
+	})
+
+	test('should normalize long vowels', () => {
+		// Make sure we don't strip different vowel sequences
+		check('あいうえお', 'あいうえお')
+		check('うお', 'うお')
+		check('いえ', 'いえ')
+
+		// First check some tricky corner cases
+		check('ぎゃああああ', 'きや')
+		check('ヴぅぅぅぅう', 'う')
+		check('ヴぉぉぉぉお', 'うお')
+		check('せぇ', 'せ')
+		check('ぜぇ', 'せ')
+		check('ぇえ', 'え')
+		check('ええええええい', 'え')
+		check('つううううう', 'つ')
+
+		// Check all possible combinations of syllables with their vowels.
+		const A = ['あ', 'か', 'さ', 'た', 'な', 'は', 'ま', 'や', 'ら', 'わ']
+		const I = ['い', 'き', 'し', 'ち', 'に', 'ひ', 'み', 'い', 'り', 'い']
+		const U = ['う', 'く', 'す', 'つ', 'ぬ', 'ふ', 'む', 'ゆ', 'る', 'う']
+		const E = ['え', 'け', 'せ', 'て', 'ね', 'へ', 'め', 'え', 'れ', 'え']
+		const O = ['お', 'こ', 'そ', 'と', 'の', 'ほ', 'も', 'よ', 'ろ', 'お']
+
+		const check_col = (ls: string[], vowel: string, small: string) => {
+			ls.forEach((pre) => {
+				check(pre + vowel, pre)
+				check(pre + vowel.repeat(1), pre)
+				check(pre + vowel.repeat(2), pre)
+
+				check(pre + small, pre)
+				check(pre + small.repeat(1), pre)
+				check(pre + small.repeat(2), pre)
+
+				check(pre + vowel + small, pre)
+				check(pre + vowel + small.repeat(1), pre)
+				check(pre + vowel + small.repeat(2), pre)
+
+				check(pre + vowel.repeat(2) + small, pre)
+				check(pre + vowel.repeat(2) + small.repeat(1), pre)
+				check(pre + vowel.repeat(2) + small.repeat(2), pre)
+
+				check(pre + small + vowel, pre)
+				check(pre + small + vowel.repeat(1), pre)
+				check(pre + small + vowel.repeat(2), pre)
+
+				check(pre + small.repeat(2) + vowel, pre)
+				check(pre + small.repeat(2) + vowel.repeat(1), pre)
+				check(pre + small.repeat(2) + vowel.repeat(2), pre)
+			})
+		}
+
+		check_col(A, 'あ', 'ぁ')
+		check_col(I, 'い', 'ぃ')
+		check_col(U, 'う', 'ぅ')
+		check_col(E, 'え', 'ぇ')
+		check_col(O, 'お', 'ぉ')
+
+		check_col(E, 'い', 'ぃ')
+		check_col(O, 'う', 'ぅ')
 	})
 })

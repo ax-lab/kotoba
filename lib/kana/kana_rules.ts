@@ -19,6 +19,14 @@ export function rules_to_hiragana() {
 	return rules(set_katakana_to_hiragana(), set_romaji_to_hiragana())
 }
 
+/** Rules to convert just the fullwidth characters to ASCII. */
+export function rules_fullwidth_ascii() {
+	return rules(
+		set_punctuation_to_romaji(),
+		...map_romaji_fullwidth_ascii((h: string, k: string, r: string) => m(h, r)),
+	)
+}
+
 /** Main rule set to convert kana to romaji. */
 export function rules_to_romaji() {
 	const baseOutput = rules(

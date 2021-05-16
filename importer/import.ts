@@ -4,6 +4,7 @@ import path from 'path'
 import sqlite from 'sqlite3'
 
 import * as lib from '../lib'
+import { kana } from '../lib'
 
 import * as jmdict from './jmdict'
 
@@ -29,7 +30,43 @@ async function main() {
 	console.log(`Data directory is ${DATA_DIR}`)
 
 	const db_file = path.join(DATA_DIR, DICT_DATABASE)
-	const entries = await jmdict.import_entries(path.join(DATA_DIR, DICT_FILE))
+	const { entries, tags } = await jmdict.import_entries(path.join(DATA_DIR, DICT_FILE))
+
+	console.log(`\n>>> Building index map from entries...`)
+	const map_entries = entries.flatMap((entry) => {
+		const sequence = entry.sequence
+		const words: Record<string, boolean> = {}
+		for (const row of entry.kanji) {
+			words[row.expr] = true
+		}
+		for (const row of entry.reading) {
+			words[row.expr] = true
+		}
+		return Object.keys(words).map((expr) => ({ sequence, expr }))
+	})
+
+	console.log(`... Collected ${map_entries.length} map entries. Indexing...`)
+
+	const start_index = lib.now()
+	const tb_entries_map = map_entries.map((it, i) => {
+		const num = i + 1
+		const keyword = kana.to_hiragana_key(it.expr)
+
+		const chars = [...keyword]
+		const keyword_rev = chars.reverse().join('')
+
+		const keyword_set = [...new Set(chars)].sort((a, b) => a.codePointAt(0)! - b.codePointAt(0)!).join('')
+
+		const final = num == map_entries.length
+		if (num % 25000 == 0 || final) {
+			const delta = lib.now() - start_index
+			const rate = (num / (delta / 1000)).toFixed(0)
+			const time = lib.duration(delta / num)
+			console.log(`${final ? '---' : '...'} ${num} rows processed (${rate} per sec / ${time} per row)`)
+		}
+		return { ...it, keyword, keyword_rev, keyword_set }
+	})
+
 	try {
 		fs.unlinkSync(db_file)
 	} catch (e) {
@@ -44,37 +81,83 @@ async function main() {
 	const db = new DB(db_file)
 	await db.exec('PRAGMA journal_mode = MEMORY')
 	await db.exec(`
+		CREATE TABLE tags (
+			name  TEXT PRIMARY KEY,
+			label TEXT
+		);
+
 		CREATE TABLE entries (sequence TEXT PRIMARY KEY);
-		CREATE TABLE tags (name TEXT PRIMARY KEY, label TEXT);
+
 		CREATE TABLE entries_kanji (
-			sequence TEXT, pos INT,
-			expr TEXT, info TEXT, priority TEXT,
+			sequence       TEXT,
+			pos            INT,
+			expr           TEXT,
+			info           TEXT,
+			priority       TEXT,
 			PRIMARY KEY (sequence, pos)
 		);
+
 		CREATE TABLE entries_reading (
-			sequence TEXT, pos INT,
-			expr TEXT, no_kanji INTEGER, info TEXT, priority TEXT, restrict TEXT,
+			sequence       TEXT,
+			pos            INT,
+			expr           TEXT,
+			no_kanji       INTEGER,
+			info           TEXT,
+			priority       TEXT,
+			restrict       TEXT,
 			PRIMARY KEY (sequence, pos)
 		);
+
 		CREATE TABLE entries_sense (
-			sequence TEXT, pos INT,
-			stag_kanji TEXT, stag_reading TEXT, part_of_speech TEXT, dialect TEXT,
-			xref TEXT, antonym TEXT, field TEXT, misc TEXT, info TEXT,
+			sequence        TEXT,
+			pos             INT,
+			stag_kanji      TEXT,
+			stag_reading    TEXT,
+			part_of_speech  TEXT,
+			dialect         TEXT,
+			xref            TEXT,
+			antonym         TEXT,
+			field           TEXT,
+			misc            TEXT,
+			info            TEXT,
 			PRIMARY KEY (sequence, pos)
 		);
+
 		CREATE TABLE entries_sense_source (
-			sequence TEXT, pos INT, elem INT,
-			text TEXT, lang TEXT, partial INT, wasei INT,
+			sequence        TEXT,
+			pos             INT,
+			elem            INT,
+			text            TEXT,
+			lang            TEXT,
+			partial         INT,
+			wasei           INT,
 			PRIMARY KEY (sequence, pos, elem)
 		);
+
 		CREATE TABLE entries_sense_glossary (
-			sequence TEXT, pos INT, elem INT,
-			text TEXT, type TEXT,
+			sequence        TEXT,
+			pos             INT,
+			elem            INT,
+			text            TEXT,
+			type            TEXT,
 			PRIMARY KEY (sequence, pos, elem)
+		);
+
+		CREATE TABLE entries_map(
+			sequence        TEXT,  -- sequence in the 'entries' table
+			expr            TEXT,  -- indexed expression from the source
+
+			keyword         TEXT,  -- 'expr' stripped to a indexable key
+			keyword_rev     TEXT,  -- 'keyword' reversed for suffix lookup
+			keyword_set     TEXT   -- char set in 'keyword' sorted by codepoint
 		);
 	`)
 
 	const tb_entries = entries.map((x) => ({ sequence: x.sequence }))
+
+	const tb_tags = Object.keys(tags)
+		.sort()
+		.map((name) => ({ name, label: tags[name] }))
 
 	const tb_kanji = entries.flatMap((x) => {
 		return x.kanji.map((row, pos) => ({
@@ -140,12 +223,32 @@ async function main() {
 		)
 	})
 
+	await db.insert('tags', tb_tags)
 	await db.insert('entries', tb_entries)
 	await db.insert('entries_kanji', tb_kanji)
 	await db.insert('entries_reading', tb_readings)
 	await db.insert('entries_sense', tb_sense)
 	await db.insert('entries_sense_source', tb_sense_source)
 	await db.insert('entries_sense_glossary', tb_sense_glossary)
+	await db.insert('entries_map', tb_entries_map)
+
+	console.log('\n>>> Building database indexes...')
+	const start_db_index = lib.now()
+
+	// Note that even if our index keywords are case-insensitive we still need
+	// the `COLLATE NOCASE` to make sure SQLite uses the index with the LIKE
+	// operator (which is case-insensitive by default).
+	//
+	// The other option would be for clients to use the following:
+	//
+	//     PRAGMA case_sensitive_like = 1
+	//
+	// But that would require clients to be aware of that.
+	await db.exec('CREATE INDEX idx_entries_map_expr ON entries_map (expr COLLATE NOCASE)')
+	await db.exec('CREATE INDEX idx_entries_map_keyword ON entries_map (keyword COLLATE NOCASE)')
+	await db.exec('CREATE INDEX idx_entries_map_keyword_rev ON entries_map (keyword_rev COLLATE NOCASE)')
+	await db.exec('CREATE INDEX idx_entries_map_keyword_set ON entries_map (keyword_set COLLATE NOCASE)')
+	console.log(`--- Indexes created in ${lib.elapsed(start_db_index)}`)
 
 	await db.close()
 
@@ -153,7 +256,7 @@ async function main() {
 	const per_entry = delta / entries.length
 	const per_delta = entries.length / (delta / 1000)
 	console.log(
-		`Generated database in ${lib.duration(delta)} ` +
+		`\nGenerated database in ${lib.duration(delta)} ` +
 			`(${lib.duration(per_entry)} per row / ${per_delta.toFixed(1)} per sec)...`,
 	)
 }

@@ -643,5 +643,5 @@ export async function import_entries(filename: string) {
 	parser.close()
 	console.log(`Processed ${entries.length} entries from the XML in ${lib.elapsed(start_xml)}`)
 
-	return entries
+	return { entries, tags }
 }

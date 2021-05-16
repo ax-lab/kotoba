@@ -318,15 +318,15 @@ describe('to_hiragana_key', () => {
 	})
 
 	test('should convert fullwidth to ASCII', () => {
-		check('ＡＢＣ１２３', 'ABC123')
+		check('ＡＢＣ１２３', 'abc123')
 	})
 
 	test('should strip non-word', () => {
-		check('㊉（漢字）　〖Ａ／Ｂ・Ｃ〗、１ー２～３(;-;) かか 123', '漢字ABC123かか123')
+		check('㊉（漢字）　〖Ａ／Ｂ・Ｃ〗、１ー２～３(;-;) かか 123', '漢字abc123かか123')
 	})
 
 	test('should handle small chars', () => {
-		check('ゃゅょかった-ぁぃぅぇぉ', 'やゆよかたあいうえお')
+		check('ゃゅょかった:ぁぃぅぇぉ', 'やゆよかたあいうえお')
 	})
 
 	test('should strip つ where っ is possible', () => {
@@ -341,11 +341,11 @@ describe('to_hiragana_key', () => {
 		check('うつう', 'うつ') // this is actually a long vowel pair
 		check('えつえ', 'えつえ')
 		check('おつお', 'おつお')
+		check('かたつー', 'かたつ')
 
 		// We want to strip in those
 		check('かつた', 'かた')
 		check('かたつ', 'かた')
-		check('かたつー', 'かた')
 		check('かたつ！', 'かた')
 
 		// Check all possible combinations
@@ -368,6 +368,8 @@ describe('to_hiragana_key', () => {
 
 		// First check some tricky corner cases
 		check('ぎゃああああ', 'きや')
+		check('あーあーあーあ', 'あ')
+		check('あーあーあーあー', 'あ')
 		check('ヴぅぅぅぅう', 'う')
 		check('ヴぉぉぉぉお', 'うお')
 		check('せぇ', 'せ')

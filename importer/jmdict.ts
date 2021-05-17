@@ -179,7 +179,7 @@ export type EntrySense = {
 	 *
 	 * Corresponds to `stagk` in XML.
 	 */
-	stag_kanji: string[]
+	stag_kanji?: string[]
 
 	/**
 	 * If present, indicate that the sense is restricted to the lexeme
@@ -187,7 +187,7 @@ export type EntrySense = {
 	 *
 	 * Corresponds to `stagr` in XML.
 	 */
-	stag_reading: string[]
+	stag_reading?: string[]
 
 	/**
 	 * Tags corresponding to part-of-speech information about the entry/sense.
@@ -198,7 +198,7 @@ export type EntrySense = {
 	 *
 	 * Corresponds to `pos` in XML.
 	 */
-	pos: string[]
+	pos?: string[]
 
 	/**
 	 * This element is used to indicate a cross-reference to another entry with
@@ -211,7 +211,7 @@ export type EntrySense = {
 	 *
 	 * Corresponds to `xref` in XML.
 	 */
-	xref: string[]
+	xref?: string[]
 
 	/**
 	 * This element is used to indicate another entry which is an antonym of
@@ -220,7 +220,7 @@ export type EntrySense = {
 	 *
 	 * Corresponds to `ant` in XML.
 	 */
-	antonym: string[]
+	antonym?: string[]
 
 	/**
 	 * Tags with information about the field of application of the entry/sense.
@@ -228,7 +228,7 @@ export type EntrySense = {
 	 *
 	 * Corresponds to `field` in XML.
 	 */
-	field: string[]
+	field?: string[]
 
 	/**
 	 * Tags used for other relevant information about the entry/sense. As with
@@ -236,7 +236,7 @@ export type EntrySense = {
 	 *
 	 * Corresponds to `misc` in XML.
 	 */
-	misc: string[]
+	misc?: string[]
 
 	/**
 	 * The sense-information elements provided for additional information to be
@@ -247,7 +247,7 @@ export type EntrySense = {
 	 *
 	 * Corresponds to `s_inf` in XML.
 	 */
-	info: string[]
+	info?: string[]
 
 	/**
 	 * For words specifically associated with regional dialects in Japanese,
@@ -255,7 +255,7 @@ export type EntrySense = {
 	 *
 	 * Corresponds to `dial` in XML.
 	 */
-	dialect: string[]
+	dialect?: string[]
 
 	/**
 	 * This element records the information about the source language(s) of a
@@ -263,7 +263,7 @@ export type EntrySense = {
 	 *
 	 * Corresponds to `lsource` in XML.
 	 */
-	source: EntrySenseSource[]
+	source?: EntrySenseSource[]
 
 	/**
 	 * Within each sense will be one or more glossary entries, i.e. words or
@@ -376,7 +376,8 @@ export async function import_entries(filename: string) {
 		return label ? `at ${label} (${tags})` : `at ${tags}`
 	}
 
-	function push<T>(ls: T[], elem: T | null, validate: (elem: T) => string | void) {
+	function push<T>(ls: T[] | undefined, elem: T | null, validate: (elem: T) => string | void) {
+		if (!ls) return
 		if (!elem) {
 			throw new Error(`pushing null element in list ${at_pos()}`)
 		}
@@ -602,31 +603,31 @@ export async function import_entries(filename: string) {
 				context.cur_glossary = null
 				break
 			case 'dial':
-				push_tag(context.cur_sense!.dialect, text)
+				push_tag(context.cur_sense!.dialect!, text)
 				break
 			case 'pos':
-				push_tag(context.cur_sense!.pos, text)
+				push_tag(context.cur_sense!.pos!, text)
 				break
 			case 'stagk':
-				push_text(context.cur_sense!.stag_kanji, text)
+				push_text(context.cur_sense!.stag_kanji!, text)
 				break
 			case 'stagr':
-				push_text(context.cur_sense!.stag_reading, text)
+				push_text(context.cur_sense!.stag_reading!, text)
 				break
 			case 'xref':
-				push_text(context.cur_sense!.xref, text)
+				push_text(context.cur_sense!.xref!, text)
 				break
 			case 'ant':
-				push_text(context.cur_sense!.antonym, text)
+				push_text(context.cur_sense!.antonym!, text)
 				break
 			case 'field':
-				push_tag(context.cur_sense!.field, text)
+				push_tag(context.cur_sense!.field!, text)
 				break
 			case 'misc':
-				push_text(context.cur_sense!.misc, text)
+				push_text(context.cur_sense!.misc!, text)
 				break
 			case 's_inf':
-				push_text(context.cur_sense!.info, text)
+				push_text(context.cur_sense!.info!, text)
 				break
 		}
 

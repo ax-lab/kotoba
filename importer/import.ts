@@ -7,10 +7,12 @@ import * as lib from '../lib'
 import { kana } from '../lib'
 
 import * as jmdict from './jmdict'
+import * as kirei from './kirei'
 
 const DICT_DATABASE = 'dict.db'
 
 const DICT_FILE = 'jmdict_english.zip'
+const KIREI_CAKE = 'kirei-cake.html.txt'
 
 const DATA_DIR = path.join(__dirname, '..', 'data')
 
@@ -29,8 +31,89 @@ async function main() {
 	}
 	console.log(`Data directory is ${DATA_DIR}`)
 
+	// Import main entries from JMDict.
 	const db_file = path.join(DATA_DIR, DICT_DATABASE)
-	const { entries, tags } = await jmdict.import_entries(path.join(DATA_DIR, DICT_FILE))
+	const jm_data = await jmdict.import_entries(path.join(DATA_DIR, DICT_FILE))
+
+	const entries = jm_data.entries
+
+	// Import additional entries from Kirei Cake.
+	const kirei_cake = path.join(DATA_DIR, KIREI_CAKE)
+	const kirei_entries = await kirei.import_entries(kirei_cake, jm_data.tags)
+	console.log(`\n>>> Imported ${kirei_entries.length} Kirei Cake entries`)
+
+	const TAG_KIREI = 'kirei'
+	const tags: Record<string, string> = { ...kirei.TAGS, ...jm_data.tags, [TAG_KIREI]: 'From Kirei Cake' }
+
+	// Map existing entries from the JMDict data so we can merge with Kirei Cake
+	const entries_index: Record<string, number> = {}
+	entries.forEach((it, index) => {
+		// Map each kanji variation with its readings
+		for (const k of it.kanji) {
+			for (const r of it.reading) {
+				if (r.restrict) {
+					continue // restricted readings are mapped below
+				}
+				entries_index[`${k.expr}||${r.expr}`] = index
+			}
+		}
+		// Map restricted readings and entries without a kanji element.
+		for (const r of it.reading) {
+			for (const expr of r.restrict) {
+				entries_index[`${expr}||${r.expr}`] = index
+			}
+			if (!it.kanji.length) {
+				entries_index[`${r.expr}`] = index
+			}
+		}
+	})
+
+	// Merge the Kirei Cake entries to the JSDict format.
+	const kirei_sequence = 5000000
+	let new_entries = 0
+	let cur_entries = 0
+	for (const [pos, it] of kirei_entries.entries()) {
+		const entry = [it.expr, it.kana].filter((x) => !!x)
+		const index = entries_index[`${entry.join('||')}`]
+		if (index == null) {
+			// Append a new entry directly
+			new_entries++
+			entries.push({
+				sequence: (kirei_sequence + pos).toString(),
+				kanji: !it.expr
+					? []
+					: [
+							{
+								expr: it.expr,
+								info: it.tags || [],
+								priority: [],
+							},
+					  ],
+				reading: [
+					{
+						expr: it.kana,
+						info: it.expr ? [] : it.tags || [],
+						priority: [],
+						restrict: [],
+					},
+				],
+				sense: [
+					{
+						misc: [TAG_KIREI],
+						glossary: it.sense.map((x) => ({ text: x })),
+					},
+				],
+			})
+		} else {
+			// For an existing entry, add a sense.
+			cur_entries++
+			entries[index].sense.push({
+				misc: [TAG_KIREI],
+				glossary: it.sense.map((x) => ({ text: x })),
+			})
+		}
+	}
+	console.log(`Merged ${new_entries} new and ${cur_entries} existing entries from Kirei Cake`)
 
 	console.log(`\n>>> Building index map from entries...`)
 	const map_entries = entries.flatMap((entry) => {
@@ -181,33 +264,37 @@ async function main() {
 		}))
 	})
 
+	const join = (ls: string[] | undefined) => (ls ? ls.join(sep) : '')
+
 	const tb_sense = entries.flatMap((x) => {
 		return x.sense.map((row, pos) => ({
 			sequence: x.sequence,
 			pos: pos,
-			stag_kanji: row.stag_kanji.join(sep),
-			stag_reading: row.stag_reading.join(sep),
-			part_of_speech: row.pos.join(sep),
-			dialect: row.dialect.join(sep),
-			xref: row.xref.join(sep),
-			antonym: row.antonym.join(sep),
-			field: row.field.join(sep),
-			misc: row.misc.join(sep),
-			info: row.info.join(sep),
+			stag_kanji: join(row.stag_kanji),
+			stag_reading: join(row.stag_reading),
+			part_of_speech: join(row.pos),
+			dialect: join(row.dialect),
+			xref: join(row.xref),
+			antonym: join(row.antonym),
+			field: join(row.field),
+			misc: join(row.misc),
+			info: join(row.info),
 		}))
 	})
 
 	const tb_sense_source = entries.flatMap((x) => {
 		return x.sense.flatMap((row, pos) =>
-			row.source.map((it, elem) => ({
-				sequence: x.sequence,
-				pos: pos,
-				elem: elem,
-				text: it.text,
-				lang: it.lang,
-				partial: it.partial,
-				wasei: it.wasei,
-			})),
+			!row.source
+				? []
+				: row.source.map((it, elem) => ({
+						sequence: x.sequence,
+						pos: pos,
+						elem: elem,
+						text: it.text,
+						lang: it.lang,
+						partial: it.partial,
+						wasei: it.wasei,
+				  })),
 		)
 	})
 

@@ -20,6 +20,7 @@
 		"kanadzukai",
 		"kangxi",
 		"kansaiben",
+		"kirei",
 		"kotoba",
 		"kurikaeshi",
 		"Kyouiku",
@@ -49,6 +50,7 @@
 	"flagWords": ["teh"],
 	"ignorePaths": [
 		".vscode/**",
+		"kirei-cake.html*",
 		"node_modules/**",
 		"normalize.scss",
 		"package-lock.json",

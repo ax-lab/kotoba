@@ -10,3 +10,8 @@ export async function open_zip(filename: string) {
 	const file = await JSZip.loadAsync(data)
 	return file
 }
+
+export async function read_lines(filename: string) {
+	const data = await read_file(filename, 'utf-8')
+	return data.split(/\n|\r\n?/)
+}

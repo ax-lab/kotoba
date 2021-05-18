@@ -2,7 +2,7 @@ import sax from 'sax'
 
 import * as lib from '../lib'
 
-import { open_zip } from './util'
+import { open_zip } from './files'
 
 export const LIST_SEPARATOR = '||'
 

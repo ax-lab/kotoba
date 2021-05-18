@@ -6,6 +6,7 @@ import sqlite from 'sqlite3'
 import * as lib from '../lib'
 import { kana } from '../lib'
 
+import { file_exists } from './files'
 import * as jmdict from './jmdict'
 import * as kirei from './kirei'
 
@@ -14,12 +15,13 @@ const DICT_DATABASE = 'dict.db'
 const DICT_FILE = 'jmdict_english.zip'
 const KIREI_CAKE = 'kirei-cake.html.txt'
 
-const DATA_DIR = path.join(__dirname, '..', 'data')
+const DATA_SRC_DIR = path.join(__dirname, '..', 'data', 'source')
+const DATA_OUT_DIR = path.join(__dirname, '..', 'data')
 
 const check_data = () => {
-	const stat = fs.statSync(DATA_DIR)
+	const stat = fs.statSync(DATA_SRC_DIR)
 	if (!stat || !stat.isDirectory()) {
-		console.error('Fatal error: data directory not found')
+		console.error('Fatal error: data source directory not found')
 		return false
 	}
 	return true
@@ -29,16 +31,26 @@ async function main() {
 	if (!check_data()) {
 		return
 	}
-	console.log(`Data directory is ${DATA_DIR}`)
+	console.log(`- Data source directory is ${DATA_SRC_DIR}`)
+	console.log(`- Data output directory is ${DATA_OUT_DIR}`)
 
+	const db_file = path.join(DATA_OUT_DIR, DICT_DATABASE)
+	if (!(await file_exists(db_file))) {
+		console.log('\n#====================== Generating dict.db ======================#\n')
+		await generate_dict(db_file)
+	} else {
+		console.log(`- File ${db_file} already exists, skipping.`)
+	}
+}
+
+async function generate_dict(db_file: string) {
 	// Import main entries from JMDict.
-	const db_file = path.join(DATA_DIR, DICT_DATABASE)
-	const jm_data = await jmdict.import_entries(path.join(DATA_DIR, DICT_FILE))
+	const jm_data = await jmdict.import_entries(path.join(DATA_SRC_DIR, DICT_FILE))
 
 	const entries = jm_data.entries
 
 	// Import additional entries from Kirei Cake.
-	const kirei_cake = path.join(DATA_DIR, KIREI_CAKE)
+	const kirei_cake = path.join(DATA_SRC_DIR, KIREI_CAKE)
 	const kirei_entries = await kirei.import_entries(kirei_cake, jm_data.tags)
 	console.log(`\n>>> Imported ${kirei_entries.length} Kirei Cake entries`)
 

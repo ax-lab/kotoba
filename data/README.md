@@ -21,3 +21,6 @@
 
 - Corpus data:
 	- http://www.lexique.org/?page_id=250
+
+- Kanji search tool (example):
+	- https://kanji.sljfaq.org/

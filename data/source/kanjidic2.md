@@ -68,9 +68,7 @@ file itself):
 		- `q_code` (+): 
 			- The q_code contains the actual query-code value, according to the `[qc_type]` attribute.
 			- `[qc_type]`: The qc_type attribute defines the type of query code. The current values are:
-				- `skip` - Halpern's SKIP (System of Kanji Indexing by Patterns) code. The format is n-nn-nn. There are also
-				a number of misclassification codes, indicated by the
-				`[skip_misclass]` attribute.
+				- `skip` - Halpern's SKIP (System of Kanji Indexing by Patterns) code. The format is n-nn-nn. There are also a number of misclassification codes, indicated by the `[skip_misclass]` attribute.
 				- `sh_desc` - the descriptor codes for The Kanji Dictionary (Tuttle 1996) by Spahn and Hadamitzky. They are in the form `nxnn.n`, e.g. 3k11.2, where the kanji has 3 strokes in the identifying radical, it is radical "k" in the SH classification system, there are 11 other strokes, and it is the 2nd kanji in the 3k11 sequence.
 				- `four_corner` - the "Four Corner" code for the kanji.
 				- `deroo` - the codes developed by the late Father Joseph De Roo, and published in his book "2001 Kanji" (Bonjinsha).

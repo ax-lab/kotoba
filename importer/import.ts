@@ -8,11 +8,14 @@ import { kana } from '../lib'
 
 import { file_exists } from './files'
 import * as jmdict from './jmdict'
+import * as kanjidic from './kanjidic'
 import * as kirei from './kirei'
 
 const DICT_DATABASE = 'dict.db'
+const KANJI_DATABASE = 'kanji.db'
 
 const DICT_FILE = 'jmdict_english.zip'
+const KANJIDIC_FILE = 'kanjidic2.zip'
 const KIREI_CAKE = 'kirei-cake.html.txt'
 
 const DATA_SRC_DIR = path.join(__dirname, '..', 'data', 'source')
@@ -34,13 +37,21 @@ async function main() {
 	console.log(`- Data source directory is ${DATA_SRC_DIR}`)
 	console.log(`- Data output directory is ${DATA_OUT_DIR}`)
 
-	const db_file = path.join(DATA_OUT_DIR, DICT_DATABASE)
-	if (!(await file_exists(db_file))) {
+	const db_kanji = path.join(DATA_OUT_DIR, KANJI_DATABASE)
+	console.log('\n#====================== Generating kanji.db ======================#\n')
+	await generate_kanji(db_kanji)
+
+	const db_dict = path.join(DATA_OUT_DIR, DICT_DATABASE)
+	if (!(await file_exists(db_dict))) {
 		console.log('\n#====================== Generating dict.db ======================#\n')
-		await generate_dict(db_file)
+		await generate_dict(db_dict)
 	} else {
-		console.log(`- File ${db_file} already exists, skipping.`)
+		console.log(`- File ${db_dict} already exists, skipping.`)
 	}
+}
+
+async function generate_kanji(db_file: string) {
+	await kanjidic.import_entries(path.join(DATA_SRC_DIR, KANJIDIC_FILE))
 }
 
 async function generate_dict(db_file: string) {
@@ -171,6 +182,8 @@ async function generate_dict(db_file: string) {
 	console.log(`Writing database to ${db_file}\n`)
 
 	const sep = jmdict.LIST_SEPARATOR
+
+	// TODO: index kanji/reading unique pairs to their own table
 
 	const start_db = lib.now()
 	const db = new DB(db_file)

@@ -59,7 +59,7 @@ file itself):
 			- `jf_cards` - Japanese Kanji Flashcards, by Max Hodges and Tomoko Okazaki. (Series 1)
 			- `henshall3` - "A Guide To Reading and Writing Japanese" 3rd edition, edited by Henshall, Seeley and De Groot.
 			- `tutt_cards` - Tuttle Kanji Cards, compiled by Alexander Kask.
-			crowley - "The Kanji Way to Japanese Language Power" by Dale Crowley.
+			- `crowley` - "The Kanji Way to Japanese Language Power" by Dale Crowley.
 			- `kanji_in_context` - "Kanji in Context" by Nishiguchi and Kono.
 			- `busy_people` - "Japanese For Busy People" vols I-III, published by the AJLT. The codes are the volume.chapter.
 			- `kodansha_compact` - the "Kodansha Compact Kanji Guide".

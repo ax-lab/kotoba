@@ -808,6 +808,29 @@ describe('chars', () => {
 			).toBe(true)
 		})
 	})
+
+	describe('chars.is_kanji', () => {
+		test('should return false for empty', () => {
+			expect(chars.is_kanji('')).toBe(false)
+		})
+
+		test('should return true for single kanji', () => {
+			expect(chars.is_kanji('日')).toBe(true)
+			expect(chars.is_kanji('月')).toBe(true)
+			expect(chars.is_kanji('亜')).toBe(true)
+		})
+
+		test('should return true for multiple kanji', () => {
+			expect(chars.is_kanji('日月亜')).toBe(true)
+		})
+
+		test('should return false for non-kanji', () => {
+			expect(chars.is_kanji('_日月亜')).toBe(false)
+			expect(chars.is_kanji('日月亜_')).toBe(false)
+			expect(chars.is_kanji('日_月亜')).toBe(false)
+			expect(chars.is_kanji('日月_亜')).toBe(false)
+		})
+	})
 })
 
 function customizeExpect() {

@@ -35,6 +35,27 @@ export function is_kana(input: string): boolean {
 	return true
 }
 
+export function is_kanji(input: string): boolean {
+	if (!input) {
+		return false
+	}
+
+	for (const chr of input) {
+		const info = get_char_info(chr)
+		if (!info) {
+			return false
+		}
+		switch (info[0]) {
+			case CharKind.KANJI:
+				break
+			default:
+				return false
+		}
+	}
+
+	return true
+}
+
 /**
  * Looks up information about a single character unit. Character units are
  * generally a single Unicode codepoint, but can also include combining marks

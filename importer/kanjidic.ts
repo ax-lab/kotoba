@@ -580,28 +580,33 @@ export async function import_entries(filename: string) {
 
 			case 'dic_ref': {
 				const name = context.attr['dr_type']
-				push(context.cur_entry!.dict, { name, text }, (it) => {
-					if (!it.name) {
-						return `missing dictionary entry name (text is ${it.text})`
-					}
-					if (!KANJI_ENTRY_DICT_NAMES[it.name]) {
-						return `dictionary entry name is unknown: ${it.name}`
-					}
-					if (!it.text) {
-						return `missing dictionary entry text for ${it.name}`
-					}
-					if (it.name == 'moro') {
-						const vol = context.attr['m_vol']
-						const page = context.attr['m_page']
-						const index = [vol ? `volume ${vol}` : ``, page ? `page ${page}` : ``]
-							.filter((x) => !!x)
-							.join(', ')
-						if (index) {
-							it.text += ` (${index})`
+				const exists = context.cur_entry!.dict.find((x) => x.name == name && x.text == text)
+				!exists &&
+					push(context.cur_entry!.dict, { name, text }, (it) => {
+						if (!it.name) {
+							return `missing dictionary entry name (text is ${it.text})`
 						}
-					}
-					return
-				})
+						if (!KANJI_ENTRY_DICT_NAMES[it.name]) {
+							return `dictionary entry name is unknown: ${it.name}`
+						}
+						if (context.cur_entry!.dict.find((x) => x.name == it.name && x.text == it.text)) {
+							return `duplicated dictionary entry for ${it.name} - ${it.text}`
+						}
+						if (!it.text) {
+							return `missing dictionary entry text for ${it.name}`
+						}
+						if (it.name == 'moro') {
+							const vol = context.attr['m_vol']
+							const page = context.attr['m_page']
+							const index = [vol ? `volume ${vol}` : ``, page ? `page ${page}` : ``]
+								.filter((x) => !!x)
+								.join(', ')
+							if (index) {
+								it.text += ` (${index})`
+							}
+						}
+						return
+					})
 				break
 			}
 
@@ -645,6 +650,16 @@ export async function import_entries(filename: string) {
 			}
 
 			// Readings & Meanings
+
+			case 'rmgroup': {
+				push(context.cur_entry!.readings_meanings, context.cur_reading_group, (it) => {
+					if (!(it.readings.length + it.meanings.length)) {
+						return `empty reading/meaning group`
+					}
+					return
+				})
+				break
+			}
 
 			case 'reading': {
 				const type = context.attr['r_type']

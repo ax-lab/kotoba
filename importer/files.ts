@@ -6,6 +6,7 @@ import JSZip from 'jszip'
 const fs_read_file = promisify(fs.readFile)
 const fs_mkdir = promisify(fs.mkdir)
 const fs_stat = promisify(fs.stat)
+const fs_unlink = promisify(fs.unlink)
 
 export async function open_zip(filename: string) {
 	const data = await fs_read_file(filename)
@@ -23,6 +24,16 @@ export async function mkdir(dir: string) {
 		await fs_mkdir(dir, { recursive: true })
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code != 'EEXIST') {
+			throw err
+		}
+	}
+}
+
+export async function remove_file(file: string) {
+	try {
+		await fs_unlink(file)
+	} catch (err) {
+		if ((err as NodeJS.ErrnoException).code != 'ENOENT') {
 			throw err
 		}
 	}

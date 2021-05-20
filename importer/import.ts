@@ -6,7 +6,7 @@ import sqlite from 'sqlite3'
 import * as lib from '../lib'
 import { kana } from '../lib'
 
-import { file_exists } from './files'
+import { file_exists, remove_file } from './files'
 import * as jmdict from './jmdict'
 import * as kanjidic from './kanjidic'
 import * as kirei from './kirei'
@@ -38,8 +38,12 @@ async function main() {
 	console.log(`- Data output directory is ${DATA_OUT_DIR}`)
 
 	const db_kanji = path.join(DATA_OUT_DIR, KANJI_DATABASE)
-	console.log('\n#====================== Generating kanji.db ======================#\n')
-	await generate_kanji(db_kanji)
+	if (!(await file_exists(db_kanji))) {
+		console.log('\n#====================== Generating kanji.db ======================#\n')
+		await generate_kanji(db_kanji)
+	} else {
+		console.log(`\n- File ${db_kanji} already exists, skipping.`)
+	}
 
 	const db_dict = path.join(DATA_OUT_DIR, DICT_DATABASE)
 	if (!(await file_exists(db_dict))) {
@@ -51,7 +55,174 @@ async function main() {
 }
 
 async function generate_kanji(db_file: string) {
-	await kanjidic.import_entries(path.join(DATA_SRC_DIR, KANJIDIC_FILE))
+	const entries = await kanjidic.import_entries(path.join(DATA_SRC_DIR, KANJIDIC_FILE))
+
+	console.log(`Writing Kanji database to ${db_file}\n`)
+	await remove_file(db_file)
+
+	const start = lib.now()
+	const db = new DB(db_file)
+	await db.exec('PRAGMA journal_mode = MEMORY')
+	await db.exec(`
+		CREATE TABLE dictionaries (
+			name  TEXT PRIMARY KEY,
+			label TEXT
+		);
+
+		CREATE TABLE kanji (
+			character     TEXT PRIMARY KEY,
+			grade         NUMBER,
+			frequency     NUMBER,
+			old_jlpt      NUMBER,
+
+			radicals      TEXT,   -- CSV list of radical names for this kanji (hiragana)
+			nanori        TEXT,   -- CSV list of Japanese readings now only associated with names
+
+			stroke        NUMBER, -- official stroke count
+			stroke_min    NUMBER, -- minimum stroke count considering extras
+			stroke_max    NUMBER, -- maximum stroke count considering extras
+			stroke_all    TEXT    -- CSV list of extra common stroke miscounts
+		);
+
+		CREATE TABLE kanji_radical(
+			character     TEXT,
+			type          TEXT,
+			radical       INT,
+			PRIMARY KEY (character, type, radical)
+		);
+
+		CREATE TABLE kanji_variant(
+			character     TEXT,
+			variant       TEXT,
+			type          TEXT,
+			PRIMARY KEY (character, variant, type)
+		);
+		CREATE INDEX idx_kanji_variant ON kanji_variant (character);
+
+		CREATE TABLE kanji_query_code(
+			character     TEXT,
+			type          TEXT,
+			value         TEXT,
+			misclass      TEXT,
+			PRIMARY KEY (character, type, value, misclass)
+		);
+		CREATE INDEX idx_kanji_query_code_character ON kanji_query_code (character);
+		CREATE INDEX idx_kanji_query_code_lookup    ON kanji_query_code (type, value);
+
+		CREATE TABLE kanji_reading(
+			character     TEXT,
+			sequence      INT,
+			type          TEXT,
+			value         TEXT,
+			PRIMARY KEY (character, sequence, type, value)
+		);
+		CREATE INDEX idx_kanji_reading ON kanji_reading (character);
+
+		CREATE TABLE kanji_meaning(
+			character     TEXT,
+			sequence      INT,
+			lang          TEXT,
+			value         TEXT,
+			PRIMARY KEY (character, sequence, lang, value)
+		);
+		CREATE INDEX idx_kanji_meaning_character ON kanji_meaning (character);
+		CREATE INDEX idx_kanji_meaning_lookup    ON kanji_meaning (value COLLATE NOCASE);
+
+		CREATE TABLE kanji_dict(
+			character     TEXT,
+			name          TEXT,
+			text          TEXT,
+			PRIMARY KEY (character, name, text)
+		);
+		CREATE INDEX idx_kanji_dict ON kanji_dict (character);
+	`)
+
+	const SEP = ','
+
+	const dict = kanjidic.KANJI_ENTRY_DICT_NAMES
+	const tb_dictionaries = Object.keys(dict)
+		.sort()
+		.map((name) => ({ name, label: dict[name] }))
+
+	const tb_kanji = entries.map((row) => ({
+		character: row.literal,
+		grade: row.grade,
+		frequency: row.frequency,
+		old_jlpt: row.old_jlpt,
+		radicals: row.radical_names.join(SEP),
+		nanori: row.nanori.join(SEP),
+		stroke: row.stroke_count[0],
+		stroke_max: Math.max(...row.stroke_count),
+		stroke_min: Math.min(...row.stroke_count),
+		stroke_all: row.stroke_count.join(','),
+	}))
+
+	const tb_kanji_radical = entries.flatMap((row) =>
+		row.radicals.map((rad) => ({
+			character: row.literal,
+			type: rad.type,
+			radical: rad.value,
+		})),
+	)
+
+	const tb_kanji_variant = entries.flatMap((row) =>
+		row.variant.map((v) => ({
+			character: row.literal,
+			variant: v.type == 'ucs' ? String.fromCodePoint(parseInt(v.value, 16)) : v.value,
+			type: v.type,
+		})),
+	)
+
+	const tb_kanji_query_code = entries.flatMap((row) =>
+		row.query_codes.map((q) => ({
+			character: row.literal,
+			type: q.type,
+			value: q.value,
+			misclass: q.type == 'skip' ? q.skip_misclass : undefined,
+		})),
+	)
+
+	const tb_kanji_reading = entries.flatMap((row) =>
+		row.readings_meanings.flatMap((group, sequence) =>
+			group.readings.map((r) => ({
+				character: row.literal,
+				sequence: sequence,
+				type: r.type,
+				value: r.value,
+			})),
+		),
+	)
+
+	const tb_kanji_meaning = entries.flatMap((row) =>
+		row.readings_meanings.flatMap((group, sequence) =>
+			group.meanings.map((m) => ({
+				character: row.literal,
+				sequence: sequence,
+				lang: m.lang,
+				value: m.text,
+			})),
+		),
+	)
+
+	const tb_kanji_dict = entries.flatMap((row) =>
+		row.dict.map((dict) => ({
+			character: row.literal,
+			name: dict.name,
+			text: dict.text,
+		})),
+	)
+
+	await db.insert('dictionaries', tb_dictionaries)
+	await db.insert('kanji', tb_kanji)
+	await db.insert('kanji_radical', tb_kanji_radical)
+	await db.insert('kanji_variant', tb_kanji_variant)
+	await db.insert('kanji_query_code', tb_kanji_query_code)
+	await db.insert('kanji_reading', tb_kanji_reading)
+	await db.insert('kanji_meaning', tb_kanji_meaning)
+	await db.insert('kanji_dict', tb_kanji_dict)
+
+	await db.close()
+	console.log(`\nGenerated database in ${lib.elapsed(start)}`)
 }
 
 async function generate_dict(db_file: string) {
@@ -199,13 +370,8 @@ async function generate_dict(db_file: string) {
 		return { ...it, keyword, keyword_rev, keyword_set }
 	})
 
-	try {
-		fs.unlinkSync(db_file)
-	} catch (e) {
-		// ignore
-	}
-
 	console.log(`Writing database to ${db_file}\n`)
+	await remove_file(db_file)
 
 	const sep = jmdict.LIST_SEPARATOR
 

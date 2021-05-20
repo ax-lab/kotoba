@@ -19,6 +19,9 @@
 	- https://foosoft.net/projects/yomichan/
 	- https://kireicake.com/rikaicake-online/
 
+- Yomichan:
+	- https://foosoft.net/projects/yomichan/index.html
+
 - Corpus data:
 	- http://www.lexique.org/?page_id=250
 

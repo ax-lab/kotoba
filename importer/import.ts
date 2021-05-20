@@ -46,7 +46,7 @@ async function main() {
 		console.log('\n#====================== Generating dict.db ======================#\n')
 		await generate_dict(db_dict)
 	} else {
-		console.log(`- File ${db_dict} already exists, skipping.`)
+		console.log(`\n- File ${db_dict} already exists, skipping.`)
 	}
 }
 
@@ -74,7 +74,7 @@ async function generate_dict(db_file: string) {
 		// Map each kanji variation with its readings
 		for (const k of it.kanji) {
 			for (const r of it.reading) {
-				if (r.restrict) {
+				if (r.restrict.length) {
 					continue // restricted readings are mapped below
 				}
 				entries_index[`${k.expr}||${r.expr}`] = index
@@ -138,6 +138,32 @@ async function generate_dict(db_file: string) {
 	}
 	console.log(`Merged ${new_entries} new and ${cur_entries} existing entries from Kirei Cake`)
 
+	const entries_index_rows: Array<{ kanji: string; reading: string; sequence: string }> = []
+	entries.forEach((it) => {
+		const sequence = it.sequence
+
+		// Map each kanji variation with its readings
+		for (const k of it.kanji) {
+			for (const r of it.reading) {
+				if (r.restrict.length) {
+					continue // restricted readings are mapped below
+				}
+				entries_index_rows.push({ sequence, kanji: k.expr, reading: r.expr })
+			}
+		}
+		// Map restricted readings and entries without a kanji element.
+		for (const r of it.reading) {
+			for (const expr of r.restrict) {
+				entries_index_rows.push({ sequence, kanji: expr, reading: r.expr })
+			}
+			if (!it.kanji.length) {
+				entries_index_rows.push({ sequence, kanji: '', reading: r.expr })
+			}
+		}
+	})
+
+	const tb_entries_index = entries_index_rows.map((x) => ({ ...x, hiragana: kana.to_hiragana(x.reading) }))
+
 	console.log(`\n>>> Building index map from entries...`)
 	const map_entries = entries.flatMap((entry) => {
 		const sequence = entry.sequence
@@ -195,6 +221,14 @@ async function generate_dict(db_file: string) {
 		);
 
 		CREATE TABLE entries (sequence TEXT PRIMARY KEY);
+
+		CREATE TABLE entries_index(
+			kanji          TEXT,
+			reading        TEXT,
+			hiragana       TEXT,
+			sequence       TEXT,
+			PRIMARY KEY (kanji, reading, sequence)
+		);
 
 		CREATE TABLE entries_kanji (
 			sequence       TEXT,
@@ -337,6 +371,7 @@ async function generate_dict(db_file: string) {
 
 	await db.insert('tags', tb_tags)
 	await db.insert('entries', tb_entries)
+	await db.insert('entries_index', tb_entries_index)
 	await db.insert('entries_kanji', tb_kanji)
 	await db.insert('entries_reading', tb_readings)
 	await db.insert('entries_sense', tb_sense)
@@ -356,10 +391,13 @@ async function generate_dict(db_file: string) {
 	//     PRAGMA case_sensitive_like = 1
 	//
 	// But that would require clients to be aware of that.
-	await db.exec('CREATE INDEX idx_entries_map_expr ON entries_map (expr COLLATE NOCASE)')
-	await db.exec('CREATE INDEX idx_entries_map_keyword ON entries_map (keyword COLLATE NOCASE)')
-	await db.exec('CREATE INDEX idx_entries_map_keyword_rev ON entries_map (keyword_rev COLLATE NOCASE)')
-	await db.exec('CREATE INDEX idx_entries_map_keyword_set ON entries_map (keyword_set COLLATE NOCASE)')
+	await db.exec(`CREATE INDEX idx_entries_map_expr ON entries_map (expr COLLATE NOCASE)`)
+	await db.exec(`CREATE INDEX idx_entries_map_keyword ON entries_map (keyword COLLATE NOCASE)`)
+	await db.exec(`CREATE INDEX idx_entries_map_keyword_rev ON entries_map (keyword_rev COLLATE NOCASE)`)
+	await db.exec(`CREATE INDEX idx_entries_map_keyword_set ON entries_map (keyword_set COLLATE NOCASE)`)
+	await db.exec(`CREATE INDEX idx_entries_index_kanji ON entries_index (kanji)`)
+	await db.exec(`CREATE INDEX idx_entries_index_reading ON entries_index (reading)`)
+	await db.exec(`CREATE INDEX idx_entries_index_hiragana ON entries_index (hiragana)`)
 	console.log(`--- Indexes created in ${lib.elapsed(start_db_index)}`)
 
 	await db.close()

@@ -23,8 +23,78 @@ const SubtitleView = (args: SubtitleViewProps) => {
 		return () => cleanup()
 	}, [])
 
+	const toggle_play_keydown = (ev: KeyboardEvent) => {
+		const subs = events.current_subtitle?.data || []
+
+		const playback = events.current_playback
+		const pos = playback?.play?.position || 0
+
+		const loop_a = playback?.play?.loop_a
+		const loop_b = playback?.play?.loop_b
+		const is_looping = loop_a != null && loop_b != null && pos >= loop_a && pos <= loop_b
+
+		let cur_index = -1
+		for (const [index, it] of subs.entries()) {
+			if (it.start.time <= pos) {
+				cur_index = index
+			}
+		}
+
+		console.log(cur_index)
+
+		let handled = false
+		switch (ev.code) {
+			case 'Space':
+				handled = true
+				void video.toggle_play()
+				break
+			case 'ArrowUp':
+				handled = true
+				if (cur_index > 0) {
+					void video.seek({ position: subs[cur_index - 1].start.time })
+				} else if (cur_index >= 0) {
+					void video.seek({ position: subs[cur_index].start.time })
+				}
+				break
+
+			case 'ArrowDown':
+				handled = true
+				if (cur_index >= 0 && cur_index < subs.length - 1) {
+					void video.seek({ position: subs[cur_index + 1].start.time })
+				}
+				break
+
+			case 'ArrowLeft':
+				handled = true
+				if (cur_index >= 0) {
+					void video.seek({ position: subs[cur_index].start.time })
+				}
+				break
+
+			case 'ArrowRight':
+				handled = true
+				if (!is_looping && cur_index >= 0) {
+					void video.loop({ a: subs[cur_index].start.time, b: subs[cur_index].end.time })
+				} else if (is_looping) {
+					void video.stop_loop()
+				}
+				break
+		}
+		if (handled) {
+			ev.preventDefault()
+			ev.stopPropagation()
+		}
+	}
+
 	// Monitor current playback state to select active subtitle.
 	const subtitle_view = React.createRef<HTMLDivElement>()
+
+	useEffect(() => {
+		const el = subtitle_view.current!
+		el.addEventListener('keydown', toggle_play_keydown)
+		return () => el.removeEventListener('keydown', toggle_play_keydown)
+	})
+
 	useEffect(() => {
 		const root = subtitle_view.current!
 		let layout_id = requestAnimationFrame(do_layout)
@@ -66,6 +136,7 @@ const SubtitleView = (args: SubtitleViewProps) => {
 	return (
 		<div
 			ref={subtitle_view}
+			tabIndex={1}
 			className="subtitle-view"
 			onScroll={(ev) => {
 				const cls = 'disable-hover'

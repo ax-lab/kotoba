@@ -35,12 +35,22 @@ export type InnocentCorpus = {
 	 * Number of times the term appears in the corpus.
 	 */
 	count: number
+
+	/**
+	 * Normalized count (0-100).
+	 */
+	weight: number
 }
 
 /**
  * Frequency information from the Worldlex database.
  */
 export type Wordlex = {
+	/**
+	 * Normalized weight (0-100).
+	 */
+	weight: number
+
 	/**
 	 * Number of times the term appears in the blog corpus.
 	 */
@@ -160,9 +170,6 @@ export async function import_frequencies(source_dir: string) {
 		)}`,
 	)
 
-	console.log(out.words.slice(0, 10))
-	console.log(out.chars.slice(0, 10))
-
 	return out
 
 	function remove_entry<T>(input: T): Omit<T, 'entry'> {
@@ -188,11 +195,12 @@ async function import_innocent_corpus(filename: string) {
 			lines = JSON.parse(await file.async('string')) as Array<[string, string, number]>
 		}
 
+		const max = Math.max(...lines.map((x) => x[2]))
 		;(is_kanji ? kanji : words).push(
 			...lines.map(
 				(row): InnocentCorpusSrc => {
 					const [entry, , count] = row
-					return { entry, count }
+					return { entry, count, weight: (100 * count) / max }
 				},
 			),
 		)
@@ -234,6 +242,7 @@ async function import_worldlex(filename: string) {
 		] = row
 		return {
 			entry,
+			weight: 0,
 			blog_freq: num(blog_freq),
 			blog_freq_pm: num(blog_freq_pm),
 			blog_cd: num(blog_cd),
@@ -249,10 +258,40 @@ async function import_worldlex(filename: string) {
 		}
 	}
 
+	const compute = (list: WorldlexSrc[]) => {
+		let max_blog_freq = 0
+		let max_twitter_freq = 0
+		let max_news_freq = 0
+		for (const row of list) {
+			max_blog_freq = Math.max(max_blog_freq, row.blog_freq)
+			max_twitter_freq = Math.max(max_twitter_freq, row.twitter_freq)
+			max_news_freq = Math.max(max_news_freq, row.news_freq)
+		}
+
+		for (const row of list) {
+			const blog_freq = row.blog_freq / max_blog_freq
+			const twitter_freq = row.twitter_freq / max_twitter_freq
+			const news_freq = row.news_freq / max_news_freq
+			const cd = (row.blog_cd_pc + row.twitter_cd_pc + row.news_cd_pc) / 3
+			row.weight = (((blog_freq + twitter_freq + news_freq) / 3) * 100 + cd) / 2
+		}
+	}
+
+	const isn = (x: unknown) => typeof x == 'number' && !isNaN(x)
 	const out = {
-		words: words.map(map_fn).filter((x) => x.entry != 'constructor'),
+		words: words.map(map_fn).filter((x) => {
+			const ok = isn(x.blog_freq) && isn(x.news_freq) && isn(x.twitter_freq)
+			if (!ok) {
+				return false
+			}
+			return x.entry != 'constructor'
+		}),
 		chars: chars.map(map_fn),
 	}
+
+	compute(out.words)
+	compute(out.chars)
+
 	console.log(
 		`Lexicon: loaded ${out.words.length} word and ${out.chars.length} char entries in ${lib.elapsed(start)}`,
 	)

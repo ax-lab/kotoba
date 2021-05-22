@@ -7,6 +7,7 @@ import * as lib from '../lib'
 import { kana } from '../lib'
 
 import { file_exists, remove_file } from './files'
+import { import_frequencies } from './frequency'
 import * as jmdict from './jmdict'
 import * as kanjidic from './kanjidic'
 import * as kirei from './kirei'
@@ -36,6 +37,8 @@ async function main() {
 	}
 	console.log(`- Data source directory is ${DATA_SRC_DIR}`)
 	console.log(`- Data output directory is ${DATA_OUT_DIR}`)
+
+	await import_frequencies(DATA_SRC_DIR)
 
 	const db_kanji = path.join(DATA_OUT_DIR, KANJI_DATABASE)
 	if (!(await file_exists(db_kanji))) {

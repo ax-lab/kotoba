@@ -19,6 +19,10 @@ export async function read_lines(filename: string) {
 	return data.split(/\n|\r\n?/)
 }
 
+export function split_lines(text: string) {
+	return text.split(/\n|\r\n?/).filter((x) => !!x.trim())
+}
+
 export async function mkdir(dir: string) {
 	try {
 		await fs_mkdir(dir, { recursive: true })

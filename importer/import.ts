@@ -51,7 +51,7 @@ async function main() {
 	const db_dict = path.join(DATA_OUT_DIR, DICT_DATABASE)
 	if (!(await file_exists(db_dict))) {
 		console.log('\n#====================== Generating dict.db ======================#\n')
-		await generate_dict(db_dict)
+		await generate_dict(db_dict, frequencies)
 	} else {
 		console.log(`\n- File ${db_dict} already exists, skipping.`)
 	}
@@ -276,7 +276,7 @@ async function generate_kanji(db_file: string, frequencies: Frequency) {
 	console.log(`\nGenerated database in ${lib.elapsed(start)}`)
 }
 
-async function generate_dict(db_file: string) {
+async function generate_dict(db_file: string, frequencies: Frequency) {
 	// Import main entries from JMDict.
 	const jm_data = await jmdict.import_entries(path.join(DATA_SRC_DIR, DICT_FILE))
 
@@ -386,15 +386,19 @@ async function generate_dict(db_file: string) {
 
 	const tb_entries_index = entries_index_rows.map((x) => ({ ...x, hiragana: kana.to_hiragana(x.reading) }))
 
+	const all_words = new Set<string>()
+
 	console.log(`\n>>> Building index map from entries...`)
 	const map_entries = entries.flatMap((entry) => {
 		const sequence = entry.sequence
 		const words: Record<string, boolean> = {}
 		for (const row of entry.kanji) {
 			words[row.expr] = true
+			all_words.add(row.expr)
 		}
 		for (const row of entry.reading) {
 			words[row.expr] = true
+			all_words.add(row.expr)
 		}
 		return Object.keys(words).map((expr) => ({ sequence, expr }))
 	})
@@ -437,7 +441,11 @@ async function generate_dict(db_file: string) {
 			label TEXT
 		);
 
-		CREATE TABLE entries (sequence TEXT PRIMARY KEY);
+		CREATE TABLE entries (
+			sequence       TEXT PRIMARY KEY,
+			frequency      NUMBER,
+			rank           NUMBER
+		);
 
 		CREATE TABLE entries_index(
 			kanji          TEXT,
@@ -453,6 +461,7 @@ async function generate_dict(db_file: string) {
 			expr           TEXT,
 			info           TEXT,
 			priority       TEXT,
+			frequency      NUMBER,
 			PRIMARY KEY (sequence, pos)
 		);
 
@@ -464,6 +473,7 @@ async function generate_dict(db_file: string) {
 			info           TEXT,
 			priority       TEXT,
 			restrict       TEXT,
+			frequency      NUMBER,
 			PRIMARY KEY (sequence, pos)
 		);
 
@@ -510,13 +520,79 @@ async function generate_dict(db_file: string) {
 			keyword_rev     TEXT,  -- 'keyword' reversed for suffix lookup
 			keyword_set     TEXT   -- char set in 'keyword' sorted by codepoint
 		);
+
+		CREATE TABLE word_frequency(
+			word                  TEXT PRIMARY KEY,
+			frequency             NUMBER,
+			count_ic              NUMBER,
+			frequency_ic          NUMBER,
+			frequency_blog        NUMBER,
+			frequency_news        NUMBER,
+			frequency_twitter     NUMBER
+		);
 	`)
 
-	const tb_entries = entries.map((x) => ({ sequence: x.sequence }))
+	const get_frequency = (word: string) => {
+		const index = frequencies.word_map[word]
+		if (index != null) {
+			return frequencies.words[index]
+		}
+		return
+	}
+
+	const tb_entries = entries.map((x) => ({
+		sequence: x.sequence,
+
+		// The frequency for the row is the sum of the frequencies for each
+		// entry. We use only the kanji when available because the reading
+		// is ambiguous between many words.
+		frequency: (x.kanji.length ? x.kanji : x.reading)
+			.map((x) => get_frequency(x.expr))
+			.filter((x) => !!x)
+			.map((x) => x!.frequency)
+			.reduce((acc, v) => acc + v, 0),
+
+		rank: 0,
+	}))
+
+	let ranked = 0
+	tb_entries.sort((a, b) => {
+		const freq_a = a.frequency
+		const freq_b = b.frequency
+		if (freq_a != freq_b) {
+			return freq_b - freq_a
+		}
+		return a.sequence.localeCompare(b.sequence)
+	})
+	tb_entries
+		.filter((x) => x.frequency > 0)
+		.forEach((it, index) => {
+			ranked++
+			it.rank = index + 1
+		})
 
 	const tb_tags = Object.keys(tags)
 		.sort()
 		.map((name) => ({ name, label: tags[name] }))
+
+	const tb_word_frequency = Array.from(all_words.values())
+		.map((word) => ({ word, row: get_frequency(word) }))
+		.filter((x) => x.row)
+		.map(({ word, row }) => {
+			return {
+				word: word,
+				frequency: row!.frequency,
+				count_ic: row!.count_ic,
+				frequency_ic: row!.frequency_ic,
+				frequency_blog: row!.frequency_blog,
+				frequency_news: row!.frequency_news,
+				frequency_twitter: row!.frequency_twitter,
+			}
+		})
+	tb_word_frequency.sort((a, b) => b.frequency - a.frequency)
+	console.log(
+		`Mapped frequency information for ${ranked} of ${tb_entries.length} entries and ${tb_word_frequency.length} words`,
+	)
 
 	const tb_kanji = entries.flatMap((x) => {
 		return x.kanji.map((row, pos) => ({
@@ -525,6 +601,7 @@ async function generate_dict(db_file: string) {
 			expr: row.expr,
 			info: row.info.join(sep),
 			priority: row.priority.join(sep),
+			frequency: get_frequency(row.expr)?.frequency,
 		}))
 	})
 
@@ -537,6 +614,7 @@ async function generate_dict(db_file: string) {
 			info: row.info.join(sep),
 			priority: row.priority.join(sep),
 			restrict: row.restrict.join(sep),
+			frequency: get_frequency(row.expr)?.frequency,
 		}))
 	})
 
@@ -588,6 +666,7 @@ async function generate_dict(db_file: string) {
 
 	await db.insert('tags', tb_tags)
 	await db.insert('entries', tb_entries)
+	await db.insert('word_frequency', tb_word_frequency)
 	await db.insert('entries_index', tb_entries_index)
 	await db.insert('entries_kanji', tb_kanji)
 	await db.insert('entries_reading', tb_readings)
@@ -615,6 +694,7 @@ async function generate_dict(db_file: string) {
 	await db.exec(`CREATE INDEX idx_entries_index_kanji ON entries_index (kanji)`)
 	await db.exec(`CREATE INDEX idx_entries_index_reading ON entries_index (reading)`)
 	await db.exec(`CREATE INDEX idx_entries_index_hiragana ON entries_index (hiragana)`)
+	await db.exec(`CREATE INDEX idx_word_frequency ON word_frequency (word)`)
 	console.log(`--- Indexes created in ${lib.elapsed(start_db_index)}`)
 
 	await db.close()

@@ -7,7 +7,7 @@ import * as lib from '../lib'
 import { kana } from '../lib'
 
 import { file_exists, remove_file } from './files'
-import { import_frequencies } from './frequency'
+import { Frequency, import_frequencies } from './frequency'
 import * as jmdict from './jmdict'
 import * as kanjidic from './kanjidic'
 import * as kirei from './kirei'
@@ -38,12 +38,12 @@ async function main() {
 	console.log(`- Data source directory is ${DATA_SRC_DIR}`)
 	console.log(`- Data output directory is ${DATA_OUT_DIR}`)
 
-	await import_frequencies(DATA_SRC_DIR)
+	const frequencies = await import_frequencies(DATA_SRC_DIR)
 
 	const db_kanji = path.join(DATA_OUT_DIR, KANJI_DATABASE)
 	if (!(await file_exists(db_kanji))) {
 		console.log('\n#====================== Generating kanji.db ======================#\n')
-		await generate_kanji(db_kanji)
+		await generate_kanji(db_kanji, frequencies)
 	} else {
 		console.log(`\n- File ${db_kanji} already exists, skipping.`)
 	}
@@ -57,7 +57,7 @@ async function main() {
 	}
 }
 
-async function generate_kanji(db_file: string) {
+async function generate_kanji(db_file: string, frequencies: Frequency) {
 	const entries = await kanjidic.import_entries(path.join(DATA_SRC_DIR, KANJIDIC_FILE))
 
 	console.log(`Writing Kanji database to ${db_file}\n`)
@@ -75,7 +75,8 @@ async function generate_kanji(db_file: string) {
 		CREATE TABLE kanji (
 			character     TEXT PRIMARY KEY,
 			grade         NUMBER,
-			frequency     NUMBER,
+			frequency     NUMBER, -- Frequency per million for this kanji.
+			ranking       NUMBER, -- Value from 1 to 2500 for the 2500 most frequent used kanji
 			old_jlpt      NUMBER,
 
 			radicals      TEXT,   -- CSV list of radical names for this kanji (hiragana)
@@ -138,6 +139,17 @@ async function generate_kanji(db_file: string) {
 			PRIMARY KEY (character, name, text)
 		);
 		CREATE INDEX idx_kanji_dict ON kanji_dict (character);
+
+		CREATE TABLE kanji_frequency(
+			character             TEXT PRIMARY KEY,
+			frequency             NUMBER,
+			count_ic              NUMBER,
+			frequency_ic          NUMBER,
+			frequency_blog        NUMBER,
+			frequency_news        NUMBER,
+			frequency_twitter     NUMBER
+		);
+		CREATE INDEX idx_kanji_frequency ON kanji_frequency (character);
 	`)
 
 	const SEP = ','
@@ -147,10 +159,19 @@ async function generate_kanji(db_file: string) {
 		.sort()
 		.map((name) => ({ name, label: dict[name] }))
 
+	const get_frequency = (character: string) => {
+		const index = frequencies.char_map[character]
+		if (index != null) {
+			return frequencies.chars[index]
+		}
+		return
+	}
+
 	const tb_kanji = entries.map((row) => ({
 		character: row.literal,
 		grade: row.grade,
-		frequency: row.frequency,
+		frequency: get_frequency(row.literal)?.frequency || null,
+		ranking: row.ranking,
 		old_jlpt: row.old_jlpt,
 		radicals: row.radical_names.join(SEP),
 		nanori: row.nanori.join(SEP),
@@ -159,6 +180,32 @@ async function generate_kanji(db_file: string) {
 		stroke_min: Math.min(...row.stroke_count),
 		stroke_all: row.stroke_count.join(','),
 	}))
+
+	const total_frequency = tb_kanji.filter((x) => x.frequency).length
+	tb_kanji.sort((a, b) => {
+		const rank_a = a.ranking || 99999
+		const rank_b = b.ranking || 99999
+		if (rank_a != rank_b) {
+			return rank_a - rank_b
+		}
+		return (b.frequency || 0) - (a.frequency || 0)
+	})
+
+	const tb_kanji_frequency = tb_kanji
+		.filter((x) => x.frequency)
+		.map((row) => {
+			const f = get_frequency(row.character)!
+			return {
+				character: row.character,
+				frequency: f.frequency,
+				count_ic: f.count_ic,
+				frequency_ic: f.frequency_ic,
+				frequency_blog: f.frequency_blog,
+				frequency_news: f.frequency_news,
+				frequency_twitter: f.frequency_twitter,
+			}
+		})
+	console.log(`Mapped frequency information for ${total_frequency} of ${tb_kanji.length} kanji`)
 
 	const tb_kanji_radical = entries.flatMap((row) =>
 		row.radicals.map((rad) => ({
@@ -217,6 +264,7 @@ async function generate_kanji(db_file: string) {
 
 	await db.insert('dictionaries', tb_dictionaries)
 	await db.insert('kanji', tb_kanji)
+	await db.insert('kanji_frequency', tb_kanji_frequency)
 	await db.insert('kanji_radical', tb_kanji_radical)
 	await db.insert('kanji_variant', tb_kanji_variant)
 	await db.insert('kanji_query_code', tb_kanji_query_code)

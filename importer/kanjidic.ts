@@ -51,7 +51,7 @@ export type KanjiEntry = {
 	 *
 	 * Note: actually there are 2,501 kanji ranked as there was a tie.
 	 */
-	frequency: number | null
+	ranking: number | null
 
 	/**
 	 * When the kanji is itself a radical and has a name, this element contains
@@ -440,7 +440,7 @@ export async function import_entries(filename: string) {
 					grade: null,
 					stroke_count: [],
 					variant: [],
-					frequency: null,
+					ranking: null,
 					radical_names: [],
 					old_jlpt: null,
 					query_codes: [],
@@ -562,7 +562,7 @@ export async function import_entries(filename: string) {
 			case 'freq': {
 				const frequency = parseInt(text, 10)
 				if (frequency > 0) {
-					context.cur_entry!.frequency = frequency
+					context.cur_entry!.ranking = frequency
 				} else {
 					throw new Error(`kanji frequency is invalid: ${text} -- ${at_pos()}`)
 				}

@@ -178,9 +178,6 @@ export async function import_frequencies(source_dir: string) {
 	append_worldlex(wordlex.chars, out.chars, out.char_map)
 	append_worldlex(wordlex.words, out.words, out.word_map)
 
-	console.log(out.words.slice(0, 10))
-	console.log(out.chars.slice(0, 10))
-
 	console.log(
 		`Loaded frequency information for ${out.words.length} words and ${out.chars.length} chars in ${lib.elapsed(
 			start,

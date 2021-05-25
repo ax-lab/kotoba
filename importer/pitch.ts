@@ -6,7 +6,7 @@ import { read_lines } from './files'
 
 const PITCH_FILE = 'accents.txt'
 
-type PitchInfo = Record<
+export type PitchMap = Record<
 	string,
 	Record<
 		string,
@@ -31,7 +31,7 @@ export async function import_pitch(source_dir: string) {
 		感: `int`,
 	}
 
-	const pitch: PitchInfo = {}
+	const pitch: PitchMap = {}
 	let line = 1
 	for (const [word, read, list] of lines) {
 		const pitches = list.split(',').map((x) => {
@@ -58,7 +58,5 @@ export async function import_pitch(source_dir: string) {
 
 	console.log(`Loaded pitch information for ${lines.length} entries in ${lib.elapsed(start)}`)
 
-	console.log(JSON.stringify(pitch['月']))
-	console.log(JSON.stringify(pitch['９日']))
 	return pitch
 }

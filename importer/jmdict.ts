@@ -165,6 +165,15 @@ export type EntryReading = {
 	 * Corresponds to `re_pri` in XML.
 	 */
 	priority: string[]
+
+	/**
+	 * List of pitch information for the reading.
+	 *
+	 * Each entry is a pitch with the format `INFO:TAGS` where:
+	 * - `INFO` is the numeric value for the pitch.
+	 * - `TAGS` is a comma-separated list of tag names for the entry.
+	 */
+	pitches: string[]
 }
 
 /**
@@ -450,6 +459,7 @@ export async function import_entries(filename: string) {
 					info: [],
 					priority: [],
 					restrict: [],
+					pitches: [],
 				}
 				break
 			case 're_nokanji':

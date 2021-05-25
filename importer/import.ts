@@ -11,6 +11,7 @@ import { Frequency, import_frequencies } from './frequency'
 import * as jmdict from './jmdict'
 import * as kanjidic from './kanjidic'
 import * as kirei from './kirei'
+import { import_pitch, PitchMap } from './pitch'
 
 const DICT_DATABASE = 'dict.db'
 const KANJI_DATABASE = 'kanji.db'
@@ -38,6 +39,7 @@ async function main() {
 	console.log(`- Data source directory is ${DATA_SRC_DIR}`)
 	console.log(`- Data output directory is ${DATA_OUT_DIR}`)
 
+	const pitch = await import_pitch(DATA_SRC_DIR)
 	const frequencies = await import_frequencies(DATA_SRC_DIR)
 
 	const db_kanji = path.join(DATA_OUT_DIR, KANJI_DATABASE)
@@ -51,7 +53,7 @@ async function main() {
 	const db_dict = path.join(DATA_OUT_DIR, DICT_DATABASE)
 	if (!(await file_exists(db_dict))) {
 		console.log('\n#====================== Generating dict.db ======================#\n')
-		await generate_dict(db_dict, frequencies)
+		await generate_dict(db_dict, frequencies, pitch)
 	} else {
 		console.log(`\n- File ${db_dict} already exists, skipping.`)
 	}
@@ -276,7 +278,7 @@ async function generate_kanji(db_file: string, frequencies: Frequency) {
 	console.log(`\nGenerated database in ${lib.elapsed(start)}`)
 }
 
-async function generate_dict(db_file: string, frequencies: Frequency) {
+async function generate_dict(db_file: string, frequencies: Frequency, pitch: PitchMap) {
 	// Import main entries from JMDict.
 	const jm_data = await jmdict.import_entries(path.join(DATA_SRC_DIR, DICT_FILE))
 
@@ -340,6 +342,7 @@ async function generate_dict(db_file: string, frequencies: Frequency) {
 						info: it.expr ? [] : it.tags || [],
 						priority: [],
 						restrict: [],
+						pitches: [],
 					},
 				],
 				sense: [
@@ -387,6 +390,43 @@ async function generate_dict(db_file: string, frequencies: Frequency) {
 	const tb_entries_index = entries_index_rows.map((x) => ({ ...x, hiragana: kana.to_hiragana(x.reading) }))
 
 	const all_words = new Set<string>()
+
+	console.log(`\n>>> Merging pitch information...`)
+	let pitch_count = 0
+	for (const row of entries) {
+		for (const read of row.reading) {
+			const exists: Record<string, boolean> = {}
+			const entries: string[] = []
+
+			const push = (main: string, read: string) => {
+				const mp = pitch[main]
+				const ls = (mp && mp[read]) || []
+				for (const it of ls) {
+					const row = `${it.pitch}:${it.tags.join(',')}`
+					if (!exists[row]) {
+						entries.push(row)
+						exists[row] = true
+					}
+				}
+			}
+
+			if (read.restrict.length) {
+				for (const kanji of read.restrict) {
+					push(kanji, read.expr)
+				}
+			} else if (row.kanji.length > 0) {
+				for (const kanji of row.kanji) {
+					push(kanji.expr, read.expr)
+				}
+			} else {
+				push(read.expr, '')
+			}
+
+			read.pitches = entries
+			pitch_count += entries.length
+		}
+	}
+	console.log(`... Merged ${pitch_count} pitch entries`)
 
 	console.log(`\n>>> Building index map from entries...`)
 	const map_entries = entries.flatMap((entry) => {
@@ -474,6 +514,7 @@ async function generate_dict(db_file: string, frequencies: Frequency) {
 			priority       TEXT,
 			restrict       TEXT,
 			frequency      NUMBER,
+			pitches        TEXT,     -- Semi-colon separated list of pitches
 			PRIMARY KEY (sequence, pos)
 		);
 
@@ -615,6 +656,7 @@ async function generate_dict(db_file: string, frequencies: Frequency) {
 			priority: row.priority.join(sep),
 			restrict: row.restrict.join(sep),
 			frequency: get_frequency(row.expr)?.frequency,
+			pitches: row.pitches.join(';'),
 		}))
 	})
 

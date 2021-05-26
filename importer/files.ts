@@ -14,6 +14,10 @@ export async function open_zip(filename: string) {
 	return file
 }
 
+export async function read_text(filename: string) {
+	return await fs_read_file(filename, 'utf-8')
+}
+
 export async function read_lines(filename: string) {
 	const data = await fs_read_file(filename, 'utf-8')
 	return data.split(/\n|\r\n?/)

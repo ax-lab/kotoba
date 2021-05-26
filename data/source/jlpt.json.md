@@ -22,3 +22,6 @@ Readings are not normalized: some are in katakana and some in hiragana.
 Some entries have multiple forms split by a `/` and/or spaces.
 
 For some entries usually written as kana, the reading/kanji forms are reversed.
+
+Note that some entries are duplicated within a level and across levels with
+different readings.

@@ -62,6 +62,8 @@ export function parse_vocab(line: string) {
 }
 
 export async function import_jlpt(source_dir: string) {
+	console.log('\n==> Import JLPT data...')
+
 	const json = await read_text(path.join(source_dir, JLPT_JSON))
 	const data = JSON.parse(json) as Map
 
@@ -97,7 +99,7 @@ export async function import_jlpt(source_dir: string) {
 			}
 		}
 
-		console.log(`Loaded ${level} with ${m.kanji.length} kanji and ${m.vocab.length} vocabs`)
+		console.log(`... Loaded ${level} with ${m.kanji.length} kanji and ${m.vocab.length} vocabs`)
 	}
 
 	check('N5', data[5])
@@ -106,7 +108,7 @@ export async function import_jlpt(source_dir: string) {
 	check('N2', data[2])
 	check('N1', data[1])
 
-	console.log(`Loaded ${kanji_count} kanji and ${vocab_count} vocabs for JLPT\n`)
+	console.log(`--> Loaded ${kanji_count} kanji and ${vocab_count} vocabs for JLPT\n`)
 
 	return data
 }

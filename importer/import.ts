@@ -8,6 +8,7 @@ import { kana } from '../lib'
 
 import { file_exists, remove_file } from './files'
 import { Frequency, import_frequencies } from './frequency'
+import * as jlpt from './jlpt'
 import * as jmdict from './jmdict'
 import * as kanjidic from './kanjidic'
 import * as kirei from './kirei'
@@ -39,13 +40,15 @@ async function main() {
 	console.log(`- Data source directory is ${DATA_SRC_DIR}`)
 	console.log(`- Data output directory is ${DATA_OUT_DIR}`)
 
+	const jlpt_map = await jlpt.import_jlpt(DATA_SRC_DIR)
+
 	const pitch = await import_pitch(DATA_SRC_DIR)
 	const frequencies = await import_frequencies(DATA_SRC_DIR)
 
 	const db_kanji = path.join(DATA_OUT_DIR, KANJI_DATABASE)
 	if (!(await file_exists(db_kanji))) {
 		console.log('\n#====================== Generating kanji.db ======================#\n')
-		await generate_kanji(db_kanji, frequencies)
+		await generate_kanji(db_kanji, frequencies, jlpt_map)
 	} else {
 		console.log(`\n- File ${db_kanji} already exists, skipping.`)
 	}
@@ -59,7 +62,7 @@ async function main() {
 	}
 }
 
-async function generate_kanji(db_file: string, frequencies: Frequency) {
+async function generate_kanji(db_file: string, frequencies: Frequency, jlpt_map: jlpt.Map) {
 	const entries = await kanjidic.import_entries(path.join(DATA_SRC_DIR, KANJIDIC_FILE))
 
 	console.log(`Writing Kanji database to ${db_file}\n`)
@@ -79,7 +82,8 @@ async function generate_kanji(db_file: string, frequencies: Frequency) {
 			grade         NUMBER,
 			frequency     NUMBER, -- Frequency per million for this kanji.
 			ranking       NUMBER, -- Value from 1 to 2500 for the 2500 most frequent used kanji
-			old_jlpt      NUMBER,
+			old_jlpt      NUMBER, -- Old JLPT levels from 1 to 4
+			jlpt          NUMBER, -- Value from 1 to 5
 
 			radicals      TEXT,   -- CSV list of radical names for this kanji (hiragana)
 			nanori        TEXT,   -- CSV list of Japanese readings now only associated with names
@@ -175,6 +179,7 @@ async function generate_kanji(db_file: string, frequencies: Frequency) {
 		frequency: get_frequency(row.literal)?.frequency || null,
 		ranking: row.ranking,
 		old_jlpt: row.old_jlpt,
+		jlpt: null as null | number,
 		radicals: row.radical_names.join(SEP),
 		nanori: row.nanori.join(SEP),
 		stroke: row.stroke_count[0],
@@ -182,6 +187,23 @@ async function generate_kanji(db_file: string, frequencies: Frequency) {
 		stroke_min: Math.min(...row.stroke_count),
 		stroke_all: row.stroke_count.join(','),
 	}))
+
+	const index_by_kanji = new Map(tb_kanji.map((it, index) => [it.character, index]))
+	const apply_jlpt = (level: number, kanji: string[]) => {
+		for (const it of kanji) {
+			const index = index_by_kanji.get(it)
+			if (index != null) {
+				tb_kanji[index].jlpt = level
+			} else {
+				console.log(`WARN: kanji ${it} from N${level} not found in database`)
+			}
+		}
+	}
+	apply_jlpt(5, jlpt_map[5].kanji)
+	apply_jlpt(4, jlpt_map[4].kanji)
+	apply_jlpt(3, jlpt_map[3].kanji)
+	apply_jlpt(2, jlpt_map[2].kanji)
+	apply_jlpt(1, jlpt_map[1].kanji)
 
 	const total_frequency = tb_kanji.filter((x) => x.frequency).length
 	tb_kanji.sort((a, b) => {

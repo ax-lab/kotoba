@@ -56,7 +56,7 @@ async function main() {
 	const db_dict = path.join(DATA_OUT_DIR, DICT_DATABASE)
 	if (!(await file_exists(db_dict))) {
 		console.log('\n#====================== Generating dict.db ======================#\n')
-		await generate_dict(db_dict, frequencies, pitch)
+		await generate_dict(db_dict, frequencies, pitch, jlpt_map)
 	} else {
 		console.log(`\n- File ${db_dict} already exists, skipping.`)
 	}
@@ -300,7 +300,7 @@ async function generate_kanji(db_file: string, frequencies: Frequency, jlpt_map:
 	console.log(`\nGenerated database in ${lib.elapsed(start)}`)
 }
 
-async function generate_dict(db_file: string, frequencies: Frequency, pitch: PitchMap) {
+async function generate_dict(db_file: string, frequencies: Frequency, pitch: PitchMap, jlpt_map: jlpt.Map) {
 	// Import main entries from JMDict.
 	const jm_data = await jmdict.import_entries(path.join(DATA_SRC_DIR, DICT_FILE))
 
@@ -409,6 +409,137 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 		}
 	})
 
+	console.log('\n>>> Merging JLPT data...')
+
+	// Index all main entries and readings for words in the dictionary.
+	console.log('... indexing')
+	const index_by_term = new Map<string, Set<number>>()
+	const index_by_read = new Map<string, Set<number>>()
+	const index_by_code = new Map<string, number>()
+	entries.forEach((it, index) => {
+		index_by_code.set(it.sequence, index)
+
+		// Index the main term. This is usually the kanji, but for kana-only
+		// terms we index the kana.
+		const terms = it.kanji.length ? it.kanji : it.reading
+		for (const row of terms) {
+			const expr = row.expr
+			const set = index_by_term.get(expr) || new Set()
+			if (!set.size) {
+				index_by_term.set(expr, set)
+			}
+			set.add(index)
+		}
+
+		// For entries that have only the reading, we fallback to the reading
+		// index.
+		for (const row of it.reading) {
+			const expr = row.expr
+			const set = index_by_read.get(expr) || new Set()
+			if (!set.size) {
+				index_by_read.set(expr, set)
+			}
+			set.add(index)
+		}
+	})
+
+	console.log('... merging')
+	const merge_jlpt = (level: number, list: jlpt.Vocab[]) => {
+		const filter_if = (ls: number[], predicate: (x: number) => unknown) => {
+			if (ls.length > 1) {
+				const aux = ls.filter(predicate)
+				if (aux.length > 0) {
+					return aux
+				}
+			}
+			return ls
+		}
+
+		const output_entries = (ls: Iterable<number>) => {
+			for (const index of ls) {
+				const row = entries[index]
+				console.log(
+					`   ${row.sequence} ${row.kanji.map((x) => x.expr).join('／')}「${row.reading
+						.map((x) => x.expr)
+						.join('／')}」：${row.sense.map((x) => x.glossary.map((x) => x.text).join(', ')).join(' | ')}`,
+				)
+			}
+		}
+
+		let count = 0
+		for (const row of list) {
+			const ids = new Set<number>()
+
+			if (row.sequence) {
+				if (row.sequence != '0') {
+					entries[index_by_code.get(row.sequence)!].jlpt = level
+					count++
+				}
+				continue
+			}
+
+			const raw_line = row.line
+
+			// If the term has a kanji reading we always use it to index,
+			// otherwise we would be getting false positives because of similar
+			// homophones readings.
+			if (row.terms.length) {
+				for (const kanji of row.terms) {
+					const src = index_by_term.get(kanji)
+					if (src) {
+						let ls = Array.from(src.values())
+
+						// If the kanji entry is ambiguous, we try to match
+						// the proper reading.
+						ls = filter_if(ls, (x) => entries[x].reading.some((x) => row.reads.includes(x.expr)))
+
+						if (ls.length > 1) {
+							console.log(`WARN: N${level} entry matches ${ls.length} rows -- ${kanji} (${raw_line})`)
+							output_entries(ls)
+							continue
+						}
+
+						for (const index of ls) {
+							ids.add(index)
+						}
+					}
+				}
+			} else {
+				// Do the reverse indexing for the readings.
+				for (const read of row.reads) {
+					const src = index_by_read.get(read)
+					if (src) {
+						if (src.size > 1) {
+							console.log(`WARN: N${level} entry matches ${src.size} rows -- ${read} (${raw_line})`)
+							output_entries(src)
+							continue
+						}
+
+						for (const id of src) {
+							ids.add(id)
+						}
+					}
+				}
+			}
+
+			if (ids.size) {
+				count++
+				for (const index of ids) {
+					entries[index].jlpt = level
+				}
+			} else {
+				console.log(`WARN: N${level} entry has no match (${raw_line})`)
+			}
+		}
+		console.log(`... merged ${count} entries for N${level}`)
+	}
+
+	merge_jlpt(1, jlpt_map[1].vocab)
+	merge_jlpt(2, jlpt_map[2].vocab)
+	merge_jlpt(3, jlpt_map[3].vocab)
+	merge_jlpt(4, jlpt_map[4].vocab)
+	merge_jlpt(5, jlpt_map[5].vocab)
+
 	const tb_entries_index = entries_index_rows.map((x) => ({ ...x, hiragana: kana.to_hiragana(x.reading) }))
 
 	const all_words = new Set<string>()
@@ -506,7 +637,8 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 		CREATE TABLE entries (
 			sequence       TEXT PRIMARY KEY,
 			frequency      NUMBER,
-			rank           NUMBER
+			rank           NUMBER,
+			jlpt           NUMBER
 		);
 
 		CREATE TABLE entries_index(
@@ -605,6 +737,7 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 
 	const tb_entries = entries.map((x) => ({
 		sequence: x.sequence,
+		jlpt: x.jlpt,
 
 		// The frequency for the row is the sum of the frequencies for each
 		// entry. We use only the kanji when available because the reading

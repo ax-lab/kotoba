@@ -22,6 +22,17 @@ export type Entry = {
 	sequence: string
 
 	/**
+	 * JLPT level for the entry.
+	 *
+	 * Note that levels are compiled from `http://www.tanos.co.uk/jlpt/` and
+	 * are non-official.
+	 *
+	 * Some entries appear in more than one list. This is the highest level
+	 * for any of the kanji/readings in this entry.
+	 */
+	jlpt?: number
+
+	/**
 	 * Kanji elements, if any.
 	 *
 	 * The overwhelming majority of entries will have a single kanji element

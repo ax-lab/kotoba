@@ -637,6 +637,7 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 		CREATE TABLE entries (
 			sequence       TEXT PRIMARY KEY,
 			frequency      NUMBER,
+			popular        INT,
 			rank           NUMBER,
 			jlpt           NUMBER
 		);
@@ -655,6 +656,7 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 			expr           TEXT,
 			info           TEXT,
 			priority       TEXT,
+			popular        INT,
 			frequency      NUMBER,
 			PRIMARY KEY (sequence, pos)
 		);
@@ -663,10 +665,11 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 			sequence       TEXT,
 			pos            INT,
 			expr           TEXT,
-			no_kanji       INTEGER,
+			no_kanji       INT,
 			info           TEXT,
 			priority       TEXT,
 			restrict       TEXT,
+			POPULAR        INT,
 			frequency      NUMBER,
 			pitches        TEXT,     -- Semi-colon separated list of pitches
 			PRIMARY KEY (sequence, pos)
@@ -735,9 +738,12 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 		return
 	}
 
+	const is_popular = (priority: string[]) => priority.some((x) => /^((news|ichi|spec|gai)1|spec2)$/.test(x))
+
 	const tb_entries = entries.map((x) => ({
 		sequence: x.sequence,
 		jlpt: x.jlpt,
+		popular: x.kanji.some((x) => is_popular(x.priority)) || x.reading.some((x) => is_popular(x.priority)),
 
 		// The frequency for the row is the sum of the frequencies for each
 		// entry. We use only the kanji when available because the reading
@@ -748,24 +754,35 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 			.map((x) => x!.frequency)
 			.reduce((acc, v) => acc + v, 0),
 
-		rank: 0,
+		rank: null as number | null,
 	}))
 
-	let ranked = 0
-	tb_entries.sort((a, b) => {
+	const compare_freq = (a: { frequency: number; sequence: string }, b: { frequency: number; sequence: string }) => {
 		const freq_a = a.frequency
 		const freq_b = b.frequency
 		if (freq_a != freq_b) {
 			return freq_b - freq_a
 		}
 		return a.sequence.localeCompare(b.sequence)
-	})
+	}
+
+	// Apply the rank based on frequency for each entry
+	let ranked = 0
+	tb_entries.sort(compare_freq)
 	tb_entries
 		.filter((x) => x.frequency > 0)
 		.forEach((it, index) => {
 			ranked++
 			it.rank = index + 1
 		})
+
+	// The actual sort order takes the popular field into account
+	tb_entries.sort((a, b) => {
+		if (a.popular != b.popular) {
+			return a.popular ? -1 : +1
+		}
+		return compare_freq(a, b)
+	})
 
 	const tb_tags = Object.keys(tags)
 		.sort()
@@ -797,6 +814,7 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 			expr: row.expr,
 			info: row.info.join(sep),
 			priority: row.priority.join(sep),
+			popular: is_popular(row.priority),
 			frequency: get_frequency(row.expr)?.frequency,
 		}))
 	})
@@ -810,6 +828,7 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 			info: row.info.join(sep),
 			priority: row.priority.join(sep),
 			restrict: row.restrict.join(sep),
+			popular: is_popular(row.priority),
 			frequency: get_frequency(row.expr)?.frequency,
 			pitches: row.pitches.join(';'),
 		}))

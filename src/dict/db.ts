@@ -64,14 +64,14 @@ export default class DB {
 
 	// #endregion
 
-	async query(sql: string, params?: unknown) {
+	async query<T = Record<string, string>>(sql: string, params?: unknown) {
 		this.check_closed()
-		return new Promise<Record<string, string>[]>((resolve, reject) => {
+		return new Promise<T[]>((resolve, reject) => {
 			this._db.all(sql, params || [], (err, rows) => {
 				if (err) {
 					reject(err)
 				} else {
-					resolve(rows)
+					resolve((rows as unknown) as T[])
 				}
 			})
 		})

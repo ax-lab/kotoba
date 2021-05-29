@@ -669,7 +669,7 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 			info           TEXT,
 			priority       TEXT,
 			restrict       TEXT,
-			POPULAR        INT,
+			popular        INT,
 			frequency      NUMBER,
 			pitches        TEXT,     -- Semi-colon separated list of pitches
 			PRIMARY KEY (sequence, pos)

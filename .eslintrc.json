@@ -34,6 +34,7 @@
 		"sort-imports": ["error", { "ignoreDeclarationSort": true, "ignoreCase": true }],
 
 		// Custom rules:
+		"import/namespace": "off", // This gives false positives
 		"@typescript-eslint/no-non-null-assertion": "off",
 		"@typescript-eslint/no-this-alias": "off",
 		"@typescript-eslint/prefer-regexp-exec": "off",

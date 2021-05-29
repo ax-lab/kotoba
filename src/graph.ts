@@ -16,6 +16,12 @@ export const SCHEMA = buildSchema(`
 			"""
 			names: [String!] = []
 		): [Tag!]!
+
+		"Retrieves a dictionary entry by its id"
+		entry(id: String!): Entry
+
+		"Retrieves a list of dictionary entries by their id"
+		entries(ids: [String!]!): [Entry!]!
 	}
 
 	"Tag applicable to dictionary entries."
@@ -34,13 +40,18 @@ export const SCHEMA = buildSchema(`
 		"""
 		Unique numeric sequence ID for this entry
 		"""
-		sequence: String!
+		id: String!
 
 		"""
 		This will be the expression for the first entry in 'kanji' if available,
 		or the first entry in 'reading' otherwise.
 		"""
 		word: String!
+
+		"""
+		The first reading for the entry.
+		"""
+		read: String!
 
 		"""
 		For entries with frequency information, this provides the relative rank
@@ -330,9 +341,28 @@ export const SCHEMA = buildSchema(`
 	Source element for an EntrySense.
 	"""
 	type EntrySenseSource {
+		"""
+		Text for the entry. This is the word or phrase in the source language.
+		"""
 		text: String!
+
+		"""
+		The language from which a loanword is drawn. It will be coded using the
+		three-letter language code from the ISO 639-2 standard.
+		"""
 		lang: String!
+
+		"""
+		Indicates whether the source element fully or partially describes the
+		source word or phrase of the loanword.
+		"""
 		partial: Boolean!
+
+		"""
+		Indicates that the Japanese word has been constructed from words in the
+		source language, and not from an actual phrase in that language. Most
+		commonly used to indicate "waseieigo".
+		"""
 		wasei: Boolean!
 	}
 
@@ -340,8 +370,17 @@ export const SCHEMA = buildSchema(`
 	Glossary element for an EntrySense.
 	"""
 	type EntrySenseGlossary {
+		"""
+		Text for the glossary entry.
+		"""
 		text: String!
-		type: String!
+
+		"""
+		Specifies that the glossary is of a particular type.
+
+		Possible values are 'literal' | 'figurative' | 'explanation'
+		"""
+		type: String
 	}
 `)
 
@@ -349,5 +388,7 @@ export const SCHEMA = buildSchema(`
  * The root GraphQL resolver.
  */
 export const ROOT = {
-	tags: dict.all,
+	tags: dict.tags.all,
+	entry: dict.entries.by_id,
+	entries: dict.entries.by_ids,
 }

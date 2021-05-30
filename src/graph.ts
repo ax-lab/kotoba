@@ -61,10 +61,24 @@ export const SCHEMA = buildSchema(`
 
 		"""
 		When available, provides a relative frequency count for the entry across
-		multiple source corpus. This is the sum of the frequencies for all
-		kanji elements, or the reading elements if no kanji element is present.
+		multiple source corpus.
+
+		For any particular entry, this is the maximum frequency of the kanji
+		elements. If an entry is kana-only, then this is the maximum frequency
+		of the reading elements.
 		"""
 		frequency: Float
+
+		"""
+		Provides the relative position of the entry across all dictionary
+		entries.
+
+		This is similar to rank, but also takes into account popular entries.
+		For entries without frequency information, this will take into account
+		the relative position of the entries in the source dictionary (which
+		also serves as a weaker indication of popularity).
+		"""
+		position: Int!
 
 		"""
 		JLPT level for the entry from 1-5.

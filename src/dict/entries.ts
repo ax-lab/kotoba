@@ -106,6 +106,7 @@ async function entries_by_ids(ids: string[]) {
 			word: '',
 			read: '',
 			rank: row.rank,
+			position: row.position,
 			frequency: row.frequency,
 			jlpt: row.jlpt,
 			popular: !!row.popular,

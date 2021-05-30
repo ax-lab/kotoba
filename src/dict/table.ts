@@ -3,6 +3,7 @@ export type Entry = {
 	frequency: number
 	popular: number
 	rank: number
+	position: number
 	jlpt: number
 }
 

@@ -66,8 +66,8 @@ describe('GraphQL', () => {
 					id: '1000225',
 					word: '明白',
 					read: 'あからさま',
-					rank: 9107,
-					frequency: 36.76527186037104,
+					rank: 10009,
+					frequency: 30.52300253317736,
 					jlpt: 1,
 					popular: false,
 					kanji: [
@@ -276,7 +276,7 @@ describe('GraphQL', () => {
 					id: '1000310',
 					word: '馬酔木',
 					read: 'あせび',
-					rank: 24105,
+					rank: 23490,
 					frequency: 6.5851287111718655,
 					jlpt: null,
 					popular: false,
@@ -389,7 +389,7 @@ describe('GraphQL', () => {
 					id: '1000320',
 					word: '彼処',
 					read: 'あそこ',
-					rank: 81033,
+					rank: 80511,
 					frequency: 0.17,
 					jlpt: 5,
 					popular: true,
@@ -630,8 +630,8 @@ describe('GraphQL', () => {
 					id: '1000390',
 					word: 'あっという間に',
 					read: 'あっというまに',
-					rank: 4726,
-					frequency: 98.12481653993332,
+					rank: 5127,
+					frequency: 84.17717385707338,
 					jlpt: null,
 					popular: true,
 					kanji: [
@@ -775,7 +775,7 @@ describe('GraphQL', () => {
 					id: '1012070',
 					word: 'まあまあ',
 					read: 'まあまあ',
-					rank: 14843,
+					rank: 14459,
 					frequency: 16.488180900747594,
 					jlpt: 2,
 					popular: true,
@@ -921,7 +921,7 @@ describe('GraphQL', () => {
 					id: '1020710',
 					word: 'アンマウント',
 					read: 'アンマウント',
-					rank: 85883,
+					rank: 85406,
 					frequency: 0.13,
 					jlpt: null,
 					popular: false,
@@ -976,8 +976,8 @@ describe('GraphQL', () => {
 					id: '1408340',
 					word: '太刀',
 					read: 'たち',
-					rank: 9966,
-					frequency: 31.969050298077047,
+					rank: 12511,
+					frequency: 21.219039702726185,
 					jlpt: null,
 					popular: true,
 					kanji: [
@@ -1176,7 +1176,7 @@ describe('GraphQL', () => {
 					id: '1467640',
 					word: '猫',
 					read: 'ねこ',
-					rank: 2546,
+					rank: 2461,
 					frequency: 214.23414722319635,
 					jlpt: 5,
 					popular: true,
@@ -1602,8 +1602,8 @@ describe('GraphQL', () => {
 					id: '1557630',
 					word: '零',
 					read: 'れい',
-					rank: 29,
-					frequency: 15536.932472000643,
+					rank: 31,
+					frequency: 15366.68,
 					jlpt: 5,
 					popular: true,
 					kanji: [
@@ -1716,7 +1716,7 @@ describe('GraphQL', () => {
 					id: '2070440',
 					word: 'コッペパン',
 					read: 'コッペパン',
-					rank: 41113,
+					rank: 40308,
 					frequency: 1.878134881846687,
 					jlpt: null,
 					popular: false,
@@ -1785,6 +1785,446 @@ describe('GraphQL', () => {
 							field: [],
 							misc: [],
 							dialect: [],
+						},
+					],
+				},
+			],
+		})
+		// spell-checker: enable
+	})
+
+	test('should load lookup', async () => {
+		const result = await query(`
+			{
+				kana: lookup(kanji: "", reading: "かな") {
+					id word read popular
+					kanji {
+						expr
+					}
+					reading {
+						expr
+					}
+					sense {
+						glossary { text }
+					}
+				}
+				day: lookup(kanji: "日", reading: "にち") {
+					id word read popular
+					kanji {
+						expr
+					}
+					reading {
+						expr
+					}
+					sense {
+						glossary { text }
+					}
+				}
+				moto: lookup(kanji: "元", reading: "もと") {
+					id word read popular
+					kanji {
+						expr
+					}
+					reading {
+						expr
+					}
+					sense {
+						glossary { text }
+					}
+				}
+				wife: lookup(kanji: "妻", reading: "つま") {
+					id word read popular
+					kanji {
+						expr
+					}
+					reading {
+						expr
+					}
+					sense {
+						glossary { text }
+					}
+				}
+			}
+		`)
+
+		// spell-checker: disable
+		expect(result.data).toEqual({
+			kana: [
+				{
+					id: '1002940',
+					word: 'かな',
+					read: 'かな',
+					popular: true,
+					kanji: [],
+					reading: [
+						{
+							expr: 'かな',
+						},
+						{
+							expr: 'かなあ',
+						},
+						{
+							expr: 'かなー',
+						},
+						{
+							expr: 'かなぁ',
+						},
+					],
+					sense: [
+						{
+							glossary: [
+								{
+									text: 'I wonder',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'should I?',
+								},
+								{
+									text: 'is it?',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'I wish that',
+								},
+								{
+									text: 'I hope that',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'maybe',
+								},
+								{
+									text: 'probably',
+								},
+								{
+									text: 'perhaps',
+								},
+							],
+						},
+					],
+				},
+			],
+			day: [
+				{
+					id: '2083100',
+					word: '日',
+					read: 'にち',
+					popular: true,
+					kanji: [
+						{
+							expr: '日',
+						},
+					],
+					reading: [
+						{
+							expr: 'にち',
+						},
+					],
+					sense: [
+						{
+							glossary: [
+								{
+									text: 'Sunday',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'day (of the month)',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'counter for days',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'Japan',
+								},
+							],
+						},
+					],
+				},
+			],
+			moto: [
+				{
+					id: '1260670',
+					word: '元',
+					read: 'もと',
+					popular: true,
+					kanji: [
+						{
+							expr: '元',
+						},
+						{
+							expr: '本',
+						},
+						{
+							expr: '素',
+						},
+						{
+							expr: '基',
+						},
+					],
+					reading: [
+						{
+							expr: 'もと',
+						},
+					],
+					sense: [
+						{
+							glossary: [
+								{
+									text: 'origin',
+								},
+								{
+									text: 'source',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'base',
+								},
+								{
+									text: 'basis',
+								},
+								{
+									text: 'foundation',
+								},
+								{
+									text: 'root',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'cause',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'ingredient',
+								},
+								{
+									text: 'material',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: "(somebody's) side",
+								},
+								{
+									text: "(somebody's) location",
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'original cost (or capital, principal, etc.)',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: '(plant) root',
+								},
+								{
+									text: '(tree) trunk',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'first section of a waka',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text:
+										'counter for blades of grass, tree trunks, etc., and for falcons (in falconry)',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'handle (chopsticks, brush, etc.)',
+								},
+								{
+									text: 'grip',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'core',
+								},
+							],
+						},
+					],
+				},
+				{
+					id: '2219590',
+					word: '元',
+					read: 'もと',
+					popular: false,
+					kanji: [
+						{
+							expr: '元',
+						},
+						{
+							expr: '旧',
+						},
+						{
+							expr: '故',
+						},
+					],
+					reading: [
+						{
+							expr: 'もと',
+						},
+					],
+					sense: [
+						{
+							glossary: [
+								{
+									text: 'former',
+								},
+								{
+									text: 'ex-',
+								},
+								{
+									text: 'past',
+								},
+								{
+									text: 'one-time',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'earlier times',
+								},
+								{
+									text: 'the past',
+								},
+								{
+									text: 'previous state',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'formerly',
+								},
+								{
+									text: 'previously',
+								},
+								{
+									text: 'originally',
+								},
+								{
+									text: 'before',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'retired (e.g. a retired sergeant)',
+								},
+							],
+						},
+					],
+				},
+			],
+			wife: [
+				{
+					id: '1294330',
+					word: '妻',
+					read: 'つま',
+					popular: true,
+					kanji: [
+						{
+							expr: '妻',
+						},
+						{
+							expr: '夫',
+						},
+						{
+							expr: '具',
+						},
+					],
+					reading: [
+						{
+							expr: 'つま',
+						},
+					],
+					sense: [
+						{
+							glossary: [
+								{
+									text: 'wife',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'my dear',
+								},
+								{
+									text: 'dear',
+								},
+								{
+									text: 'honey',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'garnish (esp. one served with sashimi)',
+								},
+							],
+						},
+						{
+							glossary: [
+								{
+									text: 'embellishment',
+								},
+							],
 						},
 					],
 				},

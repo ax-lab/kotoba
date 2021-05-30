@@ -9,6 +9,10 @@ function split(ls: string): string[] {
 }
 
 async function entries_by_ids(ids: string[]) {
+	if (!ids.length) {
+		return []
+	}
+
 	const sequences = ids
 		.filter((x) => /^\d+$/.test(x))
 		.map((x) => `"${x}"`)
@@ -133,6 +137,36 @@ export async function by_id(args: { id: string }) {
 
 export async function by_ids(args: { ids: string[] }) {
 	return await entries_by_ids(args.ids)
+}
+
+export async function lookup({ kanji, reading }: { kanji: string; reading: string }) {
+	const has_kanji = kanji && kanji != reading
+	const kanji_where = has_kanji ? '= ?' : 'IS NULL'
+	const args = has_kanji ? [kanji, reading] : [reading]
+	const dict = await DB.get_dict()
+	const rows = await dict.query<{ sequence: string }>(
+		`
+		SELECT DISTINCT e.sequence FROM entries e
+		LEFT JOIN entries_kanji k ON e.sequence = k.sequence
+		LEFT JOIN entries_reading r ON e.sequence = r.sequence
+		WHERE k.expr ${kanji_where} AND r.expr = ?
+	`,
+		args,
+	)
+	const ids = rows.map((x) => x.sequence)
+	const entries = await entries_by_ids(ids)
+	if (entries.length > 1) {
+		return entries.filter((x) => {
+			if (has_kanji && (!x.kanji.length || x.kanji[0].expr != kanji)) {
+				return false
+			}
+			if (x.reading[0].expr != reading) {
+				return false
+			}
+			return true
+		})
+	}
+	return entries
 }
 
 function parse_pitch(input: string, all_tags: tags.Tag[]) {

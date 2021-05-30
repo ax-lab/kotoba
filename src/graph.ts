@@ -22,6 +22,31 @@ export const SCHEMA = buildSchema(`
 
 		"Retrieves a list of dictionary entries by their id"
 		entries(ids: [String!]!): [Entry!]!
+
+		"""
+		Lookup entries by the kanji/reading pair.
+
+		This searches for an exact match on both the kanji and reading. That
+		means no de-inflection, kana conversion, fuzzy matching, prefix, or
+		suffix match.
+
+		The purpose of this field is to lookup for known dictionary entries
+		without having to resort to their ID. As such, this lookup is very
+		strict in an attempt to match an entry exactly.
+
+		When kanji is empty, this will only match kana-only entries. If the
+		kanji is the same as the reading, it is handled as an empty kanji. This
+		is for convenience to allow using an Entry word/read pair for the lookup.
+
+		Finally, if the kanji/reading pairs are ambiguous towards more than one
+		entry, then the match will consider the entries that have that kanji
+		and reading as the first entries.
+
+		If the entry is still ambiguous, all matching entries are returned in
+		database order. The database order has the more frequent/popular entries
+		first.
+		"""
+		lookup(kanji: String!, reading: String!): [Entry!]!
 	}
 
 	"Tag applicable to dictionary entries."
@@ -405,6 +430,7 @@ export const ROOT = {
 	tags: dict.tags.all,
 	entry: dict.entries.by_id,
 	entries: dict.entries.by_ids,
+	lookup: dict.entries.lookup,
 }
 
 /**

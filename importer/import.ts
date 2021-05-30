@@ -638,7 +638,8 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 			sequence       TEXT PRIMARY KEY,
 			frequency      NUMBER,
 			popular        INT,
-			rank           NUMBER,
+			rank           NUMBER, -- Frequency based rank
+			position       NUMBER, -- Global position for this entry
 			jlpt           NUMBER
 		);
 
@@ -745,14 +746,18 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 		jlpt: x.jlpt,
 		popular: x.kanji.some((x) => is_popular(x.priority)) || x.reading.some((x) => is_popular(x.priority)),
 
-		// The frequency for the row is the sum of the frequencies for each
-		// entry. We use only the kanji when available because the reading
-		// is ambiguous between many words.
+		// The frequency for the row is the max frequency for all entries. We
+		// use only the kanji when available because the reading is ambiguous
+		// between many words.
 		frequency: (x.kanji.length ? x.kanji : x.reading)
 			.map((x) => get_frequency(x.expr))
 			.filter((x) => !!x)
 			.map((x) => x!.frequency)
-			.reduce((acc, v) => acc + v, 0),
+			.reduce((acc, v) => Math.max(acc, v), 0),
+
+		// This provides a global position that also takes into account popular
+		// entries.
+		position: 0,
 
 		rank: null as number | null,
 	}))
@@ -782,6 +787,10 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 			return a.popular ? -1 : +1
 		}
 		return compare_freq(a, b)
+	})
+
+	tb_entries.forEach((it, index) => {
+		it.position = index + 1
 	})
 
 	const tb_tags = Object.keys(tags)
@@ -903,6 +912,8 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 	//     PRAGMA case_sensitive_like = 1
 	//
 	// But that would require clients to be aware of that.
+	await db.exec(`CREATE INDEX idx_entries_kanji_expr ON entries_kanji (expr)`)
+	await db.exec(`CREATE INDEX idx_entries_reading_expr ON entries_reading (expr)`)
 	await db.exec(`CREATE INDEX idx_entries_map_expr ON entries_map (expr COLLATE NOCASE)`)
 	await db.exec(`CREATE INDEX idx_entries_map_keyword ON entries_map (keyword COLLATE NOCASE)`)
 	await db.exec(`CREATE INDEX idx_entries_map_keyword_rev ON entries_map (keyword_rev COLLATE NOCASE)`)

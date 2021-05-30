@@ -37,15 +37,38 @@ export async function all(args?: { names: string[] }) {
 	return filters?.length ? ls.filter((x) => filters.some((re) => re.test(x.name))) : [...ls]
 }
 
-export function is_popular(tags: Tag[]) {
-	return tags.some((x) => /^(news1|ichi1|spec1|spec2|gai1)$/.test(x.name))
-}
-
 export function split(input: string, all_tags: Tag[]) {
 	return input
-		? (input
-				.split('||')
-				.map((name) => all_tags.find((x) => x.name == name))
-				.filter((x) => !!x) as Tag[])
+		? input.split(/,|\|\|/).map((name) => all_tags.find((x) => x.name == name) || { name, text: get_text(name) })
 		: []
+}
+
+/**
+ * Return text for dynamic tags that are not on the database (e.g. priority tags).
+ */
+function get_text(name: string) {
+	switch (name) {
+		case 'news1':
+			return 'top half 12K entries from Mainichi Shimbun newspaper word corpus'
+		case 'news2':
+			return 'bottom half 12K entries from Mainichi Shimbun newspaper word corpus'
+		case 'ichi1':
+			return 'appears in the "Ichimango goi bunruishuu" word corpus'
+		case 'ichi2':
+			return 'appears in the "Ichimango goi bunruishuu" word corpus, but demoted due to low frequency on other sources'
+		case 'spec1':
+			return 'top half of common words that do not appear on the word corpus'
+		case 'spec2':
+			return 'bottom half of common words that do not appear on the word corpus'
+		case 'gail1':
+			return 'top half of common loanwords in the word corpus'
+		case 'gail2':
+			return 'bottom half of common loanwords in the word corpus'
+	}
+	if (name.startsWith('nf')) {
+		const page = parseInt(name.slice(2), 10)
+		const top = page > 1 ? `${page * 0.5}K` : `${page * 500}`
+		return `top ${top} in the word corpus`
+	}
+	return ''
 }

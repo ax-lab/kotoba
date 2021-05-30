@@ -30,9 +30,8 @@ async function entries_by_ids(ids: string[]) {
 				expr: row.expr,
 				info: tags.split(row.info, all_tags),
 				priority: tags.split(row.priority, all_tags),
-				popular: false,
+				popular: !!row.popular,
 			}
-			out.popular = tags.is_popular(out.priority)
 			return { key: row.sequence, val: out }
 		}),
 		(row) => [row.key, row.val],
@@ -45,11 +44,10 @@ async function entries_by_ids(ids: string[]) {
 				no_kanji: !!row.no_kanji,
 				restrict: split(row.restrict),
 				info: tags.split(row.info, all_tags),
-				popular: false,
+				popular: !!row.popular,
 				priority: tags.split(row.priority, all_tags),
 				pitches: parse_pitch(row.pitches, all_tags),
 			}
-			out.popular = tags.is_popular(out.priority)
 			return { key: row.sequence, val: out }
 		}),
 		(row) => [row.key, row.val],
@@ -124,7 +122,8 @@ async function entries_by_ids(ids: string[]) {
 		return out
 	})
 
-	return entries
+	const entries_map = new Map(entries.map((x) => [x.id, x]))
+	return ids.map((x) => entries_map.get(x)!).filter((x) => !!x)
 }
 
 export async function by_id(args: { id: string }) {

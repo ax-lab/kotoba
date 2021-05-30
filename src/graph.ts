@@ -1,4 +1,4 @@
-import { buildSchema } from 'graphql'
+import { buildSchema, graphql } from 'graphql'
 
 import * as dict from './dict'
 
@@ -391,4 +391,18 @@ export const ROOT = {
 	tags: dict.tags.all,
 	entry: dict.entries.by_id,
 	entries: dict.entries.by_ids,
+}
+
+/**
+ * Executes a GraphQL query directly.
+ */
+export async function query(query: string, args?: { variables?: Record<string, unknown>; operation?: string }) {
+	const result = await graphql({
+		schema: SCHEMA,
+		rootValue: ROOT,
+		source: query,
+		variableValues: args?.variables,
+		operationName: args?.operation,
+	})
+	return result
 }

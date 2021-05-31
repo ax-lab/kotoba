@@ -789,8 +789,17 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 		return compare_freq(a, b)
 	})
 
+	const sequence_position = new Map<string, number>()
+
 	tb_entries.forEach((it, index) => {
 		it.position = index + 1
+		sequence_position.set(it.sequence, it.position)
+	})
+
+	tb_entries_map.sort((a, b) => {
+		const pa = sequence_position.get(a.sequence)!
+		const pb = sequence_position.get(b.sequence)!
+		return pa - pb
 	})
 
 	const tb_tags = Object.keys(tags)

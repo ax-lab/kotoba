@@ -601,7 +601,9 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 	const start_index = lib.now()
 	const tb_entries_map = map_entries.map((it, i) => {
 		const num = i + 1
-		const keyword = kana.to_hiragana_key(it.expr)
+		const hiragana = kana.to_hiragana(it.expr) // Used for exact matches on hiragana
+		const hiragana_rev = [...hiragana].reverse().join('')
+		const keyword = kana.to_hiragana_key(it.expr) // Used for fuzzy matching
 
 		const chars = [...keyword]
 		const keyword_rev = chars.reverse().join('')
@@ -615,7 +617,7 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 			const time = lib.duration(delta / num)
 			console.log(`${final ? '---' : '...'} ${num} rows processed (${rate} per sec / ${time} per row)`)
 		}
-		return { ...it, keyword, keyword_rev, keyword_set }
+		return { ...it, hiragana, hiragana_rev, keyword, keyword_rev, keyword_set }
 	})
 
 	console.log(`Writing database to ${db_file}\n`)
@@ -715,6 +717,8 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 			sequence        TEXT,  -- sequence in the 'entries' table
 			expr            TEXT,  -- indexed expression from the source
 
+			hiragana        TEXT,  -- 'expr' simply converted to hiragana
+			hiragana_rev    TEXT,  -- 'hiragana' reversed for suffix lookup
 			keyword         TEXT,  -- 'expr' stripped to a indexable key
 			keyword_rev     TEXT,  -- 'keyword' reversed for suffix lookup
 			keyword_set     TEXT   -- char set in 'keyword' sorted by codepoint
@@ -924,6 +928,8 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 	await db.exec(`CREATE INDEX idx_entries_kanji_expr ON entries_kanji (expr)`)
 	await db.exec(`CREATE INDEX idx_entries_reading_expr ON entries_reading (expr)`)
 	await db.exec(`CREATE INDEX idx_entries_map_expr ON entries_map (expr COLLATE NOCASE)`)
+	await db.exec(`CREATE INDEX idx_entries_map_hiragana ON entries_map (hiragana COLLATE NOCASE)`)
+	await db.exec(`CREATE INDEX idx_entries_map_hiragana_rev ON entries_map (hiragana_rev COLLATE NOCASE)`)
 	await db.exec(`CREATE INDEX idx_entries_map_keyword ON entries_map (keyword COLLATE NOCASE)`)
 	await db.exec(`CREATE INDEX idx_entries_map_keyword_rev ON entries_map (keyword_rev COLLATE NOCASE)`)
 	await db.exec(`CREATE INDEX idx_entries_map_keyword_set ON entries_map (keyword_set COLLATE NOCASE)`)

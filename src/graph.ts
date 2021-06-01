@@ -47,6 +47,8 @@ export const SCHEMA = buildSchema(`
 		first.
 		"""
 		lookup(kanji: String!, reading: String!): [Entry!]!
+
+		search(keyword: String!): [Entry!]!
 	}
 
 	"Tag applicable to dictionary entries."
@@ -431,6 +433,7 @@ export const ROOT = {
 	entry: dict.entries.by_id,
 	entries: dict.entries.by_ids,
 	lookup: dict.entries.lookup,
+	search: dict.entries.search,
 }
 
 /**

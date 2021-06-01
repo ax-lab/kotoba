@@ -64,6 +64,16 @@ export default class DB {
 
 	// #endregion
 
+	each<T = Record<string, string>>(
+		sql: string,
+		params: unknown,
+		row_callback: (err: Error | null, row: T) => void,
+		end_callback?: (err: Error | null, count: number) => void,
+	) {
+		this.check_closed()
+		this._db.each(sql, params, row_callback, end_callback)
+	}
+
 	async query<T = Record<string, string>>(sql: string, params?: unknown) {
 		this.check_closed()
 		return new Promise<T[]>((resolve, reject) => {

@@ -268,6 +268,10 @@ export async function search(args: { keyword: string }) {
 			const rows = await search.suffix(args)
 			return await entries_by_ids(rows.map((x) => x.sequence))
 		},
+		async contains(args: SearchArgs) {
+			const rows = await search.contains(args)
+			return await entries_by_ids(rows.map((x) => x.sequence))
+		},
 	}
 }
 
@@ -411,7 +415,7 @@ class Search {
 			'@hp': this.hiragana + '%',
 		}
 		const sql = [
-			`SELECT m.sequence, e.position FROM (`,
+			`SELECT DISTINCT m.sequence, e.position FROM (`,
 			`  SELECT expr, sequence, 1 AS pos FROM entries_map WHERE expr LIKE @kp OR hiragana LIKE @hp`,
 		]
 
@@ -516,6 +520,59 @@ class Search {
 	async contains(args: SearchArgs) {
 		this.mark_used()
 		this.validate_args(args)
+
+		const params: Record<string, string> = {
+			'@k': this.keyword,
+			'@h': this.hiragana,
+			'@kp': this.keyword + '%',
+			'@hp': this.hiragana + '%',
+			'@hs': this.hiragana_rev + '%',
+			'@kx': '%' + this.keyword + '%',
+			'@hx': '%' + this.hiragana + '%',
+		}
+		const sql = [
+			`SELECT DISTINCT m.sequence, e.position FROM (`,
+			`  SELECT expr, sequence, 1 AS pos FROM entries_map WHERE expr LIKE @kx OR hiragana LIKE @hx`,
+		]
+
+		if (args.approx || args.fuzzy) {
+			params['@a'] = '%' + this.approx + '%'
+			sql.push(
+				...[
+					// Approximate search
+					`  UNION ALL`,
+					`  SELECT expr, sequence, 2 AS pos FROM entries_map WHERE keyword LIKE @a`,
+				],
+			)
+		}
+
+		if (args.fuzzy) {
+			params['@f'] = '%' + [...this.approx].join('%') + '%'
+			sql.push(
+				...[
+					// Fuzzy search
+					`  UNION ALL`,
+					`  SELECT expr, sequence, 3 AS pos FROM entries_map WHERE keyword LIKE @f`,
+				],
+			)
+		}
+
+		sql.push(
+			...[
+				`) m LEFT JOIN entries e ON e.sequence = m.sequence`,
+				`WHERE m.sequence NOT IN (`,
+				`  SELECT sequence FROM entries_map WHERE expr LIKE @k OR hiragana LIKE @h`,
+				`  UNION ALL`,
+				`  SELECT sequence FROM entries_map WHERE expr LIKE @kp OR hiragana LIKE @hp`,
+				`  UNION ALL`,
+				`  SELECT sequence FROM entries_map WHERE hiragana_rev LIKE @hs`,
+				`) ORDER BY m.pos, length(m.expr), e.position`,
+			],
+		)
+
+		const id = 'contains-' + (args.fuzzy ? 'fuzzy' : args.approx ? 'approx' : 'exact')
+
+		return this.search_rows(id, { ...args, sql: sql.join('\n'), params })
 	}
 
 	private operations = new Map<string, SearchOp>()

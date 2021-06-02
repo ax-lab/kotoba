@@ -55,6 +55,7 @@ export const SCHEMA = buildSchema(`
 		exact: [Entry!]!
 		prefix(offset: Int! = 0, limit: Int! = 100, approx: Boolean, fuzzy: Boolean): [Entry!]!
 		suffix(offset: Int! = 0, limit: Int! = 100, approx: Boolean, fuzzy: Boolean): [Entry!]!
+		contains(offset: Int! = 0, limit: Int! = 100, approx: Boolean, fuzzy: Boolean): [Entry!]!
 	}
 
 	"Tag applicable to dictionary entries."

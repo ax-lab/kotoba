@@ -48,7 +48,13 @@ export const SCHEMA = buildSchema(`
 		"""
 		lookup(kanji: String!, reading: String!): [Entry!]!
 
-		search(keyword: String!): [Entry!]!
+		search(keyword: String!): Search!
+	}
+
+	type Search {
+		exact: [Entry!]!
+		prefix(offset: Int! = 0, limit: Int! = 100, approx: Boolean, fuzzy: Boolean): [Entry!]!
+		suffix(offset: Int! = 0, limit: Int! = 100, approx: Boolean, fuzzy: Boolean): [Entry!]!
 	}
 
 	"Tag applicable to dictionary entries."
@@ -79,6 +85,11 @@ export const SCHEMA = buildSchema(`
 		The first reading for the entry.
 		"""
 		read: String!
+
+		"""
+		Glossary from all senses joined together.
+		"""
+		text: String!
 
 		"""
 		For entries with frequency information, this provides the relative rank

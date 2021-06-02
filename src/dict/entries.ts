@@ -1,4 +1,4 @@
-import { kana } from '../../lib'
+import { elapsed, kana, now } from '../../lib'
 import { group_by } from '../../lib/list'
 
 import DB from './db'
@@ -13,6 +13,8 @@ async function entries_by_ids(ids: string[]) {
 	if (!ids.length) {
 		return []
 	}
+
+	const start = now()
 
 	const sequences = ids
 		.filter((x) => /^\d+$/.test(x))
@@ -70,6 +72,8 @@ async function entries_by_ids(ids: string[]) {
 				misc: tags.split(row.misc, all_tags),
 				info: split(row.info),
 				dialect: tags.split(row.dialect, all_tags),
+				source: [],
+				glossary: [],
 				$pos: row.pos,
 			}
 			return { key: row.sequence, val: out }
@@ -104,33 +108,91 @@ async function entries_by_ids(ids: string[]) {
 	)
 
 	const entries = (await rows).map((row) => {
-		const sources = source_map.get(row.sequence) || []
-		const glossaries = glossary_map.get(row.sequence) || []
-		const out = {
-			id: row.sequence,
-			word: '',
-			read: '',
-			rank: row.rank,
-			position: row.position,
-			frequency: row.frequency,
-			jlpt: row.jlpt,
-			popular: !!row.popular,
-			kanji: kanji_map.get(row.sequence) || [],
-			reading: reading_map.get(row.sequence) || [],
-			sense: (sense_map.get(row.sequence) || []).map((row) => ({
-				...row,
-				source: sources.filter((x) => x.$pos == row.$pos),
-				glossary: glossaries.filter((x) => x.$pos == row.$pos),
-			})),
-		}
-		out.word = out.kanji.length ? out.kanji[0].expr : out.reading[0].expr
-		out.read = out.reading[0].expr
+		const out = new Entry(row, kanji_map, reading_map, sense_map, source_map, glossary_map)
 		return out
 	})
 
 	const entries_map = new Map(entries.map((x) => [x.id, x]))
-	return ids.map((x) => entries_map.get(x)!).filter((x) => !!x)
+	const out = ids.map((x) => entries_map.get(x)!).filter((x) => !!x)
+	console.log(`* Loaded ${out.length} entries in ${elapsed(start)}`)
+	return out
 }
+
+export class Entry {
+	readonly id: string
+	readonly rank: number | null
+	readonly position: number | null
+	readonly frequency: number | null
+	readonly jlpt: number | null
+	readonly popular: boolean
+	readonly kanji: EntryKanji[]
+	readonly reading: EntryReading[]
+	readonly sense: EntrySense[]
+
+	constructor(
+		row: table.Entry,
+		kanji_map: Map<string, EntryKanji[]>,
+		reading_map: Map<string, EntryReading[]>,
+		sense_map: Map<string, EntrySense[]>,
+		source_map: Map<string, EntrySenseSource[]>,
+		glossary_map: Map<string, EntrySenseGlossary[]>,
+	) {
+		const sources = source_map.get(row.sequence) || []
+		const glossaries = glossary_map.get(row.sequence) || []
+		;(this.id = row.sequence),
+			(this.rank = row.rank),
+			(this.position = row.position),
+			(this.frequency = row.frequency),
+			(this.jlpt = row.jlpt),
+			(this.popular = !!row.popular),
+			(this.kanji = kanji_map.get(row.sequence) || []),
+			(this.reading = reading_map.get(row.sequence) || []),
+			(this.sense = (sense_map.get(row.sequence) || []).map((row) => ({
+				...row,
+				source: sources.filter((x) => x.$pos == row.$pos),
+				glossary: glossaries.filter((x) => x.$pos == row.$pos),
+			})))
+	}
+
+	word() {
+		return this.kanji.length ? this.kanji[0].expr : this.reading[0].expr
+	}
+
+	read() {
+		return this.reading[0].expr
+	}
+
+	text() {
+		return this.sense.map((x) => x.glossary.map((x) => x.text).join(', ')).join(' | ')
+	}
+}
+
+export type EntryKanji = { expr: string; info: tags.Tag[]; priority: tags.Tag[]; popular: boolean }
+export type EntryReading = {
+	expr: string
+	no_kanji: boolean
+	restrict: string[]
+	info: tags.Tag[]
+	popular: boolean
+	priority: tags.Tag[]
+	pitches: { value: number; tags: tags.Tag[] }[]
+}
+export type EntrySense = {
+	stag_kanji: string[]
+	stag_reading: string[]
+	pos: tags.Tag[]
+	xref: string[]
+	antonym: string[]
+	field: tags.Tag[]
+	misc: tags.Tag[]
+	info: string[]
+	dialect: tags.Tag[]
+	$pos: number
+	source: EntrySenseSource[]
+	glossary: EntrySenseGlossary[]
+}
+export type EntrySenseSource = { $pos: number; text: string; lang: string; partial: boolean; wasei: boolean }
+export type EntrySenseGlossary = { $pos: number; text: string; type: string }
 
 export async function by_id(args: { id: string }) {
 	return (await entries_by_ids([args.id])).shift()
@@ -184,10 +246,29 @@ function parse_pitch(input: string, all_tags: tags.Tag[]) {
 // Search
 //============================================================================//
 
+type SearchArgs = {
+	approx?: boolean
+	fuzzy?: boolean
+	limit?: number
+	offset?: number
+}
+
 export async function search(args: { keyword: string }) {
 	const search = Search.get(args.keyword)
-	const rows = await search.exact()
-	return await entries_by_ids(rows.map((x) => x.sequence))
+	return {
+		async exact() {
+			const rows = await search.exact()
+			return await entries_by_ids(rows.map((x) => x.sequence))
+		},
+		async prefix(args: SearchArgs) {
+			const rows = await search.prefix(args)
+			return await entries_by_ids(rows.map((x) => x.sequence))
+		},
+		async suffix(args: SearchArgs) {
+			const rows = await search.suffix(args)
+			return await entries_by_ids(rows.map((x) => x.sequence))
+		},
+	}
 }
 
 const MAX_SEARCH_CACHE_ENTRIES = 100
@@ -289,12 +370,14 @@ class Search {
 	 * matched exactly and also converted to hiragana before matching.
 	 */
 	async exact() {
-		const sql = `
-			SELECT DISTINCT e.sequence, e.position
-			FROM entries_map m
-			LEFT JOIN entries e ON e.sequence = m.sequence
-			WHERE m.expr LIKE ? OR m.expr LIKE ?
-		`
+		const sql = [
+			'SELECT DISTINCT m.sequence, e.position',
+			'FROM entries_map m',
+			'LEFT JOIN entries e ON e.sequence = m.sequence',
+			'WHERE (m.expr LIKE ? OR m.hiragana LIKE ?)',
+			'ORDER BY length(m.expr), e.position',
+		].join('\n')
+
 		this.mark_used()
 		return this.search_rows('exact', {
 			sql,
@@ -311,13 +394,61 @@ class Search {
 	 *
 	 * Enabling `fuzzy` implies enabling `approx` and will go one step further
 	 * by matching fragments. The first letter must still match, but as long as
-	 * all fragments of the prefix occur in keyword the match will be valid.
+	 * all fragments of the prefix occur in keyword in order the match will be
+	 * valid.
 	 *
 	 * Note that prefix matching can be quite slow on small prefixes or with
 	 * fuzzy enabled.
 	 */
-	async prefix(args: { approx?: boolean; fuzzy?: boolean; limit?: number; offset?: number }) {
+	async prefix(args: SearchArgs) {
 		this.mark_used()
+		this.validate_args(args)
+
+		const params: Record<string, string> = {
+			'@k': this.keyword,
+			'@h': this.hiragana,
+			'@kp': this.keyword + '%',
+			'@hp': this.hiragana + '%',
+		}
+		const sql = [
+			`SELECT m.sequence, e.position FROM (`,
+			`  SELECT expr, sequence, 1 AS pos FROM entries_map WHERE expr LIKE @kp OR hiragana LIKE @hp`,
+		]
+
+		if (args.approx || args.fuzzy) {
+			params['@a'] = this.approx + '%'
+			sql.push(
+				...[
+					// Approximate search
+					`  UNION ALL`,
+					`  SELECT expr, sequence, 2 AS pos FROM entries_map WHERE keyword LIKE @a`,
+				],
+			)
+		}
+
+		if (args.fuzzy) {
+			params['@f'] = [...this.approx].join('%') + '%'
+			sql.push(
+				...[
+					// Fuzzy search
+					`  UNION ALL`,
+					`  SELECT expr, sequence, 3 AS pos FROM entries_map WHERE keyword LIKE @f`,
+				],
+			)
+		}
+
+		sql.push(
+			...[
+				`) m LEFT JOIN entries e ON e.sequence = m.sequence`,
+				`WHERE m.sequence NOT IN (`,
+				`  SELECT sequence FROM entries_map WHERE expr LIKE @k OR hiragana LIKE @h`,
+				`) ORDER BY m.pos, length(m.expr), e.position`,
+			],
+		)
+
+		const id = 'prefix-' + (args.fuzzy ? 'fuzzy' : args.approx ? 'approx' : 'exact')
+
+		return this.search_rows(id, { ...args, sql: sql.join('\n'), params })
 	}
 
 	/**
@@ -326,18 +457,65 @@ class Search {
 	 *
 	 * The performance characteristics are also the same as `prefix`.
 	 */
-	async suffix(args: { approx?: boolean; fuzzy?: boolean; limit?: number; offset?: number }) {
+	async suffix(args: SearchArgs) {
 		this.mark_used()
+		this.validate_args(args)
+
+		const params: Record<string, string> = {
+			'@k': this.keyword,
+			'@h': this.hiragana,
+			'@hr': this.hiragana_rev + '%',
+		}
+		const sql = [
+			`SELECT DISTINCT m.sequence, e.position FROM (`,
+			`  SELECT expr, sequence, 1 AS pos FROM entries_map WHERE hiragana_rev LIKE @hr`,
+		]
+
+		if (args.approx || args.fuzzy) {
+			params['@a'] = this.approx_rev + '%'
+			sql.push(
+				...[
+					// Approximate search
+					`  UNION ALL`,
+					`  SELECT expr, sequence, 2 AS pos FROM entries_map WHERE keyword_rev LIKE @a`,
+				],
+			)
+		}
+
+		if (args.fuzzy) {
+			params['@f'] = [...this.approx_rev].join('%') + '%'
+			sql.push(
+				...[
+					// Fuzzy search
+					`  UNION ALL`,
+					`  SELECT expr, sequence, 3 AS pos FROM entries_map WHERE keyword_rev LIKE @f`,
+				],
+			)
+		}
+
+		sql.push(
+			...[
+				`) m LEFT JOIN entries e ON e.sequence = m.sequence`,
+				`WHERE m.sequence NOT IN (`,
+				`  SELECT sequence FROM entries_map WHERE expr LIKE @k OR hiragana LIKE @h`,
+				`) ORDER BY m.pos, length(m.expr), e.position`,
+			],
+		)
+
+		const id = 'suffix-' + (args.fuzzy ? 'fuzzy' : args.approx ? 'approx' : 'exact')
+
+		return this.search_rows(id, { ...args, sql: sql.join('\n'), params })
 	}
 
 	/**
 	 * Performs a "contains" search. This is by far the slowest since it
-	 * requires all entries to be scanned.
+	 * requires a table scan.
 	 *
 	 * The arguments have the same meaning as in the `prefix` search.
 	 */
-	async contains(args: { approx?: boolean; fuzzy?: boolean; limit?: number; offset?: number }) {
+	async contains(args: SearchArgs) {
 		this.mark_used()
+		this.validate_args(args)
 	}
 
 	private operations = new Map<string, SearchOp>()
@@ -346,21 +524,15 @@ class Search {
 	 * Raw search implementation. This takes a unique operation key, setup
 	 * configuration, and paging arguments.
 	 *
-	 * Returns a promise that will be resolved once some data is available for
-	 * the given offset/limit range (not necessarily the whole range, see below).
+	 * Returns a promise that will be resolved once data is loaded with the
+	 * given offset/limit range.
 	 *
 	 * The first time this method is called, it will initiate the given search
-	 * operation in the background and return a promise tied to the operation
-	 * and to the range given by the paging arguments.
+	 * operation in the background. Further search requests with the same id
+	 * will share the same operation.
 	 *
-	 * As data is loaded by the background operation, the pending promises will
-	 * get resolved as soon as data in the range is available.
-	 *
-	 * If a new search request is given for a range already available, the
-	 * promise is resolved immediately.
-	 *
-	 * Note that the provided paging limit is just a maximum, as the promise
-	 * will be resolved as soon as data is available for the given offset.
+	 * A request for an operation that has already been completed is resolved
+	 * immediately.
 	 */
 	private async search_rows(id: string, args: { sql: string; params: unknown; offset?: number; limit?: number }) {
 		const op =
@@ -370,36 +542,39 @@ class Search {
 				return op
 			})(new SearchOp(`${this.keyword} (${id})`))
 		if (!op.started) {
-			const db = await DB.get_dict()
 			op.started = true
-			console.log(`Starting '${this.keyword}' search (${id})`)
-			db.each<SearchRow>(
-				args.sql,
-				args.params,
-				(err, row) => {
-					if (!op.error) {
-						console.log(`> ${this.keyword}: ${err ? err : row.sequence}`)
-						op.error ||= err
-						if (row) {
-							op.rows.push(row)
-						}
-					}
-				},
-				(err, count) => {
-					console.log(`Completed '${this.keyword}' search (${count})`, err)
-					op.complete(err)
-				},
-			)
+			void (async () => {
+				try {
+					const db = await DB.get_dict()
+					const rows = await db.query<SearchRow>(args.sql, args.params)
+					op.rows = rows
+					op.complete()
+				} catch (err) {
+					op.complete(err as Error)
+				}
+			})()
 		}
 
 		const paged = args.offset != null
 		const offset = args.offset || 0
 		const limit = args.limit
 
-		// For incomplete operations we add a pending operation
 		return new Promise<SearchRow[]>((resolve, reject) => {
 			op.add_pending({ paged, offset, limit, resolve, reject })
 		})
+	}
+
+	private validate_args(args: SearchArgs) {
+		if (args.offset) {
+			if (args.offset < 0) {
+				throw new Error('invalid offset')
+			}
+		}
+		if (args.limit) {
+			if (args.limit < 1) {
+				throw new Error('invalid limit')
+			}
+		}
 	}
 }
 
@@ -409,18 +584,23 @@ type SearchRow = {
 }
 
 class SearchOp {
-	name: string
+	readonly name: string
+	readonly start: number
+
 	rows: SearchRow[] = []
-	error?: Error | null
+	error?: Error
 	is_complete?: boolean
 	started?: boolean
 	pending: SearchCallback[] = []
 
 	constructor(name: string) {
 		this.name = name
+		this.start = now()
+		console.log(`> ${this.name}: starting`)
 	}
 
-	complete(err: Error | null) {
+	complete(err?: Error) {
+		console.log(`= ${this.name}: completed in ${elapsed(this.start)} (${err ? err : this.rows.length})`)
 		if (err) {
 			this.error = err
 		}
@@ -432,41 +612,19 @@ class SearchOp {
 		}
 	}
 
-	check_solved(delay_ms?: number) {
-		const p = this.pending
-		let solved = 0
-		for (solved = 0; solved < p.length && p[solved].paged && p[solved].offset < this.rows.length; solved++) {
-			if (!delay_ms) {
-				this.solve(p[solved])
-			} else {
-				const it = p[solved]
-				setTimeout(() => this.solve(it), delay_ms)
-			}
-		}
-		if (solved > 0) {
-			this.pending = this.pending.slice(solved)
-		}
-	}
-
 	add_pending(cb: SearchCallback) {
 		if (this.is_complete) {
 			this.solve(cb)
 			return
 		}
-		console.log(`+ pending ${cb.paged} ~ ${cb.offset} / ${cb.limit}`)
+		const label = cb.paged ? `${cb.offset}/${cb.limit || '-'}` : `full`
+		console.log(`+ ${this.name}: pending ${label}`)
 		this.pending.push(cb)
-		this.pending.sort((a, b) => {
-			if (a.paged != b.paged) {
-				// Sort non-paged operations to the end
-				return (a.paged ? 1 : 0) - (b.paged ? 1 : 0)
-			}
-			// Sort earlier offsets first
-			return a.offset - b.offset
-		})
 	}
 
 	private solve(cb: SearchCallback) {
-		console.log(`= solving ${cb.paged} ~ ${cb.offset} / ${cb.limit} -- ${this.rows.length} / ${this.error}`)
+		const label = cb.paged ? `${cb.offset}/${cb.limit || '-'}` : `full`
+		console.log(`- ${this.name}: solving ${label}`)
 		this.error
 			? cb.reject(this.error)
 			: cb.resolve(cb.paged ? this.rows.slice(cb.offset, cb.limit ? cb.offset + cb.limit : undefined) : this.rows)

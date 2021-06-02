@@ -1,10 +1,10 @@
 export type Entry = {
 	sequence: string
-	frequency: number
-	popular: number
-	rank: number
+	frequency: number | null
+	popular: number | null
+	rank: number | null
 	position: number
-	jlpt: number
+	jlpt: number | null
 }
 
 export type EntriesIndex = {

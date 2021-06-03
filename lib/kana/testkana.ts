@@ -766,6 +766,8 @@ export const DOUBLE_CONSONANTS: Kana[] = BASIC_KANA.filter((it) => {
 	h: it.h + 'っ' + it.h,
 	k: it.k + 'ッ' + it.k,
 	r: it.r + it.r[0] + it.r,
+	// 'nn' does not generate a っ from romaji
+	from_kana: it.r[0] == 'N' ? true : !!it.from_kana,
 }))
 
 /**

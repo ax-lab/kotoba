@@ -18,6 +18,15 @@ describe('to_hiragana', () => {
 
 		check('quaqqua', 'くぁっくぁ')
 
+		// Check the 'nn' handling
+		check('n', 'ん')
+		check("n'", 'ん')
+		check('nn', 'ん') // at the end of input we get the IME handling
+		check('nnX', 'んんX') // otherwise normal mapping
+		check("n'n", 'んん')
+
+		check('shinnyuu', 'しんにゅう')
+
 		// spell-checker: enable
 	})
 
@@ -48,6 +57,7 @@ describe('to_hiragana', () => {
 		check('かっか', 'kakka')
 		check('まっま', 'mamma')
 		check('なんな', `nan'na`)
+		check('なんな', `nanna`)
 		check('ぱっぱ', 'pappa')
 		check('くぁっくぁ', 'quaqqua')
 		check('らっら', 'rarra')

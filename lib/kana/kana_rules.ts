@@ -179,12 +179,16 @@ function set_romaji_to_kana(hiragana: boolean, ime = true) {
 			: rules(
 					...map_romaji_ime(mapper),
 					mFn('nn', (ctx) => {
-						if (!/^([aeiou]|ya|yu|ye|yo)/i.test(ctx.nextInput)) {
-							// Only generate if we are not in a syllable...
-							return tuple(hiragana ? 'ん' : 'ン', 0)
+						const out = hiragana ? 'ん' : 'ン'
+						// At the end of an input, we map 'nn' -> 'ん' so that
+						// typing a double N with IME will generate 'ん'.
+						if (!ctx.nextInput) {
+							return tuple(out, 2)
 						}
-						// ...otherwise we are a double consonant
-						return tuple(hiragana ? 'っ' : 'ッ', 1)
+						// Otherwise we map 'n' -> 'ん', ignoring the 'nn'. We
+						// don't want to generate a 'っ' here because that is
+						// the less useful sequence.
+						return tuple(out, 1)
 					}),
 			  ),
 	)
@@ -206,7 +210,7 @@ function set_romaji_double_consonants(hiragana: boolean) {
 		'k',
 		// 'l',
 		'm',
-		'n',
+		// 'n', -- this is overridden in set_romaji_to_kana
 		'p',
 		'q',
 		'r',

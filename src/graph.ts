@@ -48,14 +48,135 @@ export const SCHEMA = buildSchema(`
 		"""
 		lookup(kanji: String!, reading: String!): [Entry!]!
 
+		"""
+		Search for entries using a keyword.
+
+		The keyword is searched in both the kanji and reading elements of the
+		entries. Both keyword and entry elements are also converted to hiragana
+		before matching.
+		"""
 		search(keyword: String!): Search!
 	}
 
+	"""
+	Main element for a search by keyword.
+	"""
 	type Search {
+		"""
+		List of entries that have an exact match to the keyword.
+		"""
 		exact: [Entry!]!
-		prefix(offset: Int! = 0, limit: Int! = 100, approx: Boolean, fuzzy: Boolean): [Entry!]!
-		suffix(offset: Int! = 0, limit: Int! = 100, approx: Boolean, fuzzy: Boolean): [Entry!]!
-		contains(offset: Int! = 0, limit: Int! = 100, approx: Boolean, fuzzy: Boolean): [Entry!]!
+
+		"""
+		List of entries that have a prefix that matches the keyword.
+
+		Note that this excludes exact matches.
+		"""
+		prefix(
+			"""
+			Offset the returned results by the given number of entries. Zero
+			will return the first entry.
+			"""
+			offset: Int! = 0,
+
+			"""
+			Limits the number of entries returned. This must be a positive
+			non-zero value.
+			"""
+			limit: Int! = 100,
+
+			"""
+			If true, instead of matching literally the text will be matched
+			using an approximate comparison. This approximate comparison is
+			meant to match similar words by ignoring things like long vowels,
+			the small-tsu, kana voiced marks (e.g. は、ば、ぱ will match), and
+			any extraneous characters (e.g. symbols, and leftover ASCII from
+			a partial IME conversion).
+			"""
+			approx: Boolean,
+
+			"""
+			This performs the same comparison as with 'approx' enabled, but will
+			also match a non-continuous sequence of characters. That means that
+			as long as every character of the approximate keyword is contained
+			in order in the matched sequence, the entry will match.
+			"""
+			fuzzy: Boolean
+		): [Entry!]!
+
+		"""
+		List of entries that have a suffix that matches the keyword.
+
+		Note that this excludes exact matches.
+		"""
+		suffix(
+			"""
+			Offset the returned results by the given number of entries. Zero
+			will return the first entry.
+			"""
+			offset: Int! = 0,
+
+			"""
+			Limits the number of entries returned. This must be a positive
+			non-zero value.
+			"""
+			limit: Int! = 100,
+
+			"""
+			If true, instead of matching literally the text will be matched
+			using an approximate comparison. This approximate comparison is
+			meant to match similar words by ignoring things like long vowels,
+			the small-tsu, kana voiced marks (e.g. は、ば、ぱ will match), and
+			any extraneous characters (e.g. symbols, and leftover ASCII from
+			a partial IME conversion).
+			"""
+			approx: Boolean,
+
+			"""
+			This performs the same comparison as with 'approx' enabled, but will
+			also match a non-continuous sequence of characters. That means that
+			as long as every character of the approximate keyword is contained
+			in order in the matched sequence, the entry will match.
+			"""
+			fuzzy: Boolean
+		): [Entry!]!
+
+		"""
+		List of entries that contain text that match the keyword.
+
+		Note that this excludes exact, suffix, and prefix matches.
+		"""
+		contains(
+			"""
+			Offset the returned results by the given number of entries. Zero
+			will return the first entry.
+			"""
+			offset: Int! = 0,
+
+			"""
+			Limits the number of entries returned. This must be a positive
+			non-zero value.
+			"""
+			limit: Int! = 100,
+
+			"""
+			If true, instead of matching literally the text will be matched
+			using an approximate comparison. This approximate comparison is
+			meant to match similar words by ignoring things like long vowels,
+			the small-tsu, kana voiced marks (e.g. は、ば、ぱ will match), and
+			any extraneous characters (e.g. symbols, and leftover ASCII from
+			a partial IME conversion).
+			"""
+			approx: Boolean,
+
+			"""
+			This performs the same comparison as with 'approx' enabled, but will
+			also match a non-continuous sequence of characters. That means that
+			as long as every character of the approximate keyword is contained
+			in order in the matched sequence, the entry will match.
+			"""
+			fuzzy: Boolean
+		): [Entry!]!
 	}
 
 	"Tag applicable to dictionary entries."

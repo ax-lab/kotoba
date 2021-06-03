@@ -49,23 +49,59 @@ export const SCHEMA = buildSchema(`
 		lookup(kanji: String!, reading: String!): [Entry!]!
 
 		"""
-		Search for entries using a keyword.
+		List entries by keyword.
 
 		The keyword is searched in both the kanji and reading elements of the
 		entries. Both keyword and entry elements are also converted to hiragana
 		before matching.
 		"""
-		search(keyword: String!): Search!
+		list(keyword: String!): KeywordList!
 	}
 
 	"""
-	Main element for a search by keyword.
+	Main element for looking up entries by keyword.
 	"""
-	type Search {
+	type KeywordList {
 		"""
 		List of entries that have an exact match to the keyword.
 		"""
 		exact: [Entry!]!
+
+		"""
+		List of entries that match the keyword. This differs from 'exact' in
+		that it allows approximate and fuzzy matching.
+		"""
+		matches(
+			"""
+			Offset the returned results by the given number of entries. Zero
+			will return the first entry.
+			"""
+			offset: Int! = 0,
+
+			"""
+			Limits the number of entries returned. This must be a positive
+			non-zero value.
+			"""
+			limit: Int! = 100,
+
+			"""
+			If true, instead of matching literally the text will be matched
+			using an approximate comparison. This approximate comparison is
+			meant to match similar words by ignoring things like long vowels,
+			the small-tsu, kana voiced marks (e.g. は、ば、ぱ will match), and
+			any extraneous characters (e.g. symbols, and leftover ASCII from
+			a partial IME conversion).
+			"""
+			approx: Boolean,
+
+			"""
+			This performs the same comparison as with 'approx' enabled, but will
+			also match a non-continuous sequence of characters. That means that
+			as long as every character of the approximate keyword is contained
+			in order in the matched sequence, the entry will match.
+			"""
+			fuzzy: Boolean
+		): [Entry!]
 
 		"""
 		List of entries that have a prefix that matches the keyword.
@@ -566,7 +602,7 @@ export const ROOT = {
 	entry: dict.entries.by_id,
 	entries: dict.entries.by_ids,
 	lookup: dict.entries.lookup,
-	search: dict.entries.search,
+	list: dict.entries.list,
 }
 
 /**

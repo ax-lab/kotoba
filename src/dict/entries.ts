@@ -246,29 +246,33 @@ function parse_pitch(input: string, all_tags: tags.Tag[]) {
 // Search
 //============================================================================//
 
-type SearchArgs = {
+type ListArgs = {
 	approx?: boolean
 	fuzzy?: boolean
 	limit?: number
 	offset?: number
 }
 
-export async function search(args: { keyword: string }) {
-	const search = Search.get(args.keyword)
+export async function list(args: { keyword: string }) {
+	const search = ListByKeyword.get(args.keyword)
 	return {
 		async exact() {
 			const rows = await search.exact()
 			return await entries_by_ids(rows.map((x) => x.sequence))
 		},
-		async prefix(args: SearchArgs) {
+		async matches(args: ListArgs) {
+			const rows = await search.matches(args)
+			return await entries_by_ids(rows.map((x) => x.sequence))
+		},
+		async prefix(args: ListArgs) {
 			const rows = await search.prefix(args)
 			return await entries_by_ids(rows.map((x) => x.sequence))
 		},
-		async suffix(args: SearchArgs) {
+		async suffix(args: ListArgs) {
 			const rows = await search.suffix(args)
 			return await entries_by_ids(rows.map((x) => x.sequence))
 		},
-		async contains(args: SearchArgs) {
+		async contains(args: ListArgs) {
 			const rows = await search.contains(args)
 			return await entries_by_ids(rows.map((x) => x.sequence))
 		},
@@ -282,7 +286,7 @@ const MIN_SEARCH_ENTRY_TTL_MS = 2 * 60 * 1000
  * Encapsulate a running or cached search with its results. Provide methods
  * to trigger the search and wait on the results.
  */
-class Search {
+class ListByKeyword {
 	readonly keyword: string
 	readonly hiragana: string
 
@@ -296,7 +300,7 @@ class Search {
 		let out = this.cache.get(keyword)
 		if (!out) {
 			this.clean_up()
-			out = new Search(keyword)
+			out = new ListByKeyword(keyword)
 			this.cache.set(keyword, out)
 		}
 
@@ -324,7 +328,7 @@ class Search {
 		}
 	}
 
-	private static cache = new Map<string, Search>()
+	private static cache = new Map<string, ListByKeyword>()
 
 	private last_used: number
 
@@ -390,6 +394,60 @@ class Search {
 	}
 
 	/**
+	 * Performs a match search. This matches the entire word, but differs from
+	 * `exact` in that it allows approximate and fuzzy matching.
+	 *
+	 * If `approx` is true this will perform the match using a key that
+	 * approximates the keyword (see `prefix` for details).
+	 *
+	 * Enabling `fuzzy` works similarly to `prefix` but thee entry must match
+	 * the first and last characters at least.
+	 */
+	async matches(args: ListArgs) {
+		this.mark_used()
+		this.validate_args(args)
+
+		const params: Record<string, string> = {
+			'@k': this.keyword,
+			'@h': this.hiragana,
+		}
+		const sql = [
+			`SELECT DISTINCT m.sequence, e.position FROM (`,
+			`  SELECT expr, sequence, 1 AS pos FROM entries_map WHERE expr LIKE @k OR hiragana LIKE @h`,
+		]
+
+		if (args.approx || args.fuzzy) {
+			params['@a'] = this.approx
+			sql.push(
+				...[
+					// Approximate search
+					`  UNION ALL`,
+					`  SELECT expr, sequence, 2 AS pos FROM entries_map WHERE keyword LIKE @a`,
+				],
+			)
+		}
+
+		if (args.fuzzy) {
+			params['@f'] = [...this.approx].join('%')
+			sql.push(
+				...[
+					// Fuzzy search
+					`  UNION ALL`,
+					`  SELECT expr, sequence, 3 AS pos FROM entries_map WHERE keyword LIKE @f`,
+				],
+			)
+		}
+
+		sql.push(
+			...[`) m LEFT JOIN entries e ON e.sequence = m.sequence`, `ORDER BY m.pos, length(m.expr), e.position`],
+		)
+
+		const id = 'match-' + (args.fuzzy ? 'fuzzy' : args.approx ? 'approx' : 'exact')
+
+		return this.search_rows(id, { ...args, sql: sql.join('\n'), params })
+	}
+
+	/**
 	 * Performs a prefix search.
 	 *
 	 * If `approx` is true this will perform the prefix search using a key that
@@ -404,7 +462,7 @@ class Search {
 	 * Note that prefix matching can be quite slow on small prefixes or with
 	 * fuzzy enabled.
 	 */
-	async prefix(args: SearchArgs) {
+	async prefix(args: ListArgs) {
 		this.mark_used()
 		this.validate_args(args)
 
@@ -461,7 +519,7 @@ class Search {
 	 *
 	 * The performance characteristics are also the same as `prefix`.
 	 */
-	async suffix(args: SearchArgs) {
+	async suffix(args: ListArgs) {
 		this.mark_used()
 		this.validate_args(args)
 
@@ -517,7 +575,7 @@ class Search {
 	 *
 	 * The arguments have the same meaning as in the `prefix` search.
 	 */
-	async contains(args: SearchArgs) {
+	async contains(args: ListArgs) {
 		this.mark_used()
 		this.validate_args(args)
 
@@ -621,7 +679,7 @@ class Search {
 		})
 	}
 
-	private validate_args(args: SearchArgs) {
+	private validate_args(args: ListArgs) {
 		if (args.offset) {
 			if (args.offset < 0) {
 				throw new Error('invalid offset')

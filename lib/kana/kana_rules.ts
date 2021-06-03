@@ -20,11 +20,17 @@ export function rules_to_hiragana() {
 }
 
 /** Rules to convert just the fullwidth characters to ASCII. */
-export function rules_fullwidth_ascii() {
+export function rules_fullwidth_to_ascii() {
 	return rules(
 		set_punctuation_to_romaji(),
 		...map_romaji_fullwidth_ascii((h: string, k: string, r: string) => m(h, r)),
 	)
+}
+
+/** Rules to convert just ASCII letters to fullwidth. */
+export function rules_ascii_to_fullwidth() {
+	const mapper = (h: string, k: string, r: string) => m(r, h)
+	return rules(...map_romaji_fullwidth_ascii(mapper))
 }
 
 /** Main rule set to convert kana to romaji. */

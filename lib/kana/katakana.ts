@@ -1,7 +1,9 @@
 import { compile, convert } from './conversion'
-import { rules_to_katakana } from './kana_rules'
+import { rules_ascii_to_fullwidth, rules_to_katakana } from './kana_rules'
 
 const TO_KATAKANA = compile(rules_to_katakana())
+
+const ASCII_TO_FULLWIDTH = compile(rules_ascii_to_fullwidth())
 
 /**
  * Converts the input text to katakana.
@@ -9,8 +11,12 @@ const TO_KATAKANA = compile(rules_to_katakana())
  * This works on any mix of romaji and hiragana inputs. It will also convert
  * romaji punctuation and spacing to the Japanese equivalents.
  */
-export function to_katakana(input: string) {
-	return convert(fullwidth_katakana(input), TO_KATAKANA)
+export function to_katakana(input: string, { fullwidth }: { fullwidth?: boolean } = {}) {
+	const out = convert(fullwidth_katakana(input), TO_KATAKANA)
+	if (fullwidth == null || fullwidth) {
+		return convert(out, ASCII_TO_FULLWIDTH)
+	}
+	return out
 }
 
 /**

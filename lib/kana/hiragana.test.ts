@@ -22,7 +22,7 @@ describe('to_hiragana', () => {
 		check('n', 'ん')
 		check("n'", 'ん')
 		check('nn', 'ん') // at the end of input we get the IME handling
-		check('nnX', 'んんX') // otherwise normal mapping
+		check('nnX', 'んんＸ') // otherwise normal mapping
 		check("n'n", 'んん')
 
 		check('shinnyuu', 'しんにゅう')
@@ -39,7 +39,7 @@ describe('to_hiragana', () => {
 		}
 
 		// Hiragana
-		check('しゃぎゃつっじゃあんなん　んあんんざ　xzm', `shagyatsujjaan'nan n'an'nza xzm`)
+		check('しゃぎゃつっじゃあんなん　んあんんざ　ｘｚｍ', `shagyatsujjaan'nan n'an'nza xzm`)
 
 		// Long vogals
 		check('あーいーうーえーおー', 'a-i-u-e-o-')
@@ -84,7 +84,7 @@ describe('to_hiragana', () => {
 		check('おなじ', 'onaji')
 		check('ぶっつうじ', 'buttsuuji')
 		check('わにかに', 'wanikani')
-		check('わにかに　あいうえお　鰐蟹　12345　＠＃＄％', 'wanikani aiueo 鰐蟹 12345 @#$%')
+		check('わにかに　あいうえお　鰐蟹　１２３４５　＠＃＄％', 'wanikani aiueo 鰐蟹 12345 @#$%')
 		check('座禅「ざぜん」すたいる', '座禅[zazen]sutairu')
 		check('ばつげーむ', 'batsuge-mu')
 
@@ -209,8 +209,8 @@ describe('to_hiragana', () => {
 			const expected = it.h
 			for (const romaji of testkana.romaji_inputs(it)) {
 				check(romaji, expected)
-				check(romaji.toLowerCase(), expected)
-				check(romaji.toUpperCase(), expected)
+				check(romaji.toLowerCase(), expected.toLowerCase())
+				check(romaji.toUpperCase(), expected.toUpperCase())
 			}
 		}
 	})

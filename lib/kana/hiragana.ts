@@ -1,8 +1,11 @@
 import { compile, convert } from './conversion'
-import { rules_fullwidth_ascii, rules_to_hiragana } from './kana_rules'
+import { rules_ascii_to_fullwidth, rules_fullwidth_to_ascii, rules_to_hiragana } from './kana_rules'
 import { fullwidth_katakana } from './katakana'
 
 const TO_HIRAGANA = compile(rules_to_hiragana())
+
+const FULLWIDTH_TO_ASCII = compile(rules_fullwidth_to_ascii())
+const ASCII_TO_FULLWIDTH = compile(rules_ascii_to_fullwidth())
 
 /**
  * Converts the input text to hiragana.
@@ -10,11 +13,13 @@ const TO_HIRAGANA = compile(rules_to_hiragana())
  * This works on any mix of romaji and katakana inputs. It will also convert
  * romaji punctuation and spacing to the Japanese equivalents.
  */
-export function to_hiragana(input: string) {
-	return convert(fullwidth_katakana(input), TO_HIRAGANA)
+export function to_hiragana(input: string, { fullwidth }: { fullwidth?: boolean } = {}) {
+	const out = convert(fullwidth_katakana(input), TO_HIRAGANA)
+	if (fullwidth == null || fullwidth) {
+		return convert(out, ASCII_TO_FULLWIDTH)
+	}
+	return out
 }
-
-const FULLWIDTH_TO_ASCII = compile(rules_fullwidth_ascii())
 
 /**
  * Converts the input text to a lookup key that can be stored in an index and

@@ -37,7 +37,7 @@ describe('to_katakana', () => {
 			expect(pre + to_katakana(romaji)).toEqual(pre + kana)
 		}
 
-		check('シャギャツッジャーンナン　ンアンンザ　xzm', `shagyatsujjaan'nan n'an'nza xzm`)
+		check('シャギャツッジャーンナン　ンアンンザ　ｘｚｍ', `shagyatsujjaan'nan n'an'nza xzm`)
 
 		// Long vogals
 		check('アーイーウーエーオー', 'a-i-u-e-o-')
@@ -82,7 +82,7 @@ describe('to_katakana', () => {
 		check('オナジ', 'onaji')
 		check('ブッツージ', 'buttsuuji')
 		check('ワニカニ', 'wanikani')
-		check('ワニカニ　アイウエオ　鰐蟹　12345　＠＃＄％', 'wanikani aiueo 鰐蟹 12345 @#$%')
+		check('ワニカニ　アイウエオ　鰐蟹　１２３４５　＠＃＄％', 'wanikani aiueo 鰐蟹 12345 @#$%')
 		check('座禅「ザゼン」スタイル', '座禅[zazen]sutairu')
 		check('バツゲーム', 'batsuge-mu')
 
@@ -190,8 +190,8 @@ describe('to_katakana', () => {
 			const expected = it.k
 			for (const romaji of testkana.romaji_inputs(it)) {
 				check(romaji, expected)
-				check(romaji.toLowerCase(), expected)
-				check(romaji.toUpperCase(), expected)
+				check(romaji.toLowerCase(), expected.toLowerCase())
+				check(romaji.toUpperCase(), expected.toUpperCase())
 			}
 		}
 	})

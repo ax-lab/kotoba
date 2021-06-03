@@ -292,7 +292,7 @@ class Search {
 	 * Returns an instance of `Search` for the given keyword.
 	 */
 	static get(keyword: string) {
-		keyword = keyword.trim().replace(/\s+/, ' ')
+		keyword = keyword.trim().toUpperCase().replace(/\s+/, ' ')
 		let out = this.cache.get(keyword)
 		if (!out) {
 			this.clean_up()

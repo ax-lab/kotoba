@@ -601,7 +601,7 @@ async function generate_dict(db_file: string, frequencies: Frequency, pitch: Pit
 	const start_index = lib.now()
 	const tb_entries_map = map_entries.map((it, i) => {
 		const num = i + 1
-		const hiragana = kana.to_hiragana(it.expr) // Used for exact matches on hiragana
+		const hiragana = kana.to_hiragana(it.expr).toUpperCase() // Used for exact matches on hiragana
 		const hiragana_rev = [...hiragana].reverse().join('')
 		const keyword = kana.to_hiragana_key(it.expr) // Used for fuzzy matching
 

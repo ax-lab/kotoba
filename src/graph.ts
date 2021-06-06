@@ -352,6 +352,17 @@ export const SCHEMA = buildSchema(`
 		id: String!
 
 		"""
+		When the entry is loaded through a search, this is the match mode for
+		the expression.
+
+		Valid values are:
+		- exact, prefix, suffix, contains
+		- approx, approx-prefix, approx-suffix, approx-contains
+		- fuzzy, fuzzy-prefix, fuzzy-suffix, fuzzy-contains
+		"""
+		match_mode: String
+
+		"""
 		This will be the expression for the first entry in 'kanji' if available,
 		or the first entry in 'reading' otherwise.
 		"""

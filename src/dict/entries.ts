@@ -126,6 +126,8 @@ export class Entry {
 	readonly reading: EntryReading[]
 	readonly sense: EntrySense[]
 
+	match_mode?: string
+
 	constructor(
 		row: table.Entry,
 		kanji_map: Map<string, EntryKanji[]>,
@@ -326,21 +328,35 @@ export async function search({ id, query }: { id: string; query: string }) {
 	// purged from the cache) this will run to execute the search.
 	cache.start_if(async () => {
 		const db = await DB.get_dict()
+		const t0 = now()
 
 		// We incrementally load rows as defined by the search precedence. The
 		// reason for splitting the search between multiple SQL queries is to
 		// solve pages as soon as possible. This guarantees that even on heavy
 		// searches, the first matches will still be fast.
 		const ops = [
-			{ name: 'exact match', sql: search.exact_match },
-			{ name: 'exact prefix', sql: search.exact_prefix },
-			{ name: 'exact suffix', sql: search.exact_suffix },
+			{ mode: 'exact', name: 'exact match', sql: search.exact_match },
+			{ mode: 'prefix', name: 'exact prefix', sql: search.exact_prefix },
+			{ mode: 'suffix', name: 'exact suffix', sql: search.exact_suffix },
+			{ mode: 'contains', name: 'exact contains', sql: search.exact_contains },
+			{ mode: 'approx', name: 'approx match', sql: search.approx_match },
+			{ mode: 'approx-prefix', name: 'approx prefix', sql: search.approx_prefix },
+			{ mode: 'approx-suffix', name: 'approx suffix', sql: search.approx_suffix },
+			{ mode: 'approx-contains', name: 'approx contains', sql: search.approx_contains },
+			{ mode: 'fuzzy', name: 'fuzzy match', sql: search.fuzzy_match },
+			{ mode: 'fuzzy-prefix', name: 'fuzzy prefix', sql: search.fuzzy_prefix },
+			{ mode: 'fuzzy-suffix', name: 'fuzzy suffix', sql: search.fuzzy_suffix },
+			{ mode: 'fuzzy-contains', name: 'fuzzy contains', sql: search.fuzzy_contains },
 		]
-		for (const { name, sql } of ops) {
+		for (const { mode, name, sql } of ops) {
+			if (!sql) {
+				continue
+			}
+
 			const t0 = now()
 			const rows = await db.query<SearchRow>(sql)
 			cache.log(`${name} - loaded ${rows.length} rows in ${elapsed(t0)}`)
-			cache.push(rows.map((x) => x.sequence))
+			cache.push(mode, rows)
 
 			// This will trigger any completed pages to be solved. In particular,
 			// first pages (offset = 0) will be solved as long as any row has been
@@ -349,12 +365,12 @@ export async function search({ id, query }: { id: string; query: string }) {
 			// This is blocking, which also has the secondary benefit of waiting
 			// until the individual entries have been loaded from the SQLite DB
 			// before continuing the query (we don't cache entire rows to conserve
-			// memory). Otherwise, our heavy searches would negatively affect the
-			// performance of already loaded rows.
+			// memory). Otherwise, our heavy searches would negatively affect
+			// entry load performance and impact the response time.
 			await cache.solve_completed()
 		}
 
-		cache.log(`search completed`)
+		cache.log(`search completed in ${elapsed(t0)}`)
 	})
 
 	// This is used to synchronize the information fields for search results so
@@ -430,43 +446,77 @@ function escape_string(input: string, escape_like = '') {
 }
 
 function parse_search(input: string) {
-	const expr = input
+	const query = input
 		.toUpperCase()
 		.split(/\s+/)
 		.filter((x) => !!x)
-		.map((x) => ({ expr: x, kana: kana.to_hiragana(x) }))
+
+	const expr = query.map((x) => kana.to_hiragana(x))
+	const expr_rev = expr.map((x) => [...x].reverse().join(''))
+	const approx = query.map((x) => kana.to_hiragana_key(x)).filter((x) => !!x)
+	const approx_rev = approx.map((x) => [...x].reverse().join(''))
+	const fuzzy = approx.map((x) => [...x.replace(/[_%]/g, '')].join('%'))
+	const fuzzy_rev = approx_rev.map((x) => [...x.replace(/[_%]/g, '')].join('%'))
 
 	const like = (col: string, text: string, { pre, pos }: { pre?: string; pos?: string } = {}) =>
 		`${col} LIKE '${(pre || '') + escape_string(text, '\\') + (pos || '')}' ESCAPE '\\'`
 
 	const sql = (where: string) =>
-		[
-			`SELECT DISTINCT m.sequence, e.position FROM (`,
-			`  SELECT expr, sequence FROM entries_map`,
-			`  WHERE ${where}`,
-			`) m LEFT JOIN entries e ON e.sequence = m.sequence`,
-			`ORDER BY length(m.expr), e.position`,
-		].join('\n')
+		where
+			? [
+					`SELECT DISTINCT m.sequence, e.position FROM (`,
+					`  SELECT expr, sequence FROM entries_map`,
+					`  WHERE ${where}`,
+					`) m LEFT JOIN entries e ON e.sequence = m.sequence`,
+					`ORDER BY length(m.expr), e.position`,
+			  ].join('\n')
+			: ''
 
-	const match_exact = expr.map((x) => `(${like('expr', x.expr)} OR ${like('hiragana', x.kana)})`)
+	const partial = { pos: '%' }
+	const contains = { pos: '%', pre: '%' }
 
-	const prefix = { pos: '%' }
-	const prefix_exact = expr.map((x) => `(${like('expr', x.expr, prefix)} OR ${like('hiragana', x.kana, prefix)})`)
+	const exact_match = expr.map((x) => `(${like('hiragana', x)})`)
+	const exact_prefix = expr.map((x) => `(${like('hiragana', x, partial)})`)
+	const exact_suffix = expr_rev.map((x) => `(${like('hiragana_rev', x, partial)})`)
+	const exact_contains = expr.map((x) => `(${like('hiragana', x, contains)})`)
 
-	const suffix_exact = expr.map((x) => `(${like('hiragana_rev', x.kana, prefix)})`)
+	const approx_match = approx.map((x) => `(${like('keyword', x)})`)
+	const approx_prefix = approx.map((x) => `(${like('keyword', x, partial)})`)
+	const approx_suffix = approx_rev.map((x) => `(${like('keyword_rev', x, partial)})`)
+	const approx_contains = approx.map((x) => `(${like('keyword', x, contains)})`)
+
+	const fuzzy_match = fuzzy.map((x) => `(keyword LIKE '${escape_string(x)}')`)
+	const fuzzy_prefix = fuzzy.map((x) => `(keyword LIKE '${escape_string(x)}%')`)
+	const fuzzy_suffix = fuzzy_rev.map((x) => `(keyword_rev LIKE '${escape_string(x)}%')`)
+	const fuzzy_contains = fuzzy.map((x) => `(keyword LIKE '%${escape_string(x)}%')`)
 
 	const OR = ' OR '
 	return {
-		id: expr.map((x) => `${x.expr}`).join(' '),
+		id: query.join(' '),
 		invalid: '',
-		exact_match: sql(match_exact.join(OR)),
-		exact_prefix: sql(prefix_exact.join(OR)),
-		exact_suffix: sql(suffix_exact.join(OR)),
+		exact_match: sql(exact_match.join(OR)),
+		exact_prefix: sql(exact_prefix.join(OR)),
+		exact_suffix: sql(exact_suffix.join(OR)),
+		exact_contains: sql(exact_contains.join(OR)),
+		approx_match: sql(approx_match.join(OR)),
+		approx_prefix: sql(approx_prefix.join(OR)),
+		approx_suffix: sql(approx_suffix.join(OR)),
+		approx_contains: sql(approx_contains.join(OR)),
+		fuzzy_match: sql(fuzzy_match.join(OR)),
+		fuzzy_prefix: sql(fuzzy_prefix.join(OR)),
+		fuzzy_suffix: sql(fuzzy_suffix.join(OR)),
+		fuzzy_contains: sql(fuzzy_contains.join(OR)),
 	}
 }
 
 const MAX_SEARCH_CACHE_ENTRIES = 100
 const MIN_SEARCH_ENTRY_TTL_MS = 2 * 60 * 1000
+
+type SearchRow = {
+	mode?: string
+	sequence: string
+	position: number
+}
 
 class Search {
 	readonly id: string
@@ -492,8 +542,8 @@ class Search {
 	private completed?: boolean
 	private error?: Error
 
-	private row_set = new Set<string>()
-	private rows: string[] = []
+	private row_map = new Map<string, SearchRow>()
+	private rows: SearchRow[] = []
 
 	private pending: { offset: number; limit: number; callback: (rows: Entry[], error?: Error) => void }[] = []
 
@@ -552,11 +602,11 @@ class Search {
 	/**
 	 * Append solved rows to the search results.
 	 */
-	push(rows: string[]) {
-		const new_rows = rows.filter((x) => !this.row_set.has(x))
+	push(mode: string, rows: SearchRow[]) {
+		const new_rows = rows.filter((x) => !this.row_map.has(x.sequence)).map((x) => ({ ...x, mode }))
 		this.rows.push(...new_rows)
 		for (const it of new_rows) {
-			this.row_set.add(it)
+			this.row_map.set(it.sequence, it)
 		}
 	}
 
@@ -573,15 +623,23 @@ class Search {
 		const on_error = (err: Error) => solved.forEach((x) => x.callback([], err))
 
 		if (!this.error) {
-			const ids = new Set(solved.flatMap((x) => this.rows.slice(x.offset, x.offset + x.limit)))
+			const ids = new Set(
+				solved.flatMap((x) => this.rows.slice(x.offset, x.offset + x.limit).map((x) => x.sequence)),
+			)
 			const start = now()
 			try {
 				const all_rows = new Map((await entries_by_ids(Array.from(ids.values()))).map((x) => [x.id, x]))
 				for (const it of solved) {
 					const rows = this.rows
 						.slice(it.offset, it.offset + it.limit)
-						.map((x) => all_rows.get(x)!)
-						.filter((x) => !!x)
+						.map((x) => all_rows.get(x.sequence)!)
+						.filter((x) => {
+							const row = this.row_map.get(x.id)
+							if (x && row) {
+								x.match_mode = row.mode
+							}
+							return !!x
+						})
 					it.callback(rows)
 				}
 				this.log(`solved ${ids.size} row(s) / ${solved.length} page(s) in ${elapsed(start)}`)
@@ -1098,11 +1156,6 @@ class ListByKeyword {
 			}
 		}
 	}
-}
-
-type SearchRow = {
-	sequence: string
-	position: number
 }
 
 class SearchOp {

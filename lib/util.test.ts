@@ -1,5 +1,5 @@
 import { describe, expect, test } from './testutil'
-import { bytes, duration } from './util'
+import { bytes, duration, escape_regex } from './util'
 
 describe('lib/util', () => {
 	test('bytes', () => {
@@ -64,5 +64,11 @@ describe('lib/util', () => {
 		expect(duration(61500)).toBe('1m02s')
 
 		expect(duration(135000)).toBe('2m15s')
+	})
+
+	test('escape_regex', () => {
+		const src = `^ $ * + ? . ( ) | { } [ ] [[]] \\`
+		const out = `\\^ \\$ \\* \\+ \\? \\. \\( \\) \\| \\{ \\} \\[ \\] \\[\\[\\]\\] \\\\`
+		expect(escape_regex(src)).toBe(out)
 	})
 })

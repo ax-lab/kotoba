@@ -71,3 +71,7 @@ export function duration(delta_ms: number) {
 	const sec = Math.round((delta_ms % 60000) / 1000)
 	return `${min}m${sec.toString().padStart(2, '0')}s`
 }
+
+export function escape_regex(text: string) {
+	return text.trim().replace(/[.(){|}+?*^$[\]\\]/g, '\\$&')
+}

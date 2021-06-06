@@ -49,6 +49,41 @@ export const SCHEMA = buildSchema(`
 		lookup(kanji: String!, reading: String!): [Entry!]!
 
 		"""
+		Entry search with support for multiple search predicates and advanced
+		operands (see the docs on the 'query' parameter syntax details).
+
+		Words on the predicate are matched against both kanji and reading
+		elements of dictionary entries. Predicates accept any form of the word,
+		(e.g. romaji, katakana).
+
+		Entries matching the 'query' predicate will be returned in order of
+		relevance as follows:
+		- Entries matching a predicate exactly
+		- Entries having an exact prefix matching a predicate.
+		- Entries having an exact suffix matching a predicate.
+
+		For each group above, entries are returned sorted by shorter length
+		(only relevant on non-exact matches), popularity, and then frequency.
+		"""
+		search(
+
+			"""
+			User-defined ID for this search. This is returned as-is and has no
+			defined meaning.
+			"""
+			id: String
+
+			"""
+			Search query expression.
+
+			This support multiple predicates separated by spaces. Entries can
+			match any of the predicates.
+			"""
+			query: String!
+
+		): SearchResult!
+
+		"""
 		List entries by keyword.
 
 		The keyword is searched in both the kanji and reading elements of the
@@ -56,6 +91,89 @@ export const SCHEMA = buildSchema(`
 		before matching.
 		"""
 		list(keyword: String!): KeywordList!
+	}
+
+	"""
+	Main element for a search result.
+	"""
+	type SearchResult {
+		"""
+		The user-supplied id exactly. If no ID was passed, this defaults to
+		query.
+		"""
+		id: String!
+
+		"""
+		Total number of entries matched across all pages. If 'loading' is true
+		this is a partial count of the number of rows loaded so far.
+		"""
+		total: Int!
+
+		"""
+		Elapsed time in seconds for the entire search. If 'loading' is true,
+		this is the partial time elapsed so far.
+		"""
+		elapsed: Float!
+
+		"""
+		This is true if the search is still loading on the backend.
+
+		A loading search may not return all possible entries for a given page
+		range. The 'total' and 'elapsed' fields are also partial running values.
+		"""
+		loading: Boolean!
+
+		"""
+		Loads a page from the results.
+
+		The page must specify a offset in the results (starting from zero) and
+		a limit number of entries.
+
+		Note that unless a search is completed ('loading' is false), it is not
+		guaranteed that a page will return all possible entries. The specified
+		limit is only a maximum bound on the number of items. The reason for
+		this is that pages return as soon as rows are available on their range,
+		even if the entire range hasn't been fullfiled and the search is still
+		loading.
+		"""
+		page(
+			"""
+			Offset of the first entry in the page. Zero will return the first
+			entry.
+			"""
+			offset: Int! = 0,
+
+			"""
+			Maximum number of entries in the page. Must be a non-zero positive
+			number. See notes on loading and limits for the 'page' field.
+			"""
+			limit: Int! = 100,
+		): SearchPage!
+	}
+
+	"""
+	Page inside a SearchResult.
+	"""
+	type SearchPage {
+		"""
+		The user-specified offset for this page.
+		"""
+		offset: Int!
+
+		"""
+		The user-specified limit for this page.
+		"""
+		limit: Int!
+
+		"""
+		Entries for this page. The first entry, if available, will always have
+		the specified offset.
+
+		The number of entries is limited to the specified limit, but not
+		guaranteed to be the full available range. See details on the 'page'
+		field for 'SearchResult'.
+		"""
+		entries: [Entry!]!
 	}
 
 	"""
@@ -602,6 +720,7 @@ export const ROOT = {
 	entry: dict.entries.by_id,
 	entries: dict.entries.by_ids,
 	lookup: dict.entries.lookup,
+	search: dict.entries.search,
 	list: dict.entries.list,
 }
 

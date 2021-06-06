@@ -1,4 +1,4 @@
-import { elapsed, kana, now } from '../../lib'
+import { elapsed, escape_regex, kana, now } from '../../lib'
 import { group_by } from '../../lib/list'
 
 import DB from './db'
@@ -13,8 +13,6 @@ async function entries_by_ids(ids: string[]) {
 	if (!ids.length) {
 		return []
 	}
-
-	const start = now()
 
 	const sequences = ids
 		.filter((x) => /^\d+$/.test(x))
@@ -114,7 +112,6 @@ async function entries_by_ids(ids: string[]) {
 
 	const entries_map = new Map(entries.map((x) => [x.id, x]))
 	const out = ids.map((x) => entries_map.get(x)!).filter((x) => !!x)
-	console.log(`* Loaded ${out.length} entries in ${elapsed(start)}`)
 	return out
 }
 
@@ -246,6 +243,419 @@ function parse_pitch(input: string, all_tags: tags.Tag[]) {
 // Search
 //============================================================================//
 
+/**
+ * Advanced search. This allows searching with multiple keywords and using
+ * advanced operators.
+ *
+ * Search syntax:
+ * - Search predicates are separated by spaces and combine with the OR operator.
+ * - The simplest predicate is a single keyword. Keyword matching is explained
+ *   below.
+ * - Keywords allow an asterisk or question mark to match any sequence of
+ *   characters or a single character respectively.
+ * - Predicates allow the following operators (both Japanese and ASCII variants
+ *   are accepted):
+ *
+ *   - Asterisk `*` to match any sequence of zero or more characters.
+ *   - A question mark `?` will match a single character.
+ *   - Parenthesis or brackets for grouping.
+ *   - A tilde `~`, minus sign `-` or exclamation `!` prefix for negate.
+ *   - The `&` and `+` are AND operators. Note that spliting keyword with space
+ *     without a AND operator defaults to OR.
+ *
+ * # Keyword matching
+ *
+ * Keywords are compared both literally and converted to hiragana. This allows
+ * romaji keywords and matching katakana. Entries are matched in their kanji
+ * and reading elements.
+ *
+ * The default match for a keyword will return the matched entries in the
+ * following order.
+ * - Entries that match the keyword exactly.
+ * - Entries that have a prefix matching the exact keyword.
+ * - Entries that have a suffix matching the exact keyword.
+ * - Same as above, but using approximate matching (see below).
+ *
+ * For each matching group above, entries are returned in order of relevance.
+ * Shorter matches come first (relevant for non-exact matching only) and are
+ * in order from the most to least popular/frequent.
+ *
+ * When matching multiple keywords/predicates, all predicates are considered
+ * in each of the above operations.
+ *
+ * # Approximate matching
+ *
+ * The approximate matching is meant to match close word entries considering
+ * their pronunciation and possible typos (considering a non-native beginner
+ * level speaker). It is not meant as a perfect match but instead to help find
+ * words where the exact orthography is not known (e.g. from listening or hard
+ * to decipher kana writing).
+ *
+ * # Performance
+ *
+ * Depending on the combination of predicates and the search may be slow. Exact
+ * matches are the fastest, followed by prefix and suffix matches.
+ *
+ * Prefix, suffix, and approximate matches depend mostly on the length of the
+ * usable keyword (e.g. matching a single char will be slow).
+ *
+ * Fuzzy matching will be as slow as single character matching regardless of
+ * the keyword length.
+ *
+ * Matches using "contains" are the slowest as they require a full table scan.
+ *
+ * The performance of a match is guaranteed to be as fast as the slowest
+ * operator in the search.
+ *
+ * Rows are returned as fast as they are available and the search results
+ * are cached. When combined with pagination this helps improve the interactive
+ * performance of the search.
+ */
+export async function search({ id, query }: { id: string; query: string }) {
+	const search = parse_search(query)
+
+	if (search.invalid) {
+		throw new Error(`search is not valid: ${search.invalid}`)
+	}
+
+	// Get a cached search instance if any. This will create a new instance if
+	// none is available.
+	const cache = Search.get(search.id)
+
+	// The first time 'search' is called (or if a previous instance has been
+	// purged from the cache) this will run to execute the search.
+	cache.start_if(async () => {
+		const db = await DB.get_dict()
+
+		// We incrementally load rows as defined by the search precedence. The
+		// reason for splitting the search between multiple SQL queries is to
+		// solve pages as soon as possible. This guarantees that even on heavy
+		// searches, the first matches will still be fast.
+		const ops = [
+			{ name: 'exact match', sql: search.exact_match },
+			{ name: 'exact prefix', sql: search.exact_prefix },
+			{ name: 'exact suffix', sql: search.exact_suffix },
+		]
+		for (const { name, sql } of ops) {
+			const t0 = now()
+			const rows = await db.query<SearchRow>(sql)
+			cache.log(`${name} - loaded ${rows.length} rows in ${elapsed(t0)}`)
+			cache.push(rows.map((x) => x.sequence))
+
+			// This will trigger any completed pages to be solved. In particular,
+			// first pages (offset = 0) will be solved as long as any row has been
+			// loaded. We want pages going out as soon as any data is available.
+			//
+			// This is blocking, which also has the secondary benefit of waiting
+			// until the individual entries have been loaded from the SQLite DB
+			// before continuing the query (we don't cache entire rows to conserve
+			// memory). Otherwise, our heavy searches would negatively affect the
+			// performance of already loaded rows.
+			await cache.solve_completed()
+		}
+
+		cache.log(`search completed`)
+	})
+
+	// This is used to synchronize the information fields for search results so
+	// we'll wait for after the pages have been loaded to get the information.
+	const pages: Promise<unknown>[] = []
+	const sync = new Promise<void>((resolve) => {
+		// Wait for the next tick and resolve to a new promise that will wait
+		// on all pages. This relies on the GraphQL library calling all `page`
+		// fields synchronously as soon as the `search` function returns.
+		process.nextTick(() =>
+			resolve(
+				Promise.all(pages).then(() => {
+					return
+				}),
+			),
+		)
+	})
+
+	process.nextTick(() => cache.solve_completed())
+
+	return {
+		id: id || query,
+
+		// Informational fields will wait on all pages to provide the most
+		// up-to-date result at the time the search returns.
+		async total() {
+			await sync
+			return cache.count
+		},
+		async elapsed() {
+			await sync
+			return cache.elapsed
+		},
+		async loading() {
+			await sync
+			return cache.loading
+		},
+
+		// Retrieves a page from the results.
+		page({ offset, limit }: { offset?: number; limit?: number } = {}) {
+			if (offset == null || offset < 0) {
+				throw new Error(`invalid offset (${offset})`)
+			}
+			if (!limit || limit <= 0) {
+				throw new Error(`invalid limit (${limit})`)
+			}
+
+			const load = (async () => {
+				const entries = await cache.page(offset, limit)
+				return {
+					offset,
+					limit,
+					entries,
+				}
+			})()
+
+			pages.push(load)
+			return load
+		},
+	}
+}
+
+/**
+ * Escape a string for use inside a SQLite string literal, optionally also
+ * escaping special LIKE characters using the given sequence.
+ *
+ * `escape_like` is the string to use to escape the `%`, `_`, and itself. This
+ * is meant to be used with the `column LIKE '...' ESCAPE 'xx'` syntax.
+ */
+function escape_string(input: string, escape_like = '') {
+	const re = escape_like && new RegExp(`[%_]|${escape_regex(escape_like)}`, 'g')
+	return (re ? input.replace(re, `${escape_like}$&`) : input).replace(/'/g, "''")
+}
+
+function parse_search(input: string) {
+	const expr = input
+		.toUpperCase()
+		.split(/\s+/)
+		.filter((x) => !!x)
+		.map((x) => ({ expr: x, kana: kana.to_hiragana(x) }))
+
+	const like = (col: string, text: string, { pre, pos }: { pre?: string; pos?: string } = {}) =>
+		`${col} LIKE '${(pre || '') + escape_string(text, '\\') + (pos || '')}' ESCAPE '\\'`
+
+	const sql = (where: string) =>
+		[
+			`SELECT DISTINCT m.sequence, e.position FROM (`,
+			`  SELECT expr, sequence FROM entries_map`,
+			`  WHERE ${where}`,
+			`) m LEFT JOIN entries e ON e.sequence = m.sequence`,
+			`ORDER BY length(m.expr), e.position`,
+		].join('\n')
+
+	const match_exact = expr.map((x) => `(${like('expr', x.expr)} OR ${like('hiragana', x.kana)})`)
+
+	const prefix = { pos: '%' }
+	const prefix_exact = expr.map((x) => `(${like('expr', x.expr, prefix)} OR ${like('hiragana', x.kana, prefix)})`)
+
+	const suffix_exact = expr.map((x) => `(${like('hiragana_rev', x.kana, prefix)})`)
+
+	const OR = ' OR '
+	return {
+		id: expr.map((x) => `${x.expr}`).join(' '),
+		invalid: '',
+		exact_match: sql(match_exact.join(OR)),
+		exact_prefix: sql(prefix_exact.join(OR)),
+		exact_suffix: sql(suffix_exact.join(OR)),
+	}
+}
+
+const MAX_SEARCH_CACHE_ENTRIES = 100
+const MIN_SEARCH_ENTRY_TTL_MS = 2 * 60 * 1000
+
+class Search {
+	readonly id: string
+
+	/**
+	 * Returns a shared Search instace.
+	 */
+	static get(id: string) {
+		let out = this.cache.get(id)
+		if (!out) {
+			this.clean_up()
+			out = new Search(id)
+			this.cache.set(id, out)
+		} else {
+			out.mark_used()
+		}
+		return out
+	}
+
+	private time_start = 0
+	private time_end = 0
+	private started?: boolean
+	private completed?: boolean
+	private error?: Error
+
+	private row_set = new Set<string>()
+	private rows: string[] = []
+
+	private pending: { offset: number; limit: number; callback: (rows: Entry[], error?: Error) => void }[] = []
+
+	log(msg: string) {
+		const header = `- Search '${this.id}':`
+		console.log(header, msg)
+	}
+
+	/**
+	 * Returns true if the operation still has not completed.
+	 */
+	get loading() {
+		return !this.completed
+	}
+
+	/**
+	 * Returns the time elapsed in this operation. For running searches this
+	 * is the partial running time.
+	 */
+	get elapsed() {
+		if (this.completed) {
+			return (this.time_end - this.time_start) / 1000
+		}
+		if (this.started) {
+			return (now() - this.time_start) / 1000
+		}
+		return 0
+	}
+
+	/**
+	 * Return the number of rows loaded by the search. For running searches this
+	 * is a partial count.
+	 */
+	get count() {
+		return this.rows.length
+	}
+
+	/**
+	 * Specifies the asynchronous operation to run this search. Only the first
+	 * call to this method will execute the operation.
+	 */
+	start_if(callback: () => Promise<void>) {
+		if (!this.started) {
+			this.started = true
+			this.time_start = now()
+			callback()
+				.catch((err) => (this.error = err as Error))
+				.finally(() => {
+					this.completed = true
+					this.time_end = now()
+					void this.solve_completed()
+				})
+		}
+	}
+
+	/**
+	 * Append solved rows to the search results.
+	 */
+	push(rows: string[]) {
+		const new_rows = rows.filter((x) => !this.row_set.has(x))
+		this.rows.push(...new_rows)
+		for (const it of new_rows) {
+			this.row_set.add(it)
+		}
+	}
+
+	/**
+	 * Solve all pending operations.
+	 */
+	async solve_completed() {
+		const solved = this.pending.filter((x) => this.completed || x.offset < this.rows.length)
+		this.pending = this.pending.filter((x) => solved.indexOf(x) < 0)
+		if (!solved.length) {
+			return
+		}
+
+		const on_error = (err: Error) => solved.forEach((x) => x.callback([], err))
+
+		if (!this.error) {
+			const ids = new Set(solved.flatMap((x) => this.rows.slice(x.offset, x.offset + x.limit)))
+			const start = now()
+			try {
+				const all_rows = new Map((await entries_by_ids(Array.from(ids.values()))).map((x) => [x.id, x]))
+				for (const it of solved) {
+					const rows = this.rows
+						.slice(it.offset, it.offset + it.limit)
+						.map((x) => all_rows.get(x)!)
+						.filter((x) => !!x)
+					it.callback(rows)
+				}
+				this.log(`solved ${ids.size} row(s) / ${solved.length} page(s) in ${elapsed(start)}`)
+			} catch (err) {
+				on_error(err as Error)
+			}
+		} else {
+			on_error(this.error)
+		}
+	}
+
+	/**
+	 * Asynchronously retrieve a page of the search results.
+	 *
+	 * Note that pending pages are only solved on a call to `flush`, regardless
+	 * of the search operation being complete or not.
+	 */
+	async page(offset: number, limit: number) {
+		return new Promise<Entry[]>((resolve, reject) => {
+			this.pending.push({
+				offset,
+				limit,
+				callback: (rows: Entry[], error?: Error) => {
+					if (error) {
+						reject(error)
+					}
+					resolve(rows)
+				},
+			})
+		})
+	}
+
+	//#region Instance management
+
+	private static cache = new Map<string, Search>()
+	private last_used: number
+
+	/**
+	 * Remove expired search entries from the shared cache.
+	 */
+	private static clean_up() {
+		const cache = this.cache
+		if (cache.size > MAX_SEARCH_CACHE_ENTRIES) {
+			const candidates: string[] = []
+			const now = Date.now()
+			for (const [k, v] of cache) {
+				const age = now - v.last_used
+				if (age >= MIN_SEARCH_ENTRY_TTL_MS) {
+					candidates.push(k)
+				}
+			}
+			candidates.sort((a, b) => cache.get(a)!.last_used - cache.get(b)!.last_used)
+			while (candidates.length && cache.size > MAX_SEARCH_CACHE_ENTRIES) {
+				cache.delete(candidates.shift()!)
+			}
+		}
+	}
+
+	private constructor(id: string) {
+		this.id = id
+		this.last_used = Date.now()
+	}
+
+	private mark_used() {
+		this.last_used = Date.now()
+	}
+
+	//#endregion
+}
+
+//============================================================================//
+// Listing
+//============================================================================//
+
 type ListArgs = {
 	approx?: boolean
 	fuzzy?: boolean
@@ -278,9 +688,6 @@ export async function list(args: { keyword: string }) {
 		},
 	}
 }
-
-const MAX_SEARCH_CACHE_ENTRIES = 100
-const MIN_SEARCH_ENTRY_TTL_MS = 2 * 60 * 1000
 
 /**
  * Encapsulate a running or cached search with its results. Provide methods
@@ -711,11 +1118,9 @@ class SearchOp {
 	constructor(name: string) {
 		this.name = name
 		this.start = now()
-		console.log(`> ${this.name}: starting`)
 	}
 
 	complete(err?: Error) {
-		console.log(`= ${this.name}: completed in ${elapsed(this.start)} (${err ? err : this.rows.length})`)
 		if (err) {
 			this.error = err
 		}
@@ -732,14 +1137,10 @@ class SearchOp {
 			this.solve(cb)
 			return
 		}
-		const label = cb.paged ? `${cb.offset}/${cb.limit || '-'}` : `full`
-		console.log(`+ ${this.name}: pending ${label}`)
 		this.pending.push(cb)
 	}
 
 	private solve(cb: SearchCallback) {
-		const label = cb.paged ? `${cb.offset}/${cb.limit || '-'}` : `full`
-		console.log(`- ${this.name}: solving ${label}`)
 		this.error
 			? cb.reject(this.error)
 			: cb.resolve(cb.paged ? this.rows.slice(cb.offset, cb.limit ? cb.offset + cb.limit : undefined) : this.rows)

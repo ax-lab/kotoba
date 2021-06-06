@@ -445,21 +445,85 @@ function escape_string(input: string, escape_like = '') {
 	return (re ? input.replace(re, `${escape_like}$&`) : input).replace(/'/g, "''")
 }
 
+/**
+ * Parse a search query string and generates a list of SQL statements to run
+ * in the database.
+ *
+ * # Query syntax
+ *
+ * The query string can have multiple predicates separated by spaces. Entries
+ * can match either predicate (i.e. predicates combine with OR).
+ *
+ * The most basic predicate is a plain keyword. Keywords are converted to
+ * hiragana and are matched against the kanji and reading elements.
+ *
+ * To match predicates with AND the `&` or `+` can be used. With AND a predicate
+ * will only be matched if it contains all keywords in either of its kanji and
+ * reading elements.
+ *
+ * Note that all operator also accept Japanese variants.
+ */
 function parse_search(input: string) {
-	const query = input
+	type Node = Or | And | Text
+	type Or = { op: 'or'; text: And[] }
+	type And = { op: 'and'; text: Text[] }
+	type Text = { op: 'txt'; text: string }
+
+	const tokens = input
 		.toUpperCase()
 		.split(/\s+/)
+		.flatMap((expr) => {
+			const out: string[] = []
+			while (expr) {
+				const pos = expr.search(/[+＋&＆]/u)
+				if (pos < 0) {
+					out.push(expr)
+					expr = ''
+				} else {
+					if (pos > 0) {
+						out.push(expr.slice(0, pos))
+						expr = expr.slice(pos)
+					}
+					const op = String.fromCharCode(expr.charCodeAt(0))
+					out.push(op)
+					expr = expr.slice(op.length)
+				}
+			}
+			return out
+		})
 		.filter((x) => !!x)
 
-	const expr = query.map((x) => kana.to_hiragana(x))
-	const expr_rev = expr.map((x) => [...x].reverse().join(''))
-	const approx = query.map((x) => kana.to_hiragana_key(x)).filter((x) => !!x)
-	const approx_rev = approx.map((x) => [...x].reverse().join(''))
-	const fuzzy = approx.map((x) => [...x.replace(/[_%]/g, '')].join('%'))
-	const fuzzy_rev = approx_rev.map((x) => [...x.replace(/[_%]/g, '')].join('%'))
+	const query = parse_expr([...tokens])
+	console.log(JSON.stringify(query, null, '  '))
 
 	const like = (col: string, text: string, { pre, pos }: { pre?: string; pos?: string } = {}) =>
 		`${col} LIKE '${(pre || '') + escape_string(text, '\\') + (pos || '')}' ESCAPE '\\'`
+
+	const partial = { pos: '%' }
+	const contains = { pos: '%', pre: '%' }
+
+	const hiragana = (x: string) => kana.to_hiragana(x)
+	const hiragana_key = (x: string) => kana.to_hiragana_key(x)
+	const reverse = (x: string) => [...x].reverse().join('')
+	const fuzzy = (x: string) => [...hiragana_key(x)].join('%')
+	const fuzzy_rev = (x: string) => [...hiragana_key(x)].reverse().join('%')
+
+	const exact_match = output((x) => like('hiragana', hiragana(x.text)))
+	const exact_prefix = output((x) => like('hiragana', hiragana(x.text), partial))
+	const exact_suffix = output((x) => like('hiragana_rev', reverse(hiragana(x.text)), partial))
+	const exact_contains = output((x) => like('hiragana', hiragana(x.text), contains))
+
+	const approx_match = output((x) => like('keyword', hiragana_key(x.text)))
+	const approx_prefix = output((x) => like('keyword', hiragana_key(x.text), partial))
+	const approx_suffix = output((x) => like('keyword_rev', reverse(hiragana_key(x.text)), partial))
+	const approx_contains = output((x) => like('keyword', hiragana_key(x.text), contains))
+
+	const fuzzy_match = output((x) => `keyword LIKE '${escape_string(fuzzy(x.text))}'`)
+	const fuzzy_prefix = output((x) => `keyword LIKE '${escape_string(fuzzy(x.text))}%'`)
+	const fuzzy_suffix = output((x) => `keyword_rev LIKE '${escape_string(fuzzy_rev(x.text))}%'`)
+	const fuzzy_contains = output((x) => `keyword LIKE '%${escape_string(fuzzy(x.text))}%'`)
+
+	console.log(exact_match)
 
 	const sql = (where: string) =>
 		where
@@ -472,40 +536,92 @@ function parse_search(input: string) {
 			  ].join('\n')
 			: ''
 
-	const partial = { pos: '%' }
-	const contains = { pos: '%', pre: '%' }
-
-	const exact_match = expr.map((x) => `(${like('hiragana', x)})`)
-	const exact_prefix = expr.map((x) => `(${like('hiragana', x, partial)})`)
-	const exact_suffix = expr_rev.map((x) => `(${like('hiragana_rev', x, partial)})`)
-	const exact_contains = expr.map((x) => `(${like('hiragana', x, contains)})`)
-
-	const approx_match = approx.map((x) => `(${like('keyword', x)})`)
-	const approx_prefix = approx.map((x) => `(${like('keyword', x, partial)})`)
-	const approx_suffix = approx_rev.map((x) => `(${like('keyword_rev', x, partial)})`)
-	const approx_contains = approx.map((x) => `(${like('keyword', x, contains)})`)
-
-	const fuzzy_match = fuzzy.map((x) => `(keyword LIKE '${escape_string(x)}')`)
-	const fuzzy_prefix = fuzzy.map((x) => `(keyword LIKE '${escape_string(x)}%')`)
-	const fuzzy_suffix = fuzzy_rev.map((x) => `(keyword_rev LIKE '${escape_string(x)}%')`)
-	const fuzzy_contains = fuzzy.map((x) => `(keyword LIKE '%${escape_string(x)}%')`)
-
-	const OR = ' OR '
 	return {
-		id: query.join(' '),
+		id: tokens.join(' '),
 		invalid: '',
-		exact_match: sql(exact_match.join(OR)),
-		exact_prefix: sql(exact_prefix.join(OR)),
-		exact_suffix: sql(exact_suffix.join(OR)),
-		exact_contains: sql(exact_contains.join(OR)),
-		approx_match: sql(approx_match.join(OR)),
-		approx_prefix: sql(approx_prefix.join(OR)),
-		approx_suffix: sql(approx_suffix.join(OR)),
-		approx_contains: sql(approx_contains.join(OR)),
-		fuzzy_match: sql(fuzzy_match.join(OR)),
-		fuzzy_prefix: sql(fuzzy_prefix.join(OR)),
-		fuzzy_suffix: sql(fuzzy_suffix.join(OR)),
-		fuzzy_contains: sql(fuzzy_contains.join(OR)),
+		exact_match: sql(exact_match),
+		exact_prefix: sql(exact_prefix),
+		exact_suffix: sql(exact_suffix),
+		exact_contains: sql(exact_contains),
+		approx_match: sql(approx_match),
+		approx_prefix: sql(approx_prefix),
+		approx_suffix: sql(approx_suffix),
+		approx_contains: sql(approx_contains),
+		fuzzy_match: sql(fuzzy_match),
+		fuzzy_prefix: sql(fuzzy_prefix),
+		fuzzy_suffix: sql(fuzzy_suffix),
+		fuzzy_contains: sql(fuzzy_contains),
+	}
+
+	function output(text: (txt: Text) => string) {
+		return query ? generate(query, text) : ''
+	}
+
+	function generate(node: Node, text: (txt: Text) => string): string {
+		switch (node.op) {
+			case 'and': {
+				const out = node.text
+					.map((x) => generate(x, text))
+					.filter((x) => !!x)
+					.map((x, i) => (i == 0 ? x : `(sequence IN (SELECT sequence FROM entries_map WHERE ${x}))`))
+					.join(' AND ')
+				return out ? `(${out})` : ''
+			}
+			case 'or':
+				return node.text
+					.map((x) => generate(x, text))
+					.filter((x) => !!x)
+					.join(' OR ')
+			case 'txt':
+				return `(${text(node)})`
+		}
+	}
+
+	function parse_expr(expr: string[]) {
+		const sub = parse_and(expr)
+		if (!sub) {
+			return
+		}
+
+		const node: Or = { op: 'or', text: [sub.node] }
+		expr = sub.expr
+
+		while (expr.length) {
+			const next = parse_and(expr)
+			if (next) {
+				node.text.push(next.node)
+				expr = next.expr
+			} else {
+				expr = []
+			}
+		}
+
+		return node
+	}
+
+	function parse_and(expr: string[]) {
+		const AND = /^[+＋&＆]$/
+		while (AND.test(expr[0])) {
+			expr.shift()
+		}
+
+		const text: Text[] = []
+		while (expr.length) {
+			text.push({ op: 'txt', text: expr.shift()! })
+			if (AND.test(expr[0])) {
+				expr.shift()
+			} else {
+				break
+			}
+		}
+
+		if (!text.length) {
+			return
+		}
+
+		// Sort longest sequences first
+		// text.sort((a, b) => b.text.length - a.text.length)
+		return { node: { op: 'and', text } as And, expr }
 	}
 }
 

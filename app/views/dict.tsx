@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react'
 import { useHistory, useParams } from 'react-router'
 
+import { query } from '../api/graphql'
+
 import './dict.scss'
 
 const Dict = () => {
@@ -28,14 +30,44 @@ const Dict = () => {
 			input.focus()
 			input.select()
 		}
-	})
+	}, [])
 
 	const history = useHistory()
 
-	const search = (txt: string) => {
-		console.log('Search:', txt)
-		history.push(`/dict/${encodeURIComponent(txt)}`)
+	const lookup = async (search: string) => {
+		console.log(`Looking up "${search}"`)
+		const data =
+			search &&
+			(await query(
+				`
+			query($id: String, $search: String!) {
+				search(id: $id, query: $search) {
+					id total elapsed loading
+					page(offset: 0, limit: 25) {
+						offset limit
+						entries {
+							id
+							match_mode
+							word read text
+						}
+					}
+				}
+			}
+			`,
+				{ search },
+			))
+		console.log(search, data)
 	}
+
+	useEffect(() => {
+		void lookup(search_text)
+	}, [])
+
+	const search = async (txt: string) => {
+		history.push(`/dict/${encodeURIComponent(txt)}`)
+		void lookup(txt)
+	}
+
 	return (
 		<>
 			<input

@@ -72,6 +72,9 @@ module.exports = (env, _args) => {
 				'/api': {
 					target: 'http://localhost:8086',
 				},
+				'/graphql': {
+					target: 'http://localhost:8086',
+				},
 			},
 			historyApiFallback: {
 				index: '/index.html',

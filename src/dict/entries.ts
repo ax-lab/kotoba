@@ -1,7 +1,8 @@
-import { elapsed, escape_regex, kana, now } from '../../lib'
+import { elapsed, kana, now } from '../../lib'
 import { group_by } from '../../lib/list'
 
 import DB from './db'
+import * as query from './query'
 import * as table from './table'
 import * as tags from './tags'
 
@@ -313,65 +314,67 @@ function parse_pitch(input: string, all_tags: tags.Tag[]) {
  * are cached. When combined with pagination this helps improve the interactive
  * performance of the search.
  */
-export async function search({ id, query }: { id: string; query: string }) {
-	const search = parse_search(query)
-
-	if (search.invalid) {
-		throw new Error(`search is not valid: ${search.invalid}`)
-	}
+export async function search(args: { id: string; query: string }) {
+	const parsed = query.parse(args.query)
 
 	// Get a cached search instance if any. This will create a new instance if
 	// none is available.
-	const cache = Search.get(search.id)
+	const cache = parsed && Search.get(parsed.id)
 
 	// The first time 'search' is called (or if a previous instance has been
 	// purged from the cache) this will run to execute the search.
-	cache.start_if(async () => {
-		const db = await DB.get_dict()
-		const t0 = now()
+	parsed &&
+		cache &&
+		cache.start_if(async () => {
+			const db = await DB.get_dict()
+			const t0 = now()
 
-		// We incrementally load rows as defined by the search precedence. The
-		// reason for splitting the search between multiple SQL queries is to
-		// solve pages as soon as possible. This guarantees that even on heavy
-		// searches, the first matches will still be fast.
-		const ops = [
-			{ mode: 'exact', name: 'exact match', sql: search.exact_match },
-			{ mode: 'prefix', name: 'exact prefix', sql: search.exact_prefix },
-			{ mode: 'suffix', name: 'exact suffix', sql: search.exact_suffix },
-			{ mode: 'contains', name: 'exact contains', sql: search.exact_contains },
-			{ mode: 'approx', name: 'approx match', sql: search.approx_match },
-			{ mode: 'approx-prefix', name: 'approx prefix', sql: search.approx_prefix },
-			{ mode: 'approx-suffix', name: 'approx suffix', sql: search.approx_suffix },
-			{ mode: 'approx-contains', name: 'approx contains', sql: search.approx_contains },
-			{ mode: 'fuzzy', name: 'fuzzy match', sql: search.fuzzy_match },
-			{ mode: 'fuzzy-prefix', name: 'fuzzy prefix', sql: search.fuzzy_prefix },
-			{ mode: 'fuzzy-suffix', name: 'fuzzy suffix', sql: search.fuzzy_suffix },
-			{ mode: 'fuzzy-contains', name: 'fuzzy contains', sql: search.fuzzy_contains },
-		]
-		for (const { mode, name, sql } of ops) {
-			if (!sql) {
-				continue
+			// We incrementally load rows as defined by the search precedence. The
+			// reason for splitting the search between multiple SQL queries is to
+			// solve pages as soon as possible. This guarantees that even on heavy
+			// searches, the first matches will still be fast.
+			const ops = [
+				{ mode: 'exact', name: 'exact match', sql: parsed.exact_match },
+				{ mode: 'prefix', name: 'exact prefix', sql: parsed.exact_prefix },
+				{ mode: 'suffix', name: 'exact suffix', sql: parsed.exact_suffix },
+				{ mode: 'contains', name: 'exact contains', sql: parsed.exact_contains },
+				{ mode: 'approx', name: 'approx match', sql: parsed.approx_match },
+				{ mode: 'approx-prefix', name: 'approx prefix', sql: parsed.approx_prefix },
+				{ mode: 'approx-suffix', name: 'approx suffix', sql: parsed.approx_suffix },
+				{ mode: 'approx-contains', name: 'approx contains', sql: parsed.approx_contains },
+				{ mode: 'fuzzy', name: 'fuzzy match', sql: parsed.fuzzy_match },
+				{ mode: 'fuzzy-prefix', name: 'fuzzy prefix', sql: parsed.fuzzy_prefix },
+				{ mode: 'fuzzy-suffix', name: 'fuzzy suffix', sql: parsed.fuzzy_suffix },
+				{ mode: 'fuzzy-contains', name: 'fuzzy contains', sql: parsed.fuzzy_contains },
+			]
+
+			let count = 0
+			for (const { mode, name, sql } of ops) {
+				if (!sql) {
+					continue
+				}
+
+				const t0 = now()
+				const rows = await db.query<SearchRow>(sql)
+				count += rows.length
+				cache.log(`${name} - loaded ${rows.length} rows in ${elapsed(t0)}`)
+				cache.push(mode, rows)
+
+				// This will trigger any completed pages to be solved. In particular,
+				// first pages (offset = 0) will be solved as long as any row has been
+				// loaded. We want pages going out as soon as any data is available.
+				//
+				// This is blocking, which also has the secondary benefit of waiting
+				// until the individual entries have been loaded from the SQLite DB
+				// before continuing the query (we don't cache entire rows to conserve
+				// memory). Otherwise, our heavy searches would negatively affect
+				// entry load performance and impact the response time.
+				await cache.solve_completed()
 			}
 
-			const t0 = now()
-			const rows = await db.query<SearchRow>(sql)
-			cache.log(`${name} - loaded ${rows.length} rows in ${elapsed(t0)}`)
-			cache.push(mode, rows)
-
-			// This will trigger any completed pages to be solved. In particular,
-			// first pages (offset = 0) will be solved as long as any row has been
-			// loaded. We want pages going out as soon as any data is available.
-			//
-			// This is blocking, which also has the secondary benefit of waiting
-			// until the individual entries have been loaded from the SQLite DB
-			// before continuing the query (we don't cache entire rows to conserve
-			// memory). Otherwise, our heavy searches would negatively affect
-			// entry load performance and impact the response time.
-			await cache.solve_completed()
-		}
-
-		cache.log(`search completed in ${elapsed(t0)}`)
-	})
+			cache.log(`search completed in ${elapsed(t0)}`)
+			cache.log(`found ${cache.count} unique entries from ${count} rows`)
+		})
 
 	// This is used to synchronize the information fields for search results so
 	// we'll wait for after the pages have been loaded to get the information.
@@ -389,24 +392,24 @@ export async function search({ id, query }: { id: string; query: string }) {
 		)
 	})
 
-	process.nextTick(() => cache.solve_completed())
+	cache && process.nextTick(() => cache.solve_completed())
 
 	return {
-		id: id || query,
+		id: args.id || args.query,
 
 		// Informational fields will wait on all pages to provide the most
 		// up-to-date result at the time the search returns.
 		async total() {
 			await sync
-			return cache.count
+			return cache ? cache.count : 0
 		},
 		async elapsed() {
 			await sync
-			return cache.elapsed
+			return cache ? cache.elapsed : 0
 		},
 		async loading() {
 			await sync
-			return cache.loading
+			return cache ? cache.loading : false
 		},
 
 		// Retrieves a page from the results.
@@ -419,7 +422,7 @@ export async function search({ id, query }: { id: string; query: string }) {
 			}
 
 			const load = (async () => {
-				const entries = await cache.page(offset, limit)
+				const entries = cache ? await cache.page(offset, limit) : []
 				return {
 					offset,
 					limit,
@@ -430,198 +433,6 @@ export async function search({ id, query }: { id: string; query: string }) {
 			pages.push(load)
 			return load
 		},
-	}
-}
-
-/**
- * Escape a string for use inside a SQLite string literal, optionally also
- * escaping special LIKE characters using the given sequence.
- *
- * `escape_like` is the string to use to escape the `%`, `_`, and itself. This
- * is meant to be used with the `column LIKE '...' ESCAPE 'xx'` syntax.
- */
-function escape_string(input: string, escape_like = '') {
-	const re = escape_like && new RegExp(`[%_]|${escape_regex(escape_like)}`, 'g')
-	return (re ? input.replace(re, `${escape_like}$&`) : input).replace(/'/g, "''")
-}
-
-/**
- * Parse a search query string and generates a list of SQL statements to run
- * in the database.
- *
- * # Query syntax
- *
- * The query string can have multiple predicates separated by spaces. Entries
- * can match either predicate (i.e. predicates combine with OR).
- *
- * The most basic predicate is a plain keyword. Keywords are converted to
- * hiragana and are matched against the kanji and reading elements.
- *
- * To match predicates with AND the `&` or `+` can be used. With AND a predicate
- * will only be matched if it contains all keywords in either of its kanji and
- * reading elements.
- *
- * Note that all operator also accept Japanese variants.
- */
-function parse_search(input: string) {
-	type Node = Or | And | Text
-	type Or = { op: 'or'; text: And[] }
-	type And = { op: 'and'; text: Text[] }
-	type Text = { op: 'txt'; text: string }
-
-	const tokens = input
-		.toUpperCase()
-		.split(/\s+/)
-		.flatMap((expr) => {
-			const out: string[] = []
-			while (expr) {
-				const pos = expr.search(/[+＋&＆]/u)
-				if (pos < 0) {
-					out.push(expr)
-					expr = ''
-				} else {
-					if (pos > 0) {
-						out.push(expr.slice(0, pos))
-						expr = expr.slice(pos)
-					}
-					const op = String.fromCharCode(expr.charCodeAt(0))
-					out.push(op)
-					expr = expr.slice(op.length)
-				}
-			}
-			return out
-		})
-		.filter((x) => !!x)
-
-	const query = parse_expr([...tokens])
-	console.log(JSON.stringify(query, null, '  '))
-
-	const like = (col: string, text: string, { pre, pos }: { pre?: string; pos?: string } = {}) =>
-		`${col} LIKE '${(pre || '') + escape_string(text, '\\') + (pos || '')}' ESCAPE '\\'`
-
-	const partial = { pos: '%' }
-	const contains = { pos: '%', pre: '%' }
-
-	const hiragana = (x: string) => kana.to_hiragana(x)
-	const hiragana_key = (x: string) => kana.to_hiragana_key(x)
-	const reverse = (x: string) => [...x].reverse().join('')
-	const fuzzy = (x: string) => [...hiragana_key(x)].join('%')
-	const fuzzy_rev = (x: string) => [...hiragana_key(x)].reverse().join('%')
-
-	const exact_match = output((x) => like('hiragana', hiragana(x.text)))
-	const exact_prefix = output((x) => like('hiragana', hiragana(x.text), partial))
-	const exact_suffix = output((x) => like('hiragana_rev', reverse(hiragana(x.text)), partial))
-	const exact_contains = output((x) => like('hiragana', hiragana(x.text), contains))
-
-	const approx_match = output((x) => like('keyword', hiragana_key(x.text)))
-	const approx_prefix = output((x) => like('keyword', hiragana_key(x.text), partial))
-	const approx_suffix = output((x) => like('keyword_rev', reverse(hiragana_key(x.text)), partial))
-	const approx_contains = output((x) => like('keyword', hiragana_key(x.text), contains))
-
-	const fuzzy_match = output((x) => `keyword LIKE '${escape_string(fuzzy(x.text))}'`)
-	const fuzzy_prefix = output((x) => `keyword LIKE '${escape_string(fuzzy(x.text))}%'`)
-	const fuzzy_suffix = output((x) => `keyword_rev LIKE '${escape_string(fuzzy_rev(x.text))}%'`)
-	const fuzzy_contains = output((x) => `keyword LIKE '%${escape_string(fuzzy(x.text))}%'`)
-
-	console.log(exact_match)
-
-	const sql = (where: string) =>
-		where
-			? [
-					`SELECT DISTINCT m.sequence, e.position FROM (`,
-					`  SELECT expr, sequence FROM entries_map`,
-					`  WHERE ${where}`,
-					`) m LEFT JOIN entries e ON e.sequence = m.sequence`,
-					`ORDER BY length(m.expr), e.position`,
-			  ].join('\n')
-			: ''
-
-	return {
-		id: tokens.join(' '),
-		invalid: '',
-		exact_match: sql(exact_match),
-		exact_prefix: sql(exact_prefix),
-		exact_suffix: sql(exact_suffix),
-		exact_contains: sql(exact_contains),
-		approx_match: sql(approx_match),
-		approx_prefix: sql(approx_prefix),
-		approx_suffix: sql(approx_suffix),
-		approx_contains: sql(approx_contains),
-		fuzzy_match: sql(fuzzy_match),
-		fuzzy_prefix: sql(fuzzy_prefix),
-		fuzzy_suffix: sql(fuzzy_suffix),
-		fuzzy_contains: sql(fuzzy_contains),
-	}
-
-	function output(text: (txt: Text) => string) {
-		return query ? generate(query, text) : ''
-	}
-
-	function generate(node: Node, text: (txt: Text) => string): string {
-		switch (node.op) {
-			case 'and': {
-				const out = node.text
-					.map((x) => generate(x, text))
-					.filter((x) => !!x)
-					.map((x, i) => (i == 0 ? x : `(sequence IN (SELECT sequence FROM entries_map WHERE ${x}))`))
-					.join(' AND ')
-				return out ? `(${out})` : ''
-			}
-			case 'or':
-				return node.text
-					.map((x) => generate(x, text))
-					.filter((x) => !!x)
-					.join(' OR ')
-			case 'txt':
-				return `(${text(node)})`
-		}
-	}
-
-	function parse_expr(expr: string[]) {
-		const sub = parse_and(expr)
-		if (!sub) {
-			return
-		}
-
-		const node: Or = { op: 'or', text: [sub.node] }
-		expr = sub.expr
-
-		while (expr.length) {
-			const next = parse_and(expr)
-			if (next) {
-				node.text.push(next.node)
-				expr = next.expr
-			} else {
-				expr = []
-			}
-		}
-
-		return node
-	}
-
-	function parse_and(expr: string[]) {
-		const AND = /^[+＋&＆]$/
-		while (AND.test(expr[0])) {
-			expr.shift()
-		}
-
-		const text: Text[] = []
-		while (expr.length) {
-			text.push({ op: 'txt', text: expr.shift()! })
-			if (AND.test(expr[0])) {
-				expr.shift()
-			} else {
-				break
-			}
-		}
-
-		if (!text.length) {
-			return
-		}
-
-		// Sort longest sequences first
-		// text.sort((a, b) => b.text.length - a.text.length)
-		return { node: { op: 'and', text } as And, expr }
 	}
 }
 

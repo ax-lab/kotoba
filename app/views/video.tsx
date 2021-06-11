@@ -15,6 +15,14 @@ const Video = () => {
 	const [loading_sub, set_loading_sub] = useState(false)
 
 	useEffect(() => {
+		const title = document.title
+		document.title += ' - Video'
+		return () => {
+			document.title = title
+		}
+	})
+
+	useEffect(() => {
 		const cleanup = events.watch_subtitle('video', (ev) => {
 			set_subs(ev.open)
 			set_loading_sub(false)

@@ -1,0 +1,19 @@
+@use 'sass:color';
+@use '../css/theme';
+
+input {
+	padding: theme.$spacing;
+	margin: theme.$spacing;
+
+	$border-color: color.scale(theme.$background-deep, $lightness: -20%);
+
+	font-size: 1.3rem;
+	border: 1px solid $border-color;
+	color: theme.$color;
+	background: theme.$background-deep;
+	outline: none;
+
+	&:focus {
+		background: color.scale(theme.$background-deep, $lightness: 2%);
+	}
+}

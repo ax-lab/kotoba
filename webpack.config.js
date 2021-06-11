@@ -57,6 +57,7 @@ module.exports = (env, _args) => {
 		output: {
 			filename: 'app.js',
 			path: OUTPUT,
+			publicPath: '/',
 		},
 		plugins: [
 			new CopyPlugin({
@@ -72,7 +73,9 @@ module.exports = (env, _args) => {
 					target: 'http://localhost:8086',
 				},
 			},
-			historyApiFallback: true,
+			historyApiFallback: {
+				index: '/index.html',
+			},
 		},
 	}
 

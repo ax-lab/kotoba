@@ -22,7 +22,7 @@ $color-inactive: color.scale($color, $lightness: -40%);
 $background-deep: color.scale($background, $lightness: -20%);
 $background-fore: color.scale($background, $lightness: +10%);
 
-$selection-background: color.scale($background, $lightness: -50%);
+$selection-background: color.scale($background, $lightness: 20%);
 $selection-color: color.scale($color, $lightness: 50%);
 
 // Link

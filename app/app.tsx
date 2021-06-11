@@ -2,7 +2,7 @@ import React from 'react'
 import { Switch } from 'react-router'
 import { NavLink, Route, BrowserRouter as Router } from 'react-router-dom'
 
-import Demo from './views/demo'
+import Dict from './views/dict'
 import Home from './views/home'
 import Video from './views/video'
 
@@ -17,13 +17,13 @@ const App = () => (
 						</NavLink>
 					</li>
 					<li>
-						<NavLink to="/video" activeClassName="active">
-							Video
+						<NavLink to="/dict" activeClassName="active">
+							Words
 						</NavLink>
 					</li>
 					<li>
-						<NavLink to="/demo" activeClassName="active">
-							Demo
+						<NavLink to="/video" activeClassName="active">
+							Video
 						</NavLink>
 					</li>
 				</ul>
@@ -35,8 +35,8 @@ const App = () => (
 				<Route path="/video">
 					<Video />
 				</Route>
-				<Route path="/demo">
-					<Demo />
+				<Route path="/dict/:expr*">
+					<Dict />
 				</Route>
 			</Switch>
 		</>

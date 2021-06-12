@@ -468,7 +468,8 @@ function parse_and(input: string[]) {
 
 		const next = parse_keyword(input)
 		if (next) {
-			expr.push({ ...next.node, negate })
+			// ignore empty keywords
+			next.node.text.length && expr.push({ ...next.node, negate })
 			input = next.input
 		}
 	} while (AND.test(input[0]) || AND_NOT.test(input[0]))

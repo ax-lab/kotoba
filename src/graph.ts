@@ -49,21 +49,89 @@ export const SCHEMA = buildSchema(`
 		lookup(kanji: String!, reading: String!): [Entry!]!
 
 		"""
-		Entry search with support for multiple search predicates and advanced
-		operands (see the docs on the 'query' parameter syntax details).
+		Entry search using a query string with support for multiple predicates
+		and advanced search operators.
 
-		Words on the predicate are matched against both kanji and reading
-		elements of dictionary entries. Predicates accept any form of the word,
-		(e.g. romaji, katakana).
+		Keywords on the search query are matched against both kanji and reading
+		elements of dictionary entries. Keywords accept kanji and kana (romaji,
+		hiragana, and katakana are all accepted and match each other).
 
-		Entries matching the 'query' predicate will be returned in order of
-		relevance as follows:
-		- Entries matching a predicate exactly
-		- Entries having an exact prefix matching a predicate.
-		- Entries having an exact suffix matching a predicate.
+		For details on the query string syntax, see below.
 
-		For each group above, entries are returned sorted by shorter length
-		(only relevant on non-exact matches), popularity, and then frequency.
+		# Keyword Matching and Order
+
+		When matching a keyword to an entry's text, besides matching the entire
+		text, a keyword may also match a prefix, suffix, or be contained within
+		the text.
+
+		The text matching can also be exact, approximate or fuzzy. Regardless
+		of the mode, the keyword and matched text are first converted to
+		hiragana (e.g. from katakana or romaji) and then compared as follows:
+
+		- Exact compares the hiragana converted text exactly.
+
+		- Approximate will filter the text to eliminate some common ambiguities
+		  and typos and then compare. The purpose is to find similar words when
+		  no exact match is found. In particular:
+
+			- Small tsu are ignored. A normal tsu in the middle of the word is
+			  also ignored if it could have been mistaken from a small tsu.
+			- Long vowels match as a single vowel. This includes the long
+			  katakana mark, diphthongs, and repeated vowels.
+			- Voicing kana marks are also ignored, i.e. は、ば、ぱ will match
+			  each other.
+			- Small characters are converted to their large variants.
+			- Fullwidth characters are converted to ASCII.
+			- Only letters and digits are considered when matching.
+
+		- Fuzzy is like approximate but will match the characters in any point
+		  in the text as long as they are in the correct order.
+
+		By default, any keyword will match exactly and approximately. Fuzzy
+		matching will only be used for keywords where it is explicitly enabled.
+		It is also possible to only match keywords exactly, i.e. disabling the
+		approximate matching.
+
+		Results are returned in order of relevance:
+
+		- First results are sorted into exact, approximate, and fuzzy matching
+		  groups.
+		- In each group, results are sorted into full, prefix, suffix, and
+		  contains matches, in that order.
+		- For each of the above result groups, results are sorted first by
+		  length, then by word popularity, and then frequency.
+
+		# Query Syntax
+
+		Note that all operators bellow also accept the fullwidth Japanese
+		characters.
+
+		The query can contain multiple predicates separated by spaces. Entries
+		can match either predicate, i.e. they combine with an OR operator.
+
+		Besides a plain keyword, the following operators can be used in a
+		keyword to modify it:
+
+		- The '=' prefix in a keyword marks it as an exact match.
+		- The '>' prefix in a keyword enables fuzzy matching for that keyword.
+		- Keywords can also contain the '*' and '?' glob operators to match
+		  respectively a sequence of zero or more characters, and a single
+		  character. Those operators are matched independently of the prefix,
+		  suffix, and contains matches.
+
+		Note that the keyword operators cannot be split from the keywords by
+		spaces.
+
+		Keywords can be combined with '&' (AND) and '~' (AND NOT) operators.
+		Entries will be matched using the combined keywords with any of their
+		kanji and reading elements.
+
+		A full predicate can be negated using the '!' prefix operator. When
+		combined with the OR, negated predicates take precedence, meaning that
+		any negated that matches will negate the entire OR match.
+
+		Finally, predicates can be combined using parenthesis and square
+		brackets.
 		"""
 		search(
 
@@ -77,7 +145,8 @@ export const SCHEMA = buildSchema(`
 			Search query expression.
 
 			This support multiple predicates separated by spaces. Entries can
-			match any of the predicates.
+			match any of the predicates. See the 'search' field documentation
+			for details on the syntax.
 			"""
 			query: String!
 

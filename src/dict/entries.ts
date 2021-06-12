@@ -315,6 +315,8 @@ function parse_pitch(input: string, all_tags: tags.Tag[]) {
  * performance of the search.
  */
 export async function search(args: { id: string; query: string }) {
+	const start = now()
+
 	const parsed = query.parse(args.query)
 
 	// Get a cached search instance if any. This will create a new instance if
@@ -409,6 +411,7 @@ export async function search(args: { id: string; query: string }) {
 		},
 		async loading() {
 			await sync
+			console.log(`SERVER: "${args.query}" took ${elapsed(start)} in total`)
 			return cache ? cache.loading : false
 		},
 

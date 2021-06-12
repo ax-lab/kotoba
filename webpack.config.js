@@ -65,6 +65,7 @@ module.exports = (env, _args) => {
 			}),
 		],
 		devServer: {
+			host: '0.0.0.0',
 			contentBase: 'public',
 			port: 9090,
 			injectClient: false,

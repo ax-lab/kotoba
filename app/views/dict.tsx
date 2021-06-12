@@ -1,9 +1,13 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useHistory, useParams } from 'react-router'
 
-import { query } from '../api/graphql'
+import { duration, now } from '../../lib'
+import * as graphql from '../api/graphql'
 
 import './dict.scss'
+
+let id_counter = 0
+let last_id = ''
 
 const Dict = () => {
 	const input_el = React.createRef<HTMLInputElement>()
@@ -12,6 +16,7 @@ const Dict = () => {
 
 	const search_text = decodeURIComponent(expr || '')
 
+	// Synchronize the document title with the search query
 	useEffect(() => {
 		const title = document.title
 		document.title += ' - Words'
@@ -23,6 +28,7 @@ const Dict = () => {
 		}
 	})
 
+	// Synchronize input text with the route parameter on first mount or reload
 	useEffect(() => {
 		const input = input_el.current!
 		input.value = search_text
@@ -34,36 +40,31 @@ const Dict = () => {
 
 	const history = useHistory()
 
-	const lookup = async (search: string) => {
-		console.log(`Looking up "${search}"`)
-		const data =
-			search &&
-			(await query(
-				`
-			query($id: String, $search: String!) {
-				search(id: $id, query: $search) {
-					id total elapsed loading
-					page(offset: 0, limit: 25) {
-						offset limit
-						entries {
-							id
-							match_mode
-							word read text
-						}
-					}
-				}
-			}
-			`,
-				{ search },
-			))
-		console.log(search, data)
+	const [entries, set_entries] = useState<graphql.SearchEntry[]>([])
+	const [total, set_total] = useState<number>()
+	const [elapsed, set_elapsed] = useState<number>()
+
+	const lookup = async (text: string) => {
+		const id = `p${++id_counter}`
+		last_id = id
+		const start = now()
+		const result = await graphql.search(text, { id, limit: 25 })
+		if (result.id == last_id) {
+			console.log(`request ${result.id} for "${text}" took ${duration(now() - start)}`)
+			console.log(result.id, result.page.entries)
+			set_entries(result.page.entries)
+			set_total(result.total)
+			set_elapsed(result.elapsed)
+		}
 	}
 
 	useEffect(() => {
 		void lookup(search_text)
 	}, [])
 
-	const search = async (txt: string) => {
+	// Called on direct input from the search input.
+	const on_search = async (txt: string) => {
+		// Navigate to the
 		history.push(`/dict/${encodeURIComponent(txt)}`)
 		void lookup(txt)
 	}
@@ -72,13 +73,29 @@ const Dict = () => {
 		<>
 			<input
 				ref={input_el}
+				lang="ja"
 				defaultValue={expr}
 				placeholder="Search..."
 				spellCheck={false}
-				onInput={(ev) => search((ev.target as HTMLInputElement).value)}
+				onInput={(ev) => on_search((ev.target as HTMLInputElement).value)}
 			/>
 			<hr />
-			<div>{search_text}</div>
+			<div>
+				"{search_text}" {total != null ? `found ${total} ${total != 1 ? 'entries' : 'entry'}` : ``}{' '}
+				{elapsed ? `in ${duration(elapsed * 1000)}` : ``}
+			</div>
+			<hr />
+			{entries.map((x) => (
+				<div key={x.id}>
+					<strong>
+						{x.word || x.read}
+						{x.word && x.word != x.read ? ` (${x.read})` : ``}
+					</strong>
+					<p>
+						{x.text} ({x.match_mode})
+					</p>
+				</div>
+			))}
 		</>
 	)
 }

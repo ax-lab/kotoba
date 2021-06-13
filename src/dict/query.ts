@@ -328,21 +328,23 @@ function sql_from_keyword(keyword: Keyword, search: SearchMode, match: MatchMode
 	const text = reverse ? base.reverse().map((x) => (typeof x == 'string' ? [...x].reverse().join('') : x)) : base
 
 	// Generate the literal string used for the LIKE operator
-	const expr = text.map((txt) => {
-		if (typeof txt == 'string') {
-			// Split and escape each individual character in the keyword text
-			return (
-				[...txt]
-					// escape string quotes and LIKE operators
-					.map((x) => (x == `'` ? `''` : /[%_\\]/.test(x) ? `\\${x}` : x))
-					// for fuzzy matching we add a '%' between each character
-					.join(match == 'fuzzy' ? '%' : '')
-			)
-		} else {
-			// map the glob operators to the SQLite LIKE ones
-			return txt.glob == '*' ? '%' : '_'
-		}
-	})
+	const expr = text
+		.map((txt) => {
+			if (typeof txt == 'string') {
+				// Split and escape each individual character in the keyword text
+				return (
+					[...txt]
+						// escape string quotes and LIKE operators
+						.map((x) => (x == `'` ? `''` : /[%_\\]/.test(x) ? `\\${x}` : x))
+						// for fuzzy matching we add a '%' between each character
+						.join(match == 'fuzzy' ? '%' : '')
+				)
+			} else {
+				// map the glob operators to the SQLite LIKE ones
+				return txt.glob == '*' ? '%' : '_'
+			}
+		})
+		.join('')
 
 	const pos = search != 'full' ? '%' : ''
 	const pre = search == 'contains' ? '%' : ''

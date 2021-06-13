@@ -17,7 +17,7 @@ async function entries_by_ids(ids: string[]) {
 
 	const sequences = ids
 		.filter((x) => /^\d+$/.test(x))
-		.map((x) => `"${x}"`)
+		.map((x) => `'${x}'`)
 		.join(', ')
 	const condition = `sequence IN (${sequences})`
 
@@ -247,72 +247,8 @@ function parse_pitch(input: string, all_tags: tags.Tag[]) {
 //============================================================================//
 
 /**
- * Advanced search. This allows searching with multiple keywords and using
- * advanced operators.
- *
- * Search syntax:
- * - Search predicates are separated by spaces and combine with the OR operator.
- * - The simplest predicate is a single keyword. Keyword matching is explained
- *   below.
- * - Keywords allow an asterisk or question mark to match any sequence of
- *   characters or a single character respectively.
- * - Predicates allow the following operators (both Japanese and ASCII variants
- *   are accepted):
- *
- *   - Asterisk `*` to match any sequence of zero or more characters.
- *   - A question mark `?` will match a single character.
- *   - Parenthesis or brackets for grouping.
- *   - A tilde `~`, minus sign `-` or exclamation `!` prefix for negate.
- *   - The `&` and `+` are AND operators. Note that spliting keyword with space
- *     without a AND operator defaults to OR.
- *
- * # Keyword matching
- *
- * Keywords are compared both literally and converted to hiragana. This allows
- * romaji keywords and matching katakana. Entries are matched in their kanji
- * and reading elements.
- *
- * The default match for a keyword will return the matched entries in the
- * following order.
- * - Entries that match the keyword exactly.
- * - Entries that have a prefix matching the exact keyword.
- * - Entries that have a suffix matching the exact keyword.
- * - Same as above, but using approximate matching (see below).
- *
- * For each matching group above, entries are returned in order of relevance.
- * Shorter matches come first (relevant for non-exact matching only) and are
- * in order from the most to least popular/frequent.
- *
- * When matching multiple keywords/predicates, all predicates are considered
- * in each of the above operations.
- *
- * # Approximate matching
- *
- * The approximate matching is meant to match close word entries considering
- * their pronunciation and possible typos (considering a non-native beginner
- * level speaker). It is not meant as a perfect match but instead to help find
- * words where the exact orthography is not known (e.g. from listening or hard
- * to decipher kana writing).
- *
- * # Performance
- *
- * Depending on the combination of predicates and the search may be slow. Exact
- * matches are the fastest, followed by prefix and suffix matches.
- *
- * Prefix, suffix, and approximate matches depend mostly on the length of the
- * usable keyword (e.g. matching a single char will be slow).
- *
- * Fuzzy matching will be as slow as single character matching regardless of
- * the keyword length.
- *
- * Matches using "contains" are the slowest as they require a full table scan.
- *
- * The performance of a match is guaranteed to be as fast as the slowest
- * operator in the search.
- *
- * Rows are returned as fast as they are available and the search results
- * are cached. When combined with pagination this helps improve the interactive
- * performance of the search.
+ * Advanced search for entries. For details on the syntax and behavior see
+ * the GraphQL documentation in `graph.ts`.
  */
 export async function search(args: { id: string; query: string }) {
 	const start = now()
@@ -411,7 +347,7 @@ export async function search(args: { id: string; query: string }) {
 		},
 		async loading() {
 			await sync
-			console.log(`SERVER: "${args.query}" took ${elapsed(start)} in total`)
+			console.log(`GraphQL: search "${args.query}" took ${elapsed(start)} to resolve`)
 			return cache ? cache.loading : false
 		},
 
@@ -803,8 +739,8 @@ class ListByKeyword {
 		this.validate_args(args)
 
 		const params: Record<string, string> = {
-			'@k': this.keyword,
-			'@h': this.hiragana,
+			k: this.keyword,
+			h: this.hiragana,
 		}
 		const sql = [
 			`SELECT DISTINCT m.sequence, e.position FROM (`,
@@ -812,7 +748,7 @@ class ListByKeyword {
 		]
 
 		if (args.approx || args.fuzzy) {
-			params['@a'] = this.approx
+			params['a'] = this.approx
 			sql.push(
 				...[
 					// Approximate search
@@ -823,7 +759,7 @@ class ListByKeyword {
 		}
 
 		if (args.fuzzy) {
-			params['@f'] = [...this.approx].join('%')
+			params['f'] = [...this.approx].join('%')
 			sql.push(
 				...[
 					// Fuzzy search
@@ -862,10 +798,10 @@ class ListByKeyword {
 		this.validate_args(args)
 
 		const params: Record<string, string> = {
-			'@k': this.keyword,
-			'@h': this.hiragana,
-			'@kp': this.keyword + '%',
-			'@hp': this.hiragana + '%',
+			k: this.keyword,
+			h: this.hiragana,
+			kp: this.keyword + '%',
+			hp: this.hiragana + '%',
 		}
 		const sql = [
 			`SELECT DISTINCT m.sequence, e.position FROM (`,
@@ -873,7 +809,7 @@ class ListByKeyword {
 		]
 
 		if (args.approx || args.fuzzy) {
-			params['@a'] = this.approx + '%'
+			params['a'] = this.approx + '%'
 			sql.push(
 				...[
 					// Approximate search
@@ -884,7 +820,7 @@ class ListByKeyword {
 		}
 
 		if (args.fuzzy) {
-			params['@f'] = [...this.approx].join('%') + '%'
+			params['f'] = [...this.approx].join('%') + '%'
 			sql.push(
 				...[
 					// Fuzzy search
@@ -919,9 +855,9 @@ class ListByKeyword {
 		this.validate_args(args)
 
 		const params: Record<string, string> = {
-			'@k': this.keyword,
-			'@h': this.hiragana,
-			'@hr': this.hiragana_rev + '%',
+			k: this.keyword,
+			h: this.hiragana,
+			hr: this.hiragana_rev + '%',
 		}
 		const sql = [
 			`SELECT DISTINCT m.sequence, e.position FROM (`,
@@ -929,7 +865,7 @@ class ListByKeyword {
 		]
 
 		if (args.approx || args.fuzzy) {
-			params['@a'] = this.approx_rev + '%'
+			params['a'] = this.approx_rev + '%'
 			sql.push(
 				...[
 					// Approximate search
@@ -940,7 +876,7 @@ class ListByKeyword {
 		}
 
 		if (args.fuzzy) {
-			params['@f'] = [...this.approx_rev].join('%') + '%'
+			params['f'] = [...this.approx_rev].join('%') + '%'
 			sql.push(
 				...[
 					// Fuzzy search
@@ -975,13 +911,13 @@ class ListByKeyword {
 		this.validate_args(args)
 
 		const params: Record<string, string> = {
-			'@k': this.keyword,
-			'@h': this.hiragana,
-			'@kp': this.keyword + '%',
-			'@hp': this.hiragana + '%',
-			'@hs': this.hiragana_rev + '%',
-			'@kx': '%' + this.keyword + '%',
-			'@hx': '%' + this.hiragana + '%',
+			k: this.keyword,
+			h: this.hiragana,
+			kp: this.keyword + '%',
+			hp: this.hiragana + '%',
+			hs: this.hiragana_rev + '%',
+			kx: '%' + this.keyword + '%',
+			hx: '%' + this.hiragana + '%',
 		}
 		const sql = [
 			`SELECT DISTINCT m.sequence, e.position FROM (`,
@@ -989,7 +925,7 @@ class ListByKeyword {
 		]
 
 		if (args.approx || args.fuzzy) {
-			params['@a'] = '%' + this.approx + '%'
+			params['a'] = '%' + this.approx + '%'
 			sql.push(
 				...[
 					// Approximate search
@@ -1000,7 +936,7 @@ class ListByKeyword {
 		}
 
 		if (args.fuzzy) {
-			params['@f'] = '%' + [...this.approx].join('%') + '%'
+			params['f'] = '%' + [...this.approx].join('%') + '%'
 			sql.push(
 				...[
 					// Fuzzy search

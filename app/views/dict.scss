@@ -17,3 +17,10 @@ input {
 		background: color.scale(theme.$background-deep, $lightness: 2%);
 	}
 }
+
+.dict-view {
+	display: flex;
+	flex-direction: column;
+	flex-grow: 1;
+	min-height: 0; // prevent parent flexbox overflow
+}

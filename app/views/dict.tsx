@@ -3,6 +3,7 @@ import { useHistory, useParams } from 'react-router'
 
 import { duration, now } from '../../lib'
 import * as graphql from '../api/graphql'
+import List from '../components/list'
 
 import './dict.scss'
 
@@ -69,8 +70,10 @@ const Dict = () => {
 		void lookup(txt)
 	}
 
+	const COUNT = 200
+
 	return (
-		<>
+		<div className="dict-view">
 			<input
 				ref={input_el}
 				lang="ja"
@@ -96,7 +99,22 @@ const Dict = () => {
 					</p>
 				</div>
 			))}
-		</>
+			<List
+				count={COUNT}
+				item={(n) => (
+					<p
+						key={n}
+						style={{
+							border: '1px solid green',
+							borderBottomColor: 'yellow',
+							backgroundColor: `rgba(255, 0, 0, ${((n + 1) / COUNT).toFixed(2)})`,
+						}}
+					>
+						Item {(n + 1).toString().padStart(4, '0')}
+					</p>
+				)}
+			/>
+		</div>
 	)
 }
 

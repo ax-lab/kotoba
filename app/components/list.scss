@@ -1,0 +1,46 @@
+@use '../css/theme';
+@use 'sass:color';
+
+// This is the main list element. It is responsible for managing the scrollbar
+// and laying out the list view and scroller.
+//
+// The scroller provides the vertical height for the scrollbar and also doubles
+// as a padding-left element.
+//
+// The list view is the container that contains the list items. The view
+// contains the visible set of items (according to the scroll position) and
+// is moved using a `translateY` transform so that it is always visible
+// regardless of the scroll position.
+.list-root {
+	// Layout on the List's flex parent
+	flex-grow: 1; // Take all the available space
+	min-height: 0; // Don't overflow the parent
+
+	// Scroll vertically
+	overflow-y: auto;
+	overflow-x: hidden;
+	scroll-behavior: auto;
+
+	// Row layout
+	display: flex;
+	flex-direction: row;
+
+	background-color: color.scale(red, $saturation: -50%, $lightness: -70%);
+	outline: none;
+
+	// Actual container for the items.
+	.list-view {
+		flex-grow: 1;
+		position: relative;
+		transform: translateY(0px);
+	}
+
+	p {
+		padding: 20px;
+	}
+
+	// This is the element responsible for setting our scrollbar size.
+	.list-scroller {
+		width: theme.$spacing; // doubles as a left padding for the content
+	}
+}

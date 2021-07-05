@@ -70,7 +70,7 @@ const Dict = () => {
 		void lookup(txt)
 	}
 
-	const COUNT = 200
+	const COUNT = 2000
 
 	return (
 		<div className="dict-view">
@@ -108,6 +108,8 @@ const Dict = () => {
 							border: '1px solid green',
 							borderBottomColor: 'yellow',
 							backgroundColor: `rgba(255, 0, 0, ${((n + 1) / COUNT).toFixed(2)})`,
+							paddingTop: `${(n % 20) + 10}px`,
+							paddingBottom: `${(n % 20) + 10}px`,
 						}}
 					>
 						Item {(n + 1).toString().padStart(4, '0')}

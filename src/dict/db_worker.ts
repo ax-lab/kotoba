@@ -33,7 +33,7 @@ function get_db(file: string) {
 
 PRELOAD.forEach((it) => get_db(it))
 
-parentPort!.on('message', ({ file, sql, params }: { file: string; sql: string; params?: unknown }) => {
+parentPort!.on('message', ({ file, sql, params }: { id: number; file: string; sql: string; params?: unknown }) => {
 	const db = get_db(file)
 	const stmt = db.prepare(sql)
 	if (params) {

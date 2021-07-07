@@ -5,6 +5,7 @@ import { Worker } from 'worker_threads'
 import { elapsed, now } from '../../lib'
 
 type Job = {
+	id: number
 	db: string
 	sql: string
 	params?: unknown
@@ -33,6 +34,7 @@ function spawn_worker() {
 		if (!job && db_queue.length) {
 			job = db_queue.shift()!
 			worker.postMessage({
+				id: job.id,
 				file: job.db,
 				sql: job.sql,
 				params: job.params,
@@ -51,11 +53,13 @@ function spawn_worker() {
 	})
 
 	worker.on('message', (data: unknown) => {
+		process.nextTick(drain_queue)
 		job!.resolve(data)
 		job = null
 	})
 
 	worker.on('error', (err: Error) => {
+		process.nextTick(drain_queue)
 		if (job) {
 			job.reject(err)
 		} else {
@@ -119,10 +123,14 @@ export default class DB {
 
 	// #endregion
 
+	static id = 0
+
 	async query<T = Record<string, string>>(sql: string, params?: unknown) {
+		const id = ++DB.id
 		return new Promise<T[]>((resolve, reject) => {
 			const job: Job = {
 				db: this.name,
+				id,
 				sql,
 				params,
 				resolve: (data) => {

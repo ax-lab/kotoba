@@ -70,7 +70,7 @@ const Dict = () => {
 		void lookup(txt)
 	}
 
-	const COUNT = 2000
+	const COUNT = 20000
 
 	return (
 		<div className="dict-view">

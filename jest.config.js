@@ -8,7 +8,7 @@ module.exports = {
 	rootDir: '.',
 
 	// A list of paths to directories that Jest should use to search for files in
-	roots: ['<rootDir>/src', '<rootDir>/lib'],
+	roots: ['<rootDir>/src', '<rootDir>/lib', '<rootDir>/app'],
 
 	// All imported modules in your tests should be mocked automatically
 	// automock: false,

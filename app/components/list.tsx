@@ -11,8 +11,8 @@ import './list.scss'
  * is the maximum the list layout will consider before scaling the scrollbar.
  *
  * When the scrollbar is scaled, the absolute scrolling position no longer
- * corresponds to the exact scrollbar position. Since this is used for very
- * large lists this should not be an issue.
+ * corresponds to the exact scrollbar position and some adjustments are made
+ * to the scrolling.
  */
 const MAX_SCROLL_HEIGHT = 300_000
 
@@ -34,6 +34,7 @@ type ListProps = {
 	count: number
 	item: (index: number) => React.ReactElement
 }
+
 /*
 	Virtual List layout
 	===================
@@ -155,6 +156,7 @@ const List = ({ count, item }: ListProps) => {
 		layout: new LayoutCache(256),
 		scroll: 0,
 		scroll_to: 0,
+		last_scroll: 0,
 	})
 
 	const state = state_ref.current
@@ -211,214 +213,267 @@ const List = ({ count, item }: ListProps) => {
 		// Additional buffer to render above/below the list visible range.
 		const page_buffer = Math.max(view_size, MIN_BUFFER_PAGE) * BUFFER_PAGES
 
-		// Portion of the initial and final scrolling to reserve for exact
-		// scrolling. This affects when the scrolling is scaled down.
-		const scroll_buffer = view_size + view_size * BUFFER_PAGES
-
-		// The range for which a scroll delta is considered relative. Absolute
-		// scrolling is used for large scroll jumps when using percentage.
-		const relative_scroll_range = (page_buffer * 2 + view_size) * 2
-
 		// The anchor links a position in the virtual list with a position in
-		// the client view.
+		// the client view. This provides a stable reference point for the
+		// scrolling even as the size of the list items change.
 		//
-		// The anchor position is absolute: the target of the layout run is to
-		// make it so that the anchor is respected. This will usually require
-		// multiple since we don't know the size of the rows until they are
-		// rendered (and they can change).
-		//
-		// Having a stable anchor position is essential for a smooth experience
-		// as the row dimensions change unpredictably and shift things around.
+		// The anchor position is absolute for the layout. Everything is
+		// computed so that the anchor is respected. This may take more than
+		// one layout pass though, since the actual item sizes may be different
+		// than what the layout is considering. Once an item is rendered, its
+		// real size is measured and eventually the layout will converge.
 		let anchor = { ...window.anchor }
 
-		// Compute the new anchor
-		// ----------------------
+		// Compute the list coordinates from the anchor.
+		const compute_anchor = () => {
+			// Compute the target anchor position within the virtual list.
+			const target_anchor =
+				layout.range_height(0, anchor.row_index) +
+				(anchor.row_target == 'bottom'
+					? layout.row_height(anchor.row_index) - (anchor.row_offset || 0)
+					: anchor.row_offset || 0)
 
-		// Other than programatical change, user scrolling input is the only
-		// thing that can change the anchor.
-		//
-		// We monitor the scroll position between layout runs to detect scroll
-		// and update the anchor accordingly.
-		if (state.scroll_to != state.scroll) {
-			const target = state.scroll_to
-			const scroll_delta = target - state.scroll
-			console.log(`scrolling to ${state.scroll_to} from ${state.scroll} (${scroll_delta}) ~ ${root.scrollHeight}`)
+			// Compute the anchor position relative to the top of the viewport.
+			const view_offset =
+				anchor.view_target == 'bottom' ? view_size - (anchor.view_offset || 0) : anchor.view_offset || 0
 
-			// First we determine if the scroll is absolute or relative. We
-			// consider the scroll absolute if it is much larger than the page
-			// size.
-			if (Math.abs(scroll_delta) <= relative_scroll_range) {
-				// For relative scrolling we just adjust the anchor by the
-				// given delta. This ensures smooth scrolling.
-				anchor.row_offset = (anchor.row_offset || 0) + (anchor.row_target == 'bottom' ? -1 : +1) * scroll_delta
-			} else {
-				// For absolute scrolling we consider the portion near the
-				// top and bottom as exact scrolling and other portions of the
-				// scrollbar as the relative position.
-				const max_scroll = root.scrollHeight - root.clientHeight
-				if (target <= scroll_buffer) {
-					anchor = { row_index: 0, row_offset: target }
-				} else if (target >= max_scroll - scroll_buffer) {
+			// The scroll target is the list position at the viewport top such
+			// that `target_anchor` appears exactly at `view_offset`.
+			//
+			// Note that this is actually clamped to the valid scroll range.
+			const max_target_scroll = full_size - view_size
+			const target_scroll = Math.min(Math.max(0, target_anchor - view_offset), max_target_scroll)
+
+			// From the target scroll we compute the visible range to render
+			// in the list view, including the buffer.
+
+			// Virtual list coordinates for the visible range.
+			const y0 = target_scroll - page_buffer
+			const y1 = target_scroll + view_size + page_buffer
+
+			// Convert the list coordinates to item indexes.
+			const [y0_index] = layout.row_at(y0)
+			const [y1_index] = layout.row_at(y1)
+
+			// Clamp the indexes to a valid range.
+			const sta = Math.max(0, y0_index)
+			const end = y0_index < 0 ? 0 : y1_index < 0 ? count : Math.min(count, y1_index + 1)
+
+			return { target_scroll, sta, end, max_target_scroll }
+		}
+
+		if (full_size <= MAX_SCROLL_HEIGHT) {
+			//================================================================//
+			// Direct scrolling
+			//================================================================//
+
+			// We handle the easier case of the list being less than max scroll
+			// size separately.
+
+			const max_scroll = full_size - view_size
+
+			// Apply the user scrolling to the anchor before computing the
+			// layout.
+			const scrolling = state.scroll_to != state.scroll
+			if (scrolling) {
+				// We handle scroll to top and bottom separately to make sure
+				// we get proper behavior as the layout updates.
+				if (state.scroll_to <= 0) {
+					anchor = { row_index: 0, row_offset: 0, view_offset: 0, view_target: 'top' }
+				} else if (state.scroll_to >= max_scroll) {
 					anchor = {
-						row_index: count - 1,
+						row_index: count,
 						row_offset: 0,
 						row_target: 'bottom',
+						view_offset: 0,
 						view_target: 'bottom',
-						view_offset: max_scroll - target,
 					}
 				} else {
-					// Convert the scroll coordinates to the layout coordinates
-					const pos =
-						scroll_buffer +
-						((target - scroll_buffer) / (max_scroll - scroll_buffer * 2)) * (full_size - scroll_buffer * 2)
-					const [row_index, row_offset] = layout.row_at(pos)
+					// For relative scrolling, we just recompute the anchor.
+					const [index, offset] = state.layout.row_at(state.scroll_to)
 					anchor = {
-						row_index,
-						row_offset,
+						row_index: index,
+						row_offset: offset,
+						view_offset: 0,
+						view_target: 'top',
 					}
 				}
 			}
 
+			const { sta, end, target_scroll } = compute_anchor()
+
+			// Since we are rendering just a sub-range of the list, we need to
+			// offset the rows so that they appear at the correct position.
+			//
+			// The view element is a child of the root element, so we can just
+			// ignore the scrolling and offset it by the size of the "missing"
+			// non-rendered `sta` items.
+			const sta_offset = layout.range_height(0, sta)
+
 			window.anchor = anchor
-		}
 
-		// Compute the new layout
-		// ----------------------
+			// Apply the layout
+			// ----------------
 
-		const t1 = now()
+			scroll.style.height = `${full_size}px`
+			root.scrollTop = target_scroll
 
-		// The target anchor position is the estimated absolute pixel offset of
-		// the anchor within the virtual list of items.
-		const target_anchor =
-			layout.range_height(0, anchor.row_index) +
-			(anchor.row_target == 'bottom'
-				? layout.row_height(anchor.row_index) - (anchor.row_offset || 0)
-				: anchor.row_offset || 0)
+			// We want sub-pixel scrolling even if the scrollbar coordinates are
+			// integers. We compute the difference and apply it to the view element
+			// using a translate transform.
+			const scroll_error = root.scrollTop - target_scroll
 
-		// This is the offset of the `target_anchor` within the view.
-		const view_offset =
-			anchor.view_target == 'bottom' ? view_size - (anchor.view_offset || 0) : anchor.view_offset || 0
+			// The view element only renders the visible range, so we need to offset
+			// it in the parent element to simulate its relative position.
+			view.style.transform = `translateY(${sta_offset + scroll_error}px)`
 
-		// Note that both the target_anchor and view_offset above are "virtual"
-		// coordinates that can link any point relative to the list and view
-		// elements. We clamp those values to a value scroll position later in
-		// the layout calculation.
+			// Update the rendered range.
+			const t1 = now()
 
-		// Compute the scroll position. This is necessary to compute the actual
-		// visible range.
-
-		// Compute the scrolling:
-
-		// Direct scroll means that our total height is within the browser
-		// limits so we can use absolute scrolling. Otherwise we switch to
-		// percentage scrolling.
-		const direct_scroll = full_size <= MAX_SCROLL_HEIGHT
-
-		// Actual scroll height to be applied to the scroller element.
-		const scroll_height = direct_scroll ? full_size : MAX_SCROLL_HEIGHT
-
-		// The target scroll position considering the anchor. This is in the
-		// virtual list coordinates which may not correspond to the final scroll
-		// due to browser limitations.
-		const max_target_scroll = full_size - view_size
-		const target_scroll = Math.min(Math.max(0, target_anchor - view_offset), max_target_scroll)
-
-		// The actual scroll position to apply to `scrollTop`
-		const scroll_position = direct_scroll
-			? target_scroll
-			: (() => {
-					// Compute percentage scrolling if our height exceeds the browser
-					// limits.
-
-					// If our rendered range is at the start or end of the list,
-					// we must ensure that the scroll offset to the list bounds
-					// is the actual one.
-					if (target_scroll <= relative_scroll_range) {
-						return target_scroll
-					}
-					if (target_scroll >= full_size - relative_scroll_range - view_size) {
-						return scroll_height - (full_size - target_scroll)
-					}
-
-					// Even if we are not rendering the list bounds, if we are
-					// close enough to it we must ensure that the we have enough
-					// scroll offset to allow scrolling up or down.
-					//
-					// This is the amount of scroll offset we will always keep
-					// at both ends of the scroll bar.
-					const min_scroll = scroll_buffer
-					const max_scroll = scroll_height - min_scroll
-
-					// Compute the scroll percentage coordinates
-					const percent_scroll = (target_scroll / full_size) * scroll_height
-					return Math.max(Math.min(percent_scroll, max_scroll), min_scroll)
-			  })()
-
-		// Compute the current visible range to be rendered in the list view,
-		// including the buffer zone, based on the above offsets:
-
-		// Absolute coordinates of the target rendered range, including buffer.
-		const y0 = target_scroll - page_buffer
-
-		// Row index of the of the target render range.
-		const [y0_index] = layout.row_at(y0)
-
-		// Make sure the start/end indexes are a valid range. Note that `end` is
-		// exclusive.
-		const sta = Math.max(0, y0_index)
-
-		// Compute the end of render range after the start so we properly
-		// consider clipping.
-		const y1 = target_scroll + view_size + page_buffer
-		const [y1_index] = layout.row_at(y1)
-		const end = y0_index < 0 ? 0 : y1_index < 0 ? count : Math.min(count, y1_index + 1)
-
-		// Compute the actual offset for the target rendered range.
-		const sta_offset = scroll_position + view_offset - (target_anchor - layout.range_height(0, sta))
-
-		// Recompute the anchor to be appropriate for the current position
-		if (anchor.view_target != 'bottom') {
-			const pos = target_anchor - view_offset
-			const [row, off] = layout.row_at(pos)
-			anchor = {
-				row_index: row,
-				row_offset: off,
+			if (sta != range.sta || end != range.end) {
+				set_range({ sta, end })
 			}
+
+			const dt = now() - t1
+			if (dt > 5) {
+				log.push(`render=${duration(dt)} (${sta}-${end})`)
+			}
+		} else {
+			//================================================================//
+			// Scaled scrolling
+			//================================================================//
+
+			// If the list is too big it will exceed the scrollbar size limit of
+			// the browser and cause all sorts of trouble.
+			//
+			// To avoid that we limit the maximum size of the list and scale
+			// the scrolling. With scaled scrolling, we forgo using the exact
+			// scroll position and instead use relative user scrolling to
+			// change the position in the list. In this case, the scroll bar
+			// becomes an (imprecise) indicator of the position in the list,
+			// instead controlling the absolute scroll position.
+
+			const max_scroll = MAX_SCROLL_HEIGHT - view_size
+
+			// Apply the user scrolling to the anchor before computing the
+			// layout.
+			let recalculate_anchor = false
+
+			const scrolling = state.scroll_to != state.scroll
+			if (scrolling) {
+				state.last_scroll = start
+
+				// Handle the scroll to top and to bottom as separate cases.
+				if (state.scroll_to <= 0) {
+					anchor = { row_index: 0, row_offset: 0, view_offset: 0, view_target: 'top' }
+				} else if (state.scroll_to >= max_scroll) {
+					anchor = {
+						row_index: count,
+						row_offset: 0,
+						row_target: 'bottom',
+						view_offset: 0,
+						view_target: 'bottom',
+					}
+				} else {
+					// Instead of using the direct scroll position, we need
+					// to use the relative delta to scroll the list, otherwise
+					// we would be scaling the scrolling.
+					const delta = state.scroll_to - state.scroll
+
+					console.log(delta)
+					// If the delta is really big, we jump directly to the
+					// proportional list position instead of trying to scroll
+					// smoothly.
+					if (delta > MAX_SCROLL_HEIGHT * 0.1) {
+						console.log('ABS SCROLL')
+						const position = (state.scroll_to / max_scroll) * layout.height
+						const [index] = layout.row_at(position)
+						anchor = {
+							row_index: index,
+						}
+					} else {
+						// For smaller scroll differences, we just apply the
+						// delta to the anchor.
+						anchor.row_offset = (anchor.row_offset || 0) + delta
+
+						// We want to recompute the anchor linking it to a
+						// visible element. This is to avoid having it linked
+						// to a distant item as the user scrolls away.
+						//
+						// Having a distant anchor offset makes it susceptible
+						// to drifting as the rows in between are recalculated.
+						recalculate_anchor = true
+					}
+				}
+			}
+
+			const { sta, end, target_scroll, max_target_scroll } = compute_anchor()
+
+			// Compute the scaled scrollbar position
+			// =====================================
+			//
+			// This does not need to be exact as we don't depend on the
+			// absolute scroll position. This is mostly provided for user
+			// feedback and to ensure enough spacing for the user to scroll
+			// around.
+
+			// If we are rendering at the beginning or at the end of the list,
+			// we use the unscaled distance for the scrolling. Otherwise we
+			// scale it. If we are scaling, we need to make sure to leave enough
+			// buffer space to allow for fast scrolling up and down.
+			const scroll_buffer = view_size * 10
+			const min_scroll_buffer = Math.min(target_scroll, scroll_buffer)
+			const max_scroll_buffer = max_scroll - Math.min(scroll_buffer, max_target_scroll - target_scroll)
+
+			// The actual scrollbar position.
+			const scaled_target_scroll =
+				sta == 0
+					? target_scroll
+					: end == layout.count
+					? max_scroll - (max_target_scroll - target_scroll)
+					: Math.max(
+							min_scroll_buffer,
+							Math.min(max_scroll_buffer, Math.round((target_scroll / max_target_scroll) * max_scroll)),
+					  )
+
+			// Compute the offset to apply to the view so that it appears at
+			// the proper position.
+			const sta_offset = scaled_target_scroll - (target_scroll - layout.range_height(0, sta))
+
+			// Re-compute the anchor if necessary
+			if (recalculate_anchor) {
+				const [row_index, row_offset] = layout.row_at(target_scroll)
+				anchor = { row_index, row_offset }
+			}
+
 			window.anchor = anchor
-		}
 
-		const d1 = now() - t1
-		if (d1 > 5) {
-			log.push(`calc=${duration(d1)}`)
-		}
+			// Apply the layout
+			// ----------------
 
-		// Apply the layout
-		// ----------------
+			scroll.style.height = `${MAX_SCROLL_HEIGHT}px`
 
-		scroll.style.height = `${scroll_height}px`
-		root.scrollTop = scroll_position
+			// We want to delay setting scrollTop because the browser will
+			// force the position while it's animating and that will cause
+			// all sorts of issues with our delta.
+			if (!scrolling && start - state.last_scroll > 500) {
+				root.scrollTop = scaled_target_scroll
+			}
 
-		// We want sub-pixel scrolling even if the scrollbar coordinates are
-		// integers. We compute the difference and apply it to the view element
-		// using a translate transform.
-		const scroll_error = root.scrollTop - scroll_position
+			const scroll_error = root.scrollTop - scaled_target_scroll
+			view.style.transform = `translateY(${sta_offset + scroll_error}px)`
 
-		const new_offset = sta_offset + scroll_error // offset from the non-rendered virtual items
+			// Update the rendered range.
+			const t1 = now()
 
-		// The view element only renders the visible range, so we need to offset
-		// it in the parent element to simulate its relative position.
-		view.style.transform = `translateY(${new_offset}px)`
+			if (sta != range.sta || end != range.end) {
+				set_range({ sta, end })
+			}
 
-		// Update the rendered range.
-		const t2 = now()
-
-		if (sta != range.sta || end != range.end) {
-			set_range({ sta, end })
-		}
-
-		const d2 = now() - t2
-		if (d2 > 5) {
-			log.push(`render=${duration(d2)} (${sta}-${end} ~ ${y0}=${y0_index}, ${y1}=${y1_index})`)
+			const dt = now() - t1
+			if (dt > 5) {
+				log.push(`render=${duration(dt)} (${sta}-${end})`)
+			}
 		}
 
 		// Save the current scroll position so that we can detect user
@@ -460,13 +515,12 @@ const List = ({ count, item }: ListProps) => {
 			tabIndex={1}
 			onScroll={(ev) => {
 				const pos = (ev.target as HTMLDivElement).scrollTop
-				console.log('EV', pos)
 				state.scroll_to = pos
 			}}
 		>
 			<div className="list-scroller" ref={el_scroll}></div>
 			<div className="list-view" ref={el_view}>
-				{(console.log('R', range.sta, range.end), Range(range.sta, range.end)).map((n) => (
+				{Range(range.sta, range.end).map((n) => (
 					<div className="list-row" data-index={n} key={n}>
 						{item(n)}
 					</div>

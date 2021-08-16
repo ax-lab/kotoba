@@ -1,0 +1,81 @@
+@use '../css/theme';
+
+// Root element of a scroller component.
+.scroller-root {
+	// Layout on the flex parent
+	flex-grow: 1; // Take all the available space
+	min-height: 0; // Don't overflow the parent
+
+	&:focus {
+		outline: none;
+	}
+
+	// Layout for `scroller-inner`
+	display: flex;
+	flex-direction: row;
+
+	// Allows `scroll-indicator` to take 100% of our height.
+	position: relative;
+
+	// This is the scrollable element for the scroller.
+	.scroller-scroll-main {
+		flex-grow: 1;
+		min-height: 0;
+
+		&:focus {
+			outline: none;
+		}
+
+		// Scroll vertically
+		overflow-y: auto;
+		overflow-x: hidden;
+		scroll-behavior: auto;
+
+		// We have a custom scrollbar, hide the browser native one.
+		-ms-overflow-style: none; // for Internet Explorer, Edge
+		scrollbar-width: none; // for Firefox
+		&::-webkit-scrollbar {
+			display: none; // for Chrome, Safari, and Opera
+		}
+
+		// This wraps around the scrollable content and is resized to the
+		// maximum (actual) scrollable height.
+		.scroller-scroll-inner {
+			// We don't want content to overflow outside the defined scroller
+			// height.
+			overflow: hidden;
+
+			&:focus {
+				outline: none;
+			}
+		}
+	}
+
+	// Main element for the scroll bar/indicator
+	.scroller-indicator {
+		width: theme.$scroll-bar;
+
+		// We want the indicator to overlay the scroller content.
+		position: absolute;
+		right: 0;
+		background: rgba(0, 0, 0, 0.3);
+		height: 100%;
+
+		opacity: 0;
+		&:hover,
+		&.active {
+			opacity: 1;
+			transition-delay: 0s;
+		}
+
+		transition: opacity 0.2s;
+		transition-delay: 0.3s;
+
+		// Thumb element for the scroll bar/indicator
+		.scroller-thumb {
+			background: rgba(0, 0, 0, 0.5);
+			height: 20px;
+			position: relative;
+		}
+	}
+}

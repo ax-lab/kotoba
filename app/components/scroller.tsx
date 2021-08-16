@@ -101,7 +101,18 @@ class Scroller extends React.Component<ScrollerProps> {
 	private _offset = 0
 
 	get scroll() {
-		return this.scroll_top + this._offset
+		const value = this.scroll_top + this._offset
+		const scroll_max = this.scroll_max
+
+		// Snap when there is less than a pixel to the edge to round off
+		// accumulated errors.
+		if (value < 1) {
+			return 0
+		} else if (value > scroll_max - 1) {
+			return scroll_max
+		}
+
+		return value
 	}
 
 	set scroll(value: number) {
@@ -348,7 +359,7 @@ class Scroller extends React.Component<ScrollerProps> {
 
 		if (is_indicator) {
 			const client_height = this.client_height
-			this.scroll = (offset / (client_height - thumb_height)) * this.scroll_max
+			this.scroll = Math.round((offset / (client_height - thumb_height)) * this.scroll_max)
 		}
 
 		const scroll = this.indicator_scroll
@@ -368,7 +379,7 @@ class Scroller extends React.Component<ScrollerProps> {
 			const thumb_height = this.thumb_height
 			const client_max = this.client_height - thumb_height
 			const delta = ev.clientY - scroll.offset
-			this.scroll = scroll.anchor + delta * (this.scroll_max / client_max)
+			this.scroll = Math.round(scroll.anchor + delta * (this.scroll_max / client_max))
 		}
 	}
 

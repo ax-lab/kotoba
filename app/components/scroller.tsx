@@ -5,88 +5,148 @@ import './scroller.scss'
 /**
  * Arguments for the scroller renderer function.
  */
-type ScrollerInfo = {
+export type ScrollerInfo = {
+	readonly sender: Scroller
+
 	/**
-	 * Set the offset for the rendered content. This can be set by the renderer.
+	 * Offset for the rendered content.
+	 *
+	 * This defaults to zero and can be set by the renderer to offset the
+	 * position of the content within the virtual scroll height.
+	 *
+	 * The purpose of `offset` is to allow the renderer to render just a
+	 * visible subset of the content and offset it to its would be position.
 	 */
 	offset: number
 
-	/** Total scrolling height. */
-	readonly height: number
-
-	/** Current scroll position. */
-	readonly scroll: number
-
-	/** Client width. */
-	readonly client_width: number
-
-	/** Client height. */
-	readonly client_height: number
-}
-
-const MIN_THUMB_SIZE = 16
-const MAX_SCROLL_HEIGHT = 300_000
-
-const INDICATOR_ACTIVE_CLS = 'active'
-
-type ScrollerProps = {
 	/**
-	 * Size of the scrollable content.
+	 * Total scrolling height. This must be set by the renderer to the estimated
+	 * or calculated height of the content.
 	 */
 	height: number
 
 	/**
-	 * Render function for the content. This is called whenever the scroll
-	 * position and other layout parameters change.
+	 * Current scroll position.
 	 *
-	 * Besides returning the content the render function can set the `offset`
-	 * value in info to offset the content based on the virtual scrolling
-	 * position.
+	 * This changes with the user scrolling input, but can also be set by the
+	 * renderer to force a specific scroll position.
+	 *
+	 * Note that the scroll position is always clamped to a valid range.
+	 */
+	scroll: number
+
+	/**
+	 * Scroll position after the last render call.
+	 *
+	 * The delta from `scroll_last` to `scroll` provides the amount of user
+	 * scrolling.
+	 */
+	readonly scroll_last: number
+
+	/** Client width. This is the width of the scroller viewport. */
+	readonly client_width: number
+
+	/** Client height. This is the height of the scroller viewport. */
+	readonly client_height: number
+}
+
+/** Minimum thumb size. */
+const MIN_THUMB_SIZE = 16
+
+/**
+ * Maximum "real" scroll height used by the virtual scroller.
+ *
+ * When rendering anything above this height the scroller will render this
+ * subset of the scroll surface centralized around the scroll position.
+ *
+ * Note that while the user is scrolling the view is not re-centered, so this
+ * must be large enough to make unlikely for the user to scroll to the border
+ * (in which case the scroll will just stop until the view re-centers).
+ */
+const MAX_SCROLL_HEIGHT = 300_000
+
+/** CSS class for a visible scroll indicator. */
+const INDICATOR_ACTIVE_CLS = 'active'
+
+type ScrollerProps = {
+	/**
+	 * Render function for the content. This is called for the initial render
+	 * and whenever the scroll position or viewport size changes.
+	 *
+	 * The render must set the total `height` for the content and return the
+	 * rendered content given the current parameters.
+	 *
+	 * The renderer can also set a `offset` for the rendered content. This is
+	 * useful for rendering a subset of the scroller content and moving it
+	 * into position.
+	 *
+	 * Additionally, the renderer may also modify the `scroll` position. The
+	 * resulting scroll is clamped to a valid range.
 	 */
 	render: (info: ScrollerInfo) => React.ReactElement
 }
 
 /**
- * Infinite scroller. Provides an infinite vertical scrolling surface and
- * specific support for virtual scrolling.
+ * This component provides an infinite scroller surface and a custom scrollbar
+ * for supporting virtual scrolling.
  */
 class Scroller extends React.Component<ScrollerProps> {
 	constructor(props: ScrollerProps) {
 		super(props)
 	}
 
+	/**
+	 * The root element for the scroller. This may be null before the first
+	 * rendering.
+	 */
+	get el() {
+		return this._el_root.current as HTMLElement
+	}
+
 	//------------------------------------------------------------------------//
 	// Layout
 	//------------------------------------------------------------------------//
 
-	//----[ Measures ]--------------------------------------------------------//
+	private _height = 0
+	private _offset = 0
 
+	/**
+	 * Last computed height.
+	 */
 	get height() {
-		return this.props.height
+		return this._height
 	}
 
+	//----[ Measures ]--------------------------------------------------------//
+
+	/**
+	 * Client size for the scroller viewport.
+	 */
 	get client_size() {
-		const root = this.el_root.current
+		const root = this._el_root.current
 		const rect = root?.getBoundingClientRect()
 		return { width: rect?.width || 0, height: rect?.height || 0 }
 	}
 
+	/**
+	 * Client height for the scroller viewport (i.e. `client_size.height`).
+	 */
 	get client_height() {
 		return this.client_size.height
 	}
 
+	/** Current height of the scroll indicator thumb. */
 	private get thumb_height() {
-		return this.el_thumb.current?.getBoundingClientRect().height || 0
-	}
-
-	private get scroll_max() {
-		return this.height - this.client_height
+		return this._el_thumb.current?.getBoundingClientRect().height || 0
 	}
 
 	//----[ Scrolling ]-------------------------------------------------------//
 
 	private _scrolling = false
 
+	/**
+	 * Returns true if the user is actively scrolling the scroller.
+	 */
 	get scrolling() {
 		return this._scrolling
 	}
@@ -94,11 +154,19 @@ class Scroller extends React.Component<ScrollerProps> {
 	private set scrolling(value: boolean) {
 		if (value != this._scrolling) {
 			this._scrolling = value
+
+			// we need to re-center the scroll position when the user stops
+			// scrolling.
 			this.layout()
 		}
 	}
 
-	private _offset = 0
+	/**
+	 * Maximum valid scroll position.
+	 */
+	get scroll_max() {
+		return Math.max(0, this._height - this.client_height)
+	}
 
 	get scroll() {
 		const value = this.scroll_top + this._offset
@@ -115,6 +183,9 @@ class Scroller extends React.Component<ScrollerProps> {
 		return value
 	}
 
+	/**
+	 * Virtual scroll position. This is clamped to a valid range.
+	 */
 	set scroll(value: number) {
 		const target = Math.max(0, Math.min(this.scroll_max, value))
 
@@ -122,7 +193,7 @@ class Scroller extends React.Component<ScrollerProps> {
 			return
 		}
 
-		if (this.height < MAX_SCROLL_HEIGHT) {
+		if (this._height < MAX_SCROLL_HEIGHT) {
 			this._offset = 0
 			this.scroll_top = target
 		} else {
@@ -132,11 +203,14 @@ class Scroller extends React.Component<ScrollerProps> {
 	}
 
 	private get scroll_top() {
-		return this.el_scroll_main.current?.scrollTop || 0
+		return this._el_scroll_main.current?.scrollTop || 0
 	}
 
+	/**
+	 * Actual scroll position of the internal scroller element.
+	 */
 	private set scroll_top(value: number) {
-		const scrollable = this.el_scroll_main.current
+		const scrollable = this._el_scroll_main.current
 		if (scrollable) {
 			scrollable.scrollTop = value
 		}
@@ -146,40 +220,57 @@ class Scroller extends React.Component<ScrollerProps> {
 	// Rendering
 	//------------------------------------------------------------------------//
 
+	/**
+	 * Forces a layout run and rendering.
+	 */
 	layout() {
 		this.forceUpdate()
 	}
 
-	private el_root = React.createRef<HTMLDivElement>()
-	private el_scroll_main = React.createRef<HTMLDivElement>()
-	private el_scroll_inner = React.createRef<HTMLDivElement>()
-	private el_content = React.createRef<HTMLDivElement>()
-	private el_indicator = React.createRef<HTMLDivElement>()
-	private el_thumb = React.createRef<HTMLDivElement>()
+	private _el_root = React.createRef<HTMLDivElement>()
+	private _el_scroll_main = React.createRef<HTMLDivElement>()
+	private _el_scroll_inner = React.createRef<HTMLDivElement>()
+	private _el_content = React.createRef<HTMLDivElement>()
+	private _el_indicator = React.createRef<HTMLDivElement>()
+	private _el_thumb = React.createRef<HTMLDivElement>()
+
+	private _scroll_last = 0
 
 	render() {
-		const scroll_max = this.scroll_max
-
-		const height = this.height
-		const scroll = Math.max(0, Math.min(scroll_max, this.scroll))
 		const client = this.client_size
 
-		// Render children
+		// First we call the renderer to get the scroller content and height.
 		const info: ScrollerInfo = {
+			sender: this,
 			offset: 0,
-			height,
-			scroll,
+			height: this._height,
+			scroll: this.scroll,
+			scroll_last: this._scroll_last,
 			client_width: client.width,
 			client_height: client.height,
 		}
 		const children = this.props.render(info)
 
+		// Update the scroll parameters
+		const height = Math.max(0, info.height)
+		this._height = height
+
+		const scroll_max = Math.max(0, height - this.client_height)
+		const scroll = Math.max(0, Math.min(scroll_max, info.scroll))
+		this._scroll_last = scroll
+
 		// Scroll indicator parameters
 		const thumb_height = Math.min(client.height, Math.max(MIN_THUMB_SIZE, (client.height / height) * client.height))
 		const thumb_pos = (scroll / scroll_max) * (client.height - thumb_height)
 
+		// The actual scroller height. We limit this to avoid running into the
+		// browser limitations.
 		const actual_height = Math.min(MAX_SCROLL_HEIGHT, Math.max(0, height))
 
+		// When the total scroll height is more than the maximum we render a
+		// window centered around the scroll position. When the user is not
+		// actively scrolling, we reset the `scrollTop` of the scrollable
+		// element to maintain scrolling space.
 		if (actual_height < height && !this.scrolling) {
 			const max_offset = height - actual_height
 
@@ -187,32 +278,55 @@ class Scroller extends React.Component<ScrollerProps> {
 			// available height. This is the top offset of the scroll window.
 			const base_offset = Math.max(0, Math.min(max_offset, scroll - (actual_height - client.height) / 2))
 
-			// Compute the scroll_top position for the base offset.
+			// Compute the scroll_top position for the base offset. This will
+			// usually keep the actual `scrollTop` centered, unless we are close
+			// to a border.
 			this.scroll_top = scroll - base_offset
-
-			// Recompute the base offset because desktop browser will round
-			// the scroll top
-			this._offset = scroll - this.scroll_top
+			this._last_scroll = this.scroll_top
 		}
 
+		// Recompute the base offset because desktop browser may round
+		// the `scrollTop` value.
+		this._offset = scroll - this.scroll_top
+
+		// This is the offset for the rendered content taking into account the
+		// offset set by the renderer.
 		const offset = info.offset - this._offset
 
+		// Render hierarchy:
+		//
+		// `scroller-root` is the main container. It contains the scrollable
+		// surface and the scrollbar/scroll indicator.
+		//
+		// `scroller-scroll-main` is the actual scrollable surface. It occupies
+		// the same size as the root and provides the (hidden) browser scroll.
+		//
+		// `scroller-scroll-inner` provides the rendered scroll height and
+		// contains the content. This has `overflow: hidden` to prevent the
+		// rendered content from spilling out.
+		//
+		// `scroller-scroll-content` wraps the rendered content. This is offset
+		// using `translateY` according to the offset provided by the renderer.
+		//
+		// `scroller-indicator` and `scroller-thumb` implement the scrollbar.
+		// Those are overlaid on top of the content, and is usually hidden
+		// unless the user is scrolling.
 		return (
-			<div ref={this.el_root} className="scroller-root">
+			<div ref={this._el_root} className="scroller-root">
 				<div
-					ref={this.el_scroll_main}
+					ref={this._el_scroll_main}
 					className="scroller-scroll-main"
 					onScroll={() => this.handle_scroll()}
 					onKeyDown={(ev) => this.handle_keydown(ev)}
 				>
 					<div
-						ref={this.el_scroll_inner}
+						ref={this._el_scroll_inner}
 						className="scroller-scroll-inner"
 						style={{ height: `${actual_height}px` }}
 						tabIndex={0}
 					>
 						<div
-							ref={this.el_content}
+							ref={this._el_content}
 							className="scroller-scroll-content"
 							style={{ transform: `translateY(${offset}px)` }}
 						>
@@ -221,13 +335,13 @@ class Scroller extends React.Component<ScrollerProps> {
 					</div>
 				</div>
 				<div
-					ref={this.el_indicator}
+					ref={this._el_indicator}
 					className="scroller-indicator"
 					onMouseDown={(ev) => this.handle_indicator_mousedown(ev)}
 					style={{ display: scroll_max > 0 ? undefined : 'none' }}
 				>
 					<div
-						ref={this.el_thumb}
+						ref={this._el_thumb}
 						className="scroller-thumb"
 						style={{ height: `${thumb_height}px`, top: `${thumb_pos}px` }}
 					></div>
@@ -244,7 +358,7 @@ class Scroller extends React.Component<ScrollerProps> {
 
 	readonly cleanup: Array<() => void> = []
 
-	watch_size_request = -1
+	private _watcher = -1
 
 	componentDidMount() {
 		// Flash the scroll indicator when the component mounts.
@@ -278,12 +392,12 @@ class Scroller extends React.Component<ScrollerProps> {
 					me.layout()
 				}
 			} finally {
-				me.watch_size_request = requestAnimationFrame(watch_size)
+				me._watcher = requestAnimationFrame(watch_size)
 			}
 		}
 
 		watch_size()
-		this.cleanup.push(() => cancelAnimationFrame(this.watch_size_request))
+		this.cleanup.push(() => cancelAnimationFrame(this._watcher))
 	}
 
 	componentWillUnmount() {
@@ -323,20 +437,20 @@ class Scroller extends React.Component<ScrollerProps> {
 		// Show the scroll indicator during scrolling.
 		this.show_scroll_indicator(500)
 
-		// Handle the scrolling flag. We use this to avoid messing up with the
-		// scroll_top while the user is actively scrolling.
-		this.scrolling = true
-		clearTimeout(this._scroll_timeout)
-		this._scroll_timeout = (setTimeout(() => (this.scrolling = false), 10) as unknown) as number
-
 		const scroll_top = this.scroll_top
 		if (scroll_top != this._last_scroll) {
+			// Handle the scrolling flag. We use this to avoid messing up with
+			// the `scroll_top` while the user is actively scrolling.
+			this.scrolling = true
+			clearTimeout(this._scroll_timeout)
+			this._scroll_timeout = (setTimeout(() => (this.scrolling = false), 100) as unknown) as number
+
 			this._last_scroll = scroll_top
 			this.layout()
 		}
 	}
 
-	readonly indicator_scroll = {
+	private readonly _indicator = {
 		active: false,
 		offset: 0,
 		anchor: 0,
@@ -351,7 +465,7 @@ class Scroller extends React.Component<ScrollerProps> {
 		ev.stopPropagation()
 
 		const target = ev.target as HTMLElement
-		const indicator = this.el_indicator.current!
+		const indicator = this._el_indicator.current!
 		const is_indicator = target == indicator
 
 		const thumb_height = this.thumb_height
@@ -362,7 +476,7 @@ class Scroller extends React.Component<ScrollerProps> {
 			this.scroll = Math.round((offset / (client_height - thumb_height)) * this.scroll_max)
 		}
 
-		const scroll = this.indicator_scroll
+		const scroll = this._indicator
 		scroll.active = true
 		scroll.offset = ev.clientY
 		scroll.anchor = this.scroll
@@ -374,7 +488,7 @@ class Scroller extends React.Component<ScrollerProps> {
 	 * at the document level.
 	 */
 	handle_indicator_mousemove(ev: MouseEvent) {
-		const scroll = this.indicator_scroll
+		const scroll = this._indicator
 		if (scroll.active) {
 			const thumb_height = this.thumb_height
 			const client_max = this.client_height - thumb_height
@@ -388,8 +502,8 @@ class Scroller extends React.Component<ScrollerProps> {
 	 * at the document level.
 	 */
 	handle_indicator_mouseup() {
-		if (this.indicator_scroll.active) {
-			this.indicator_scroll.active = false
+		if (this._indicator.active) {
+			this._indicator.active = false
 			this.hide_scroll_indicator()
 		}
 	}
@@ -398,26 +512,23 @@ class Scroller extends React.Component<ScrollerProps> {
 	// Private
 	//------------------------------------------------------------------------//
 
-	private scroll_indicator_timeout = 0
+	private _indicator_timeout = 0
 
 	private show_scroll_indicator(timeout = 0) {
-		clearTimeout(this.scroll_indicator_timeout)
+		clearTimeout(this._indicator_timeout)
 
-		const indicator = this.el_indicator.current
+		const indicator = this._el_indicator.current
 		if (indicator) {
 			indicator.classList.add(INDICATOR_ACTIVE_CLS)
-			if (timeout > 0 && !this.indicator_scroll.active) {
-				this.scroll_indicator_timeout = (setTimeout(
-					() => this.hide_scroll_indicator(),
-					timeout,
-				) as unknown) as number
+			if (timeout > 0 && !this._indicator.active) {
+				this._indicator_timeout = (setTimeout(() => this.hide_scroll_indicator(), timeout) as unknown) as number
 			}
 		}
 	}
 
 	private hide_scroll_indicator() {
-		clearTimeout(this.scroll_indicator_timeout)
-		const indicator = this.el_indicator.current
+		clearTimeout(this._indicator_timeout)
+		const indicator = this._el_indicator.current
 		if (indicator) {
 			indicator.classList.remove(INDICATOR_ACTIVE_CLS)
 		}

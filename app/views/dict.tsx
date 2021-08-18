@@ -49,7 +49,7 @@ const Dict = () => {
 		const id = `p${++id_counter}`
 		last_id = id
 		const start = now()
-		const result = await graphql.search(text, { id, limit: 25 })
+		const result = await graphql.search(text, { id, limit: 2000 })
 		if (result.id == last_id) {
 			console.log(`request ${result.id} for "${text}" took ${duration(now() - start)}`)
 			console.log(result.id, result.page.entries)
@@ -70,8 +70,6 @@ const Dict = () => {
 		void lookup(txt)
 	}
 
-	const COUNT = 20000000
-
 	return (
 		<div className="dict-view">
 			<input
@@ -88,33 +86,22 @@ const Dict = () => {
 				{elapsed ? `in ${duration(elapsed * 1000)}` : ``}
 			</div>
 			<hr />
-			{entries.map((x) => (
-				<div key={x.id}>
-					<strong>
-						{x.word || x.read}
-						{x.word && x.word != x.read ? ` (${x.read})` : ``}
-					</strong>
-					<p>
-						{x.text} ({x.match_mode})
-					</p>
-				</div>
-			))}
 			<List
-				count={COUNT}
-				item={(n) => (
-					<p
-						key={n}
-						style={{
-							border: '1px solid green',
-							borderBottomColor: 'yellow',
-							backgroundColor: `rgba(255, 0, 0, ${((n + 1) / COUNT).toFixed(2)})`,
-							paddingTop: `${(n % 20) + 10}px`,
-							paddingBottom: `${(n % 20) + 10}px`,
-						}}
-					>
-						Item {(n + 1).toString().padStart(4, '0')}
-					</p>
-				)}
+				count={entries.length}
+				item={(n) => {
+					const x = entries[n]
+					return (
+						<div key={x.id}>
+							<strong>
+								{x.word || x.read}
+								{x.word && x.word != x.read ? ` (${x.read})` : ``}
+							</strong>
+							<p>
+								{x.text} ({x.match_mode})
+							</p>
+						</div>
+					)
+				}}
 			/>
 		</div>
 	)

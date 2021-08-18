@@ -293,6 +293,8 @@ class Scroller extends React.Component<ScrollerProps> {
 		// offset set by the renderer.
 		const offset = info.offset - this._offset
 
+		const scroll_cls = scroll_max > 0 ? 'with-scroll' : 'no-scroll'
+
 		// Render hierarchy:
 		//
 		// `scroller-root` is the main container. It contains the scrollable
@@ -312,7 +314,7 @@ class Scroller extends React.Component<ScrollerProps> {
 		// Those are overlaid on top of the content, and is usually hidden
 		// unless the user is scrolling.
 		return (
-			<div ref={this._el_root} className="scroller-root">
+			<div ref={this._el_root} className={`scroller-root ${scroll_cls}`}>
 				<div
 					ref={this._el_scroll_main}
 					className="scroller-scroll-main"

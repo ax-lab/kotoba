@@ -4,10 +4,5 @@
 // This is the container for the rendered list elements. This is rendered
 // inside the Scroller component and offset to the right position.
 .list-root {
-	padding-left: theme.$spacing;
-	padding-right: theme.$scroll-bar;
-
-	p {
-		padding: 20px;
-	}
+	padding: 0;
 }

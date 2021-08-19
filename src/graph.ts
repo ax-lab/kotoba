@@ -17,6 +17,19 @@ export const SCHEMA = buildSchema(`
 			names: [String!] = []
 		): [Tag!]!
 
+		"""
+		Total number of words in the dictionary.
+		"""
+		word_count: Int!
+
+		"""
+		Returns words by position in the default sort order (by popularity).
+		"""
+		words(
+			offset: Int! = 0
+			limit: Int! = 100
+		): [Entry!]!
+
 		"Retrieves a dictionary entry by its id"
 		entry(id: String!): Entry
 
@@ -797,6 +810,10 @@ export const SCHEMA = buildSchema(`
  */
 export const ROOT = {
 	tags: dict.tags.all,
+
+	word_count: dict.entries.word_count,
+	words: dict.entries.words,
+
 	entry: dict.entries.by_id,
 	entries: dict.entries.by_ids,
 	lookup: dict.entries.lookup,

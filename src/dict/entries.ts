@@ -194,6 +194,28 @@ export type EntrySense = {
 export type EntrySenseSource = { $pos: number; text: string; lang: string; partial: boolean; wasei: boolean }
 export type EntrySenseGlossary = { $pos: number; text: string; type: string }
 
+export async function word_count() {
+	const dict = await DB.get_dict()
+	const rows = await dict.query<{ count: number }>(`SELECT COUNT(*) AS count FROM entries`)
+	return rows[0].count
+}
+
+export async function words(args: { offset?: number; limit?: number }) {
+	const offset = Math.max(0, Math.round(args.offset || 0))
+	const limit = Math.max(0, Math.round(args.limit || 100))
+	const dict = await DB.get_dict()
+
+	// Adding position to this query forces SQLite to use a table scan instead
+	// of a index scan, preserving the natural order of the table without using
+	// an ORDER BY (which would cause a full table scan).
+	const rows = await dict.query<{ sequence: string }>(
+		`SELECT sequence, position FROM entries LIMIT ${limit} OFFSET ${offset}`,
+	)
+	const ids = rows.map((x) => x.sequence)
+	const entries = await entries_by_ids(ids)
+	return entries
+}
+
 export async function by_id(args: { id: string }) {
 	return (await entries_by_ids([args.id])).shift()
 }

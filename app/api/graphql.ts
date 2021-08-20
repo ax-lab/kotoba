@@ -114,3 +114,73 @@ function indent(text: string) {
 	const prefix = lines.length ? lines[0].slice(0, Math.max(lines[0].search(/[^\s]/), 0)) : ''
 	return lines.map((x) => (x.startsWith(prefix) ? x.slice(prefix.length) : x).trimEnd()).join('\n')
 }
+
+export const ENTRY_FRAGMENTS = `
+	fragment TagF on Tag {
+		name text
+	}
+
+	fragment EntryF on Entry {
+		id
+		match_mode
+		word
+		read
+		text
+		rank
+		frequency
+		position
+		jlpt
+		popular
+		kanji   { ...EntryKanjiF }
+		reading { ...EntryReadingF }
+		sense   { ...EntrySenseF }
+	}
+
+	fragment EntryKanjiF on EntryKanji {
+		expr
+		popular
+		info     { ...TagF }
+		priority { ...TagF }
+	}
+
+	fragment EntryReadingF on EntryReading {
+		expr
+		no_kanji
+		restrict
+		popular
+		info     { ...TagF }
+		priority { ...TagF }
+		pitches  { ...EntryPitchF }
+	}
+
+	fragment EntrySenseF on EntrySense {
+		stag_kanji
+		stag_reading
+		xref
+		antonym
+		info
+		pos      { ...TagF }
+		field    { ...TagF }
+		misc     { ...TagF }
+		dialect  { ...TagF }
+		source   { ...EntrySenseSourceF }
+		glossary { ...EntrySenseGlossaryF }
+	}
+
+	fragment EntryPitchF on EntryPitch {
+		value
+		tags { ...TagF }
+	}
+
+	fragment EntrySenseSourceF on EntrySenseSource {
+		text
+		lang
+		partial
+		wasei
+	}
+
+	fragment EntrySenseGlossaryF on EntrySenseGlossary {
+		text
+		type
+	}
+`

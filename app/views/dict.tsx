@@ -1,14 +1,66 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { useHistory, useParams } from 'react-router'
 
-import { duration, now } from '../../lib'
-import * as graphql from '../api/graphql'
+import { duration } from '../../lib'
+import * as entries from '../api/entries'
 import List from '../components/list'
 
 import './dict.scss'
 
-let id_counter = 0
-let last_id = ''
+interface DictProps {
+	search: string
+	query: entries.Query
+}
+
+class ResultListing extends React.Component<DictProps> {
+	private _cleanup: Array<() => void> = []
+
+	componentDidMount() {
+		this._cleanup.push(this.props.query.on_count_update.on(() => this.forceUpdate()))
+		this._cleanup.push(this.props.query.on_page_loaded.on(() => this.forceUpdate()))
+		this.props.query.prefetch({ start: 0 })
+	}
+
+	componentWillUnmount() {
+		this._cleanup.forEach((x) => x())
+	}
+
+	render() {
+		const query = this.props.query
+		const total = query.count
+		const elapsed = query.elapsed
+		return (
+			<>
+				<div>
+					"{this.props.search}" {total != null ? `found ${total} ${total != 1 ? 'entries' : 'entry'}` : ``}{' '}
+					{elapsed ? `in ${duration(elapsed * 1000)}` : ``}
+				</div>
+				<hr />
+				<List
+					count={total}
+					item={(n, args) => {
+						query.prefetch({ start: args.start, count: args.count, cancel_pending: true })
+						const entry = query.get(n)
+						if (!entry) {
+							return <div key={n}>Loading...</div>
+						}
+						return (
+							<div key={entry.id}>
+								<strong>
+									{entry.word || entry.read}
+									{entry.word && entry.word != entry.read ? ` (${entry.read})` : ``}
+								</strong>
+								<p>
+									{entry.text} ({entry.match_mode})
+								</p>
+							</div>
+						)
+					}}
+				/>
+			</>
+		)
+	}
+}
 
 const Dict = () => {
 	const input_el = React.createRef<HTMLInputElement>()
@@ -39,29 +91,22 @@ const Dict = () => {
 		}
 	}, [])
 
+	const search = React.useRef('')
+
 	const history = useHistory()
 
-	const [entries, set_entries] = useState<graphql.SearchEntry[]>([])
-	const [total, set_total] = useState<number>()
-	const [elapsed, set_elapsed] = useState<number>()
+	const [query] = React.useState<entries.Query>(entries.all())
 
 	const lookup = async (text: string) => {
-		const id = `p${++id_counter}`
-		last_id = id
-		const start = now()
-		const result = await graphql.search(text, { id, limit: 2000 })
-		if (result.id == last_id) {
-			console.log(`request ${result.id} for "${text}" took ${duration(now() - start)}`)
-			console.log(result.id, result.page.entries)
-			set_entries(result.page.entries)
-			set_total(result.total)
-			set_elapsed(result.elapsed)
-		}
+		search.current = text
+		console.log('LOOKUP', text)
 	}
 
 	useEffect(() => {
-		void lookup(search_text)
-	}, [])
+		if (search.current != search_text) {
+			void lookup(search_text)
+		}
+	})
 
 	// Called on direct input from the search input.
 	const on_search = async (txt: string) => {
@@ -81,28 +126,7 @@ const Dict = () => {
 				onInput={(ev) => on_search((ev.target as HTMLInputElement).value)}
 			/>
 			<hr />
-			<div>
-				"{search_text}" {total != null ? `found ${total} ${total != 1 ? 'entries' : 'entry'}` : ``}{' '}
-				{elapsed ? `in ${duration(elapsed * 1000)}` : ``}
-			</div>
-			<hr />
-			<List
-				count={entries.length}
-				item={(n) => {
-					const x = entries[n]
-					return (
-						<div key={x.id}>
-							<strong>
-								{x.word || x.read}
-								{x.word && x.word != x.read ? ` (${x.read})` : ``}
-							</strong>
-							<p>
-								{x.text} ({x.match_mode})
-							</p>
-						</div>
-					)
-				}}
-			/>
+			<ResultListing query={query} search={expr} />
 		</div>
 	)
 }

@@ -22,9 +22,17 @@ const BUFFER_PAGES = 1
  */
 const MIN_BUFFER_PAGE = 1000
 
+/**
+ * Additional arguments passed to the list renderer.
+ */
+type ListRenderArgs = {
+	start: number
+	count: number
+}
+
 type ListProps = {
 	count: number
-	item: (index: number) => React.ReactElement
+	item: (index: number, args: ListRenderArgs) => React.ReactElement
 }
 
 /**
@@ -226,11 +234,15 @@ class List extends React.Component<ListProps> {
 		info.height = full_size
 		info.scroll = target_scroll
 
+		const args = {
+			start: sta,
+			count: end - sta,
+		}
 		const content = (
 			<div className="list-root" ref={this._el_list}>
 				{Range(sta, end).map((n) => (
 					<div className="list-row" data-index={n} key={n}>
-						{this.props.item(n)}
+						{this.props.item(n, args)}
 					</div>
 				))}
 			</div>

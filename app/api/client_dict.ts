@@ -102,13 +102,14 @@ export async function word_count() {
 }
 
 export async function words(args: { limit?: number; offset?: number }) {
-	const data = graphql.query<{ words: Entry[] }>(`
+	const data = graphql.query<{ list: Entry[]; count: number }>(`
 		query {
-			words(offset: ${args.offset || 0}, limit: ${args.limit || 100}) {
+			count: word_count
+			list:  words(offset: ${args.offset || 0}, limit: ${args.limit || 100}) {
 				...EntryF
 			}
 		}
 		${graphql.ENTRY_FRAGMENTS}
 	`)
-	return data.then((x) => x.words)
+	return data
 }

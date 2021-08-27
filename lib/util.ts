@@ -30,6 +30,50 @@ export const now =
 		: () => performance.now()
 
 /**
+ * Async sleep function with support for cancellation.
+ */
+export async function sleep(delay_ms: number, cancel?: { cancelled: boolean }) {
+	// Maximum incremental step for checking cancellation
+	const STEP_MS = 5
+
+	// Asynchronously sleeps for the target number of milliseconds.
+	const do_sleep = async (ms: number) => {
+		await new Promise<void>((resolve) => {
+			setTimeout(() => resolve(), ms)
+		})
+	}
+
+	if (!cancel) {
+		// if no cancelation is given, just do a raw sleep for the target time
+		await do_sleep(delay_ms)
+	} else {
+		// if a cancelation is given, we limit the sleep in steps of STEP_MS
+		// and check the cancelation flag
+		const start = now()
+		let is_first = true
+		while (true) {
+			// check cancellation
+			if (cancel.cancelled) {
+				return
+			}
+
+			// check how much time is left is the sleep
+			const delta = now() - start
+			const delay = Math.max(0, delay_ms - delta)
+
+			// for the first time, we sleep even if the delay is zero to be
+			// compatible with a setTimeout
+			if (delay > 0 || is_first) {
+				is_first = false
+				await do_sleep(Math.min(STEP_MS, delay))
+			} else {
+				return
+			}
+		}
+	}
+}
+
+/**
  * Returns a human-readable elapsed duration string from a base time returned
  * by `now`.
  */

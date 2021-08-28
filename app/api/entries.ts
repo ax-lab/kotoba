@@ -1,14 +1,14 @@
 import { now, sleep } from '../../lib'
 import { EventField } from '../util/emitter'
 
-import { Entry, words } from './client_dict'
+import * as dict from './client_dict'
 
 /**
  * Page size for EntriesQuery.
  */
 const PAGE_SIZE = 50
 
-type EntryPage = { list: Entry[]; offset: number }
+type EntryPage = { list: dict.Entry[]; offset: number }
 
 /**
  * This is the base class for implementing a query for word entries. It
@@ -68,7 +68,7 @@ export abstract class Query {
 	 *
 	 * Note that this does not trigger a page load (see `prefetch`).
 	 */
-	get(index: number): Entry | null {
+	get(index: number): dict.Entry | null {
 		if (index < 0 || index >= this._count) {
 			return null
 		}
@@ -172,7 +172,7 @@ export abstract class Query {
 	protected abstract fetch_entries(
 		offset: number,
 		limit: number,
-	): Promise<{ count: number; list: Entry[]; elapsed?: number }>
+	): Promise<{ count: number; list: dict.Entry[]; elapsed?: number }>
 
 	//------------------------------------------------------------------------//
 	// Private
@@ -254,9 +254,26 @@ export abstract class Query {
 	}
 }
 
-class AllEntries extends Query {
+class QueryAll extends Query {
 	constructor() {
 		super('all entries')
+	}
+
+	maximum_fetch_operations() {
+		return 3
+	}
+
+	async fetch_entries(offset: number, limit: number) {
+		return await dict.words({ offset, limit })
+	}
+}
+
+class QuerySearch extends Query {
+	readonly text: string
+
+	constructor(search_text: string) {
+		super(`search "${search_text}"`)
+		this.text = search_text
 	}
 
 	maximum_fetch_operations() {
@@ -264,12 +281,17 @@ class AllEntries extends Query {
 	}
 
 	async fetch_entries(offset: number, limit: number) {
-		return await words({ offset, limit })
+		const result = await dict.search(this.text, { offset, limit })
+		return { count: result.total, list: result.page.entries, elapsed: result.elapsed }
 	}
 }
 
-const all_entries = new AllEntries()
+const query_all = new QueryAll()
 
 export function all(): Query {
-	return all_entries
+	return query_all
+}
+
+export function search(text: string) {
+	return new QuerySearch(text)
 }

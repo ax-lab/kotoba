@@ -27,12 +27,12 @@ export async function to_tags(names: Array<{ name: string }>) {
 }
 
 //----------------------------------------------------------------------------//
-// Words
+// Word listing
 //----------------------------------------------------------------------------//
 
 export type Entry = {
 	id: string
-	match_mode: string
+	match_mode: EntryMatchMode
 	word: string
 	read: string
 	text: string
@@ -94,6 +94,20 @@ export type EntrySenseGlossary = {
 	type: 'literal' | 'figurative' | 'explanation'
 }
 
+export type EntryMatchMode =
+	| 'exact'
+	| 'prefix'
+	| 'suffix'
+	| 'contains'
+	| 'approx'
+	| 'approx-prefix'
+	| 'approx-suffix'
+	| 'approx-contains'
+	| 'fuzzy'
+	| 'fuzzy-prefix'
+	| 'fuzzy-suffix'
+	| 'fuzzy-contains'
+
 let _word_count: Promise<number> | null = null
 
 export async function word_count() {
@@ -112,4 +126,65 @@ export async function words(args: { limit?: number; offset?: number }) {
 		${graphql.ENTRY_FRAGMENTS}
 	`)
 	return data
+}
+
+//----------------------------------------------------------------------------//
+// Search
+//----------------------------------------------------------------------------//
+
+/**
+ * Search dictionary entries using the GraphQL endpoint.
+ */
+export async function search(text: string, args?: { id?: string; offset?: number; limit?: number }) {
+	if (!text.trim()) {
+		const empty: Search = {
+			id: args?.id || '',
+			total: 0,
+			elapsed: 0,
+			loading: false,
+			page: {
+				offset: 0,
+				limit: 0,
+				entries: [],
+			},
+		}
+		return empty
+	}
+
+	const offset = args?.offset || 0
+	const limit = args?.limit || 25
+
+	const vars = { id: args?.id, text, offset, limit }
+	const out = await graphql.query<{ search: Search }>(
+		`
+		query($id: String, $text: String!, $offset: Int!, $limit: Int!) {
+			search(id: $id, query: $text) {
+				id total elapsed loading
+				page(offset: $offset, limit: $limit) {
+					offset limit
+					entries {
+						...EntryF
+					}
+				}
+			}
+		}
+		${graphql.ENTRY_FRAGMENTS}
+		`,
+		vars,
+	)
+	return out.search
+}
+
+export type Search = {
+	id: string
+	total: number
+	elapsed: number
+	loading: boolean
+	page: SearchPage
+}
+
+export type SearchPage = {
+	offset: number
+	limit: number
+	entries: Entry[]
 }

@@ -13,21 +13,38 @@ interface DictProps {
 }
 
 class ResultListing extends React.Component<DictProps> {
-	private _cleanup: Array<() => void> = []
-
 	componentDidMount() {
-		this._cleanup.push(this.props.query.on_count_update.on(() => this.forceUpdate()))
-		this._cleanup.push(
-			this.props.query.on_page_loaded.on(({ start, count }) => {
+		this.init_query()
+	}
+
+	componentDidUpdate(props: DictProps) {
+		if (props.query !== this.props.query) {
+			this.deinit_query()
+			this.init_query()
+		}
+	}
+
+	componentWillUnmount() {
+		this.deinit_query()
+	}
+
+	private readonly _cleanup_query_fns: Array<() => void> = []
+
+	private init_query() {
+		const query = this.props.query
+		this._cleanup_query_fns.push(query.on_count_update.on(() => this.forceUpdate()))
+		this._cleanup_query_fns.push(
+			query.on_page_loaded.on(({ start, count }) => {
 				console.log('UPDATED', start, count)
 				this.forceUpdate()
 			}),
 		)
-		this.props.query.prefetch({ start: 0 })
+		query.prefetch({ start: 0 })
 	}
 
-	componentWillUnmount() {
-		this._cleanup.forEach((x) => x())
+	private deinit_query() {
+		this._cleanup_query_fns.forEach((x) => x())
+		this._cleanup_query_fns.length = 0
 	}
 
 	render() {
@@ -100,11 +117,21 @@ const Dict = () => {
 
 	const history = useHistory()
 
-	const [query] = React.useState<entries.Query>(entries.all())
+	const [query, set_query] = React.useState<entries.Query>(entries.all())
 
 	const lookup = async (text: string) => {
-		search.current = text
+		text = text.trim().replace(/\s+/g, ' ')
+		if (text == search.current) {
+			return
+		}
+
 		console.log('LOOKUP', text)
+		search.current = text
+		if (text == '') {
+			set_query(entries.all())
+		} else {
+			set_query(entries.search(text))
+		}
 	}
 
 	useEffect(() => {

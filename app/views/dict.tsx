@@ -17,7 +17,12 @@ class ResultListing extends React.Component<DictProps> {
 
 	componentDidMount() {
 		this._cleanup.push(this.props.query.on_count_update.on(() => this.forceUpdate()))
-		this._cleanup.push(this.props.query.on_page_loaded.on(() => this.forceUpdate()))
+		this._cleanup.push(
+			this.props.query.on_page_loaded.on(({ start, count }) => {
+				console.log('UPDATED', start, count)
+				this.forceUpdate()
+			}),
+		)
 		this.props.query.prefetch({ start: 0 })
 	}
 

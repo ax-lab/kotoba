@@ -1,4 +1,4 @@
-import { sleep } from '../../lib'
+import { now, sleep } from '../../lib'
 import { EventField } from '../util/emitter'
 
 import { Entry, words } from './client_dict'
@@ -81,6 +81,8 @@ export abstract class Query {
 		return null
 	}
 
+	private readonly _last_fetch = { start: -1, count: -1, time: 0 }
+
 	/**
 	 * Requests a range of entries to be loaded, if they are not available yet.
 	 *
@@ -94,10 +96,22 @@ export abstract class Query {
 	 * pages that have not started to load will be cancelled.
 	 */
 	prefetch(args: { start: number; count?: number; cancel_pending?: boolean }) {
-		const sta = Math.floor(Math.max(0, args.start) / PAGE_SIZE)
-		const end = Math.max(sta, Math.floor((args.start + (args.count || 1)) / PAGE_SIZE))
+		const start = args.start
+		const count = args.count || 1
 
-		console.log('FETCH', args.start, args.count, sta, end)
+		const t = now()
+		if (t - this._last_fetch.time < 5 && start == this._last_fetch.start && count == this._last_fetch.count) {
+			return
+		}
+
+		this._last_fetch.time = t
+		this._last_fetch.start = start
+		this._last_fetch.count = count
+
+		const sta = Math.floor(Math.max(0, start) / PAGE_SIZE)
+		const end = Math.max(sta, Math.floor((start + count) / PAGE_SIZE))
+
+		console.log('FETCH', start, count, sta, end)
 
 		if (args.cancel_pending) {
 			this._load_queue.length = 0
@@ -220,6 +234,10 @@ export abstract class Query {
 				new_page.list.push(...list)
 				if (new_page.list.length > PAGE_SIZE) {
 					new_page.list.length = PAGE_SIZE
+				}
+
+				if (list.length) {
+					setTimeout(() => this.on_page_loaded.emit({ start: offset, count: list.length }), 0)
 				}
 
 				if (this._is_incomplete(new_page)) {

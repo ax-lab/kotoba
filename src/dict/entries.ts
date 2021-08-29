@@ -378,7 +378,7 @@ export async function search(args: { id: string; query: string }) {
 			if (offset == null || offset < 0) {
 				throw new Error(`invalid offset (${offset})`)
 			}
-			if (!limit || limit <= 0) {
+			if (limit == null || limit < 0) {
 				throw new Error(`invalid limit (${limit})`)
 			}
 
@@ -502,7 +502,7 @@ class Search {
 	 * Solve all pending operations.
 	 */
 	async solve_completed() {
-		const solved = this.pending.filter((x) => this.completed || x.offset < this.rows.length)
+		const solved = this.pending.filter((x) => this.completed || x.offset < this.rows.length || x.limit == 0)
 		this.pending = this.pending.filter((x) => solved.indexOf(x) < 0)
 		if (!solved.length) {
 			return
@@ -1039,7 +1039,7 @@ class ListByKeyword {
 			}
 		}
 		if (args.limit) {
-			if (args.limit < 1) {
+			if (args.limit < 0) {
 				throw new Error('invalid limit')
 			}
 		}

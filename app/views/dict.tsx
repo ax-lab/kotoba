@@ -28,34 +28,18 @@ class ResultListing extends React.Component<DictProps> {
 		this.deinit_query()
 	}
 
-	private readonly _cleanup_query_fns: Array<() => void> = []
-
-	private init_query() {
-		const query = this.props.query
-		this._cleanup_query_fns.push(query.on_count_update.on(() => this.forceUpdate()))
-		this._cleanup_query_fns.push(
-			query.on_page_loaded.on(({ start, count }) => {
-				console.log('UPDATED', start, count)
-				this.forceUpdate()
-			}),
-		)
-		query.prefetch({ start: 0 })
-	}
-
-	private deinit_query() {
-		this._cleanup_query_fns.forEach((x) => x())
-		this._cleanup_query_fns.length = 0
-	}
-
 	render() {
 		const query = this.props.query
 		const total = query.count
 		const elapsed = query.elapsed
+		const label = `"${this.props.search || ''}"`
+		const found = total != null ? `found ${total} ${total != 1 ? 'entries' : 'entry'}` : ``
+		const message = query.complete ? `${label} ${found}` : `${label} ${found}...`
 		return (
 			<>
 				<div>
-					"{this.props.search}" {total != null ? `found ${total} ${total != 1 ? 'entries' : 'entry'}` : ``}{' '}
-					{elapsed ? `in ${duration(elapsed * 1000)}` : ``}
+					{message}
+					{elapsed ? (query.complete ? ` in ` : ` `) + duration(elapsed * 1000) : ''}
 				</div>
 				<hr />
 				<List
@@ -81,6 +65,36 @@ class ResultListing extends React.Component<DictProps> {
 				/>
 			</>
 		)
+	}
+
+	//------------------------------------------------------------------------//
+	// Query handling
+	//------------------------------------------------------------------------//
+
+	private readonly _cleanup_query_fns: Array<() => void> = []
+
+	/**
+	 * Register the handlers for the query update events.
+	 */
+	private init_query() {
+		const query = this.props.query
+		this._cleanup_query_fns.push(query.on_update.on(() => this.forceUpdate()))
+		this._cleanup_query_fns.push(
+			query.on_page_loaded.on(({ start, count }) => {
+				console.log('UPDATED', start, count)
+				this.forceUpdate()
+			}),
+		)
+		this._cleanup_query_fns.push(() => query.dispose())
+		query.prefetch({ start: 0 })
+	}
+
+	/**
+	 * Run the query cleanup callbacks to unregister the query event handlers.
+	 */
+	private deinit_query() {
+		this._cleanup_query_fns.forEach((x) => x())
+		this._cleanup_query_fns.length = 0
 	}
 }
 

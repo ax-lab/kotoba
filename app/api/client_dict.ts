@@ -152,7 +152,7 @@ export async function search(text: string, args?: { id?: string; offset?: number
 	}
 
 	const offset = args?.offset || 0
-	const limit = args?.limit || 25
+	const limit = args?.limit == null ? 25 : Math.max(args.limit, 0)
 
 	const vars = { id: args?.id, text, offset, limit }
 	const out = await graphql.query<{ search: Search }>(

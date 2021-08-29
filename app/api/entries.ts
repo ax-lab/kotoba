@@ -25,9 +25,17 @@ export abstract class Query {
 	}
 
 	/**
-	 * Event emitted when the total `count` updates.
+	 * This must be called before disposing of the query to unregister any
+	 * handlers.
 	 */
-	readonly on_count_update = new EventField<number>()
+	dispose() {
+		clearTimeout(this._next_count_refresh)
+	}
+
+	/**
+	 * Event emitted when `count`, `elapsed`, or `complete` update.
+	 */
+	readonly on_update = new EventField<{ count: number; elapsed: number; complete: boolean }>()
 
 	/**
 	 * Event emitted when a page of items is loaded.
@@ -48,7 +56,7 @@ export abstract class Query {
 		const new_count = Math.max(this._count, value)
 		if (new_count != this._count) {
 			this._count = new_count
-			this.on_count_update.emit(new_count)
+			this._emit_update()
 		}
 	}
 
@@ -59,9 +67,22 @@ export abstract class Query {
 		return this._elapsed
 	}
 
+	/**
+	 * Indicates if the query is complete on the backend.
+	 *
+	 * In practice, this means that the `count` and `elapsed` values are the
+	 * final ones.
+	 */
+	get complete() {
+		return this._is_count_complete == true
+	}
+
 	private _count = 0
 	private _elapsed = 0
 	private _pages = new Map<number, EntryPage>()
+
+	private _is_count_complete = false
+	private _next_count_refresh = -1
 
 	/**
 	 * Return the item at the given index or `null` if it is not available.
@@ -160,8 +181,10 @@ export abstract class Query {
 	 * an update on the count.
 	 *
 	 * The result of the operation is a list of entries starting at the given
-	 * offset and an updated total `count`.
+	 * offset, an updated total `count`, and a `complete` flag.
 	 *
+	 * - The `complete` flag indicates if the query finished loading in the
+	 *   backend. This is used to refresh the count.
 	 * - The list of entries can be of any size, including zero, but must
 	 *   correspond to the given `offset`.
 	 * - The total `count` is expected to increase as items are loaded by the
@@ -172,7 +195,7 @@ export abstract class Query {
 	protected abstract fetch_entries(
 		offset: number,
 		limit: number,
-	): Promise<{ count: number; list: dict.Entry[]; elapsed?: number }>
+	): Promise<{ count: number; list: dict.Entry[]; complete: boolean; elapsed?: number }>
 
 	//------------------------------------------------------------------------//
 	// Private
@@ -208,6 +231,9 @@ export abstract class Query {
 		try {
 			let delay_ms = 100
 			while (true) {
+				// Delay any pending refresh since we are loading a page.
+				this._queue_refresh_count()
+
 				if (cancel.cancelled) {
 					return
 				}
@@ -222,10 +248,19 @@ export abstract class Query {
 				const offset = sta + (page ? page.list.length : 0)
 				const limit = end == this._count ? PAGE_SIZE : end - offset
 
-				const { count, list, elapsed } = await this.fetch_entries(offset, limit)
+				const { count, list, elapsed, complete } = await this.fetch_entries(offset, limit)
 				this.count = Math.max(count, list.length ? offset + list.length : 0)
 
+				// If the query is reported as complete, flag the count as
+				// complete and cancel any pending refreshes.
+				if (complete) {
+					this._is_count_complete = true
+					this._queue_refresh_count()
+				}
+
 				this._elapsed = Math.max(this._elapsed, elapsed || 0)
+
+				this._emit_update()
 
 				const new_page = page || { list: [], offset }
 				if (!page) {
@@ -252,6 +287,44 @@ export abstract class Query {
 			this._flush_queue()
 		}
 	}
+
+	private _pending_update = -1
+
+	private _emit_update() {
+		clearTimeout(this._pending_update)
+		this._pending_update = (setTimeout(() => {
+			this.on_update.emit({ count: this.count, complete: this.complete, elapsed: this.elapsed })
+		}, 0) as unknown) as number
+	}
+
+	private _refresh_count_timeout = 250
+	private _refresh_count_retries = 10
+
+	private _queue_refresh_count() {
+		clearTimeout(this._next_count_refresh)
+		if (this._is_count_complete || this._refresh_count_retries == 0) {
+			return // no need to update the count anymore
+		}
+
+		this._next_count_refresh = (setTimeout(() => {
+			this.fetch_entries(0, 0)
+				.then(({ count, complete }) => {
+					this.count = count
+					if (complete) {
+						this._is_count_complete = true
+					} else {
+						this._queue_refresh_count()
+					}
+					this._emit_update()
+				})
+				.catch((err) => {
+					console.error(`${this.name} - refresh count failed`, err)
+					this._refresh_count_timeout = Math.min(1000, this._refresh_count_timeout * 2)
+					this._refresh_count_retries--
+					this._queue_refresh_count()
+				})
+		}, this._refresh_count_timeout) as unknown) as number
+	}
 }
 
 class QueryAll extends Query {
@@ -264,7 +337,8 @@ class QueryAll extends Query {
 	}
 
 	async fetch_entries(offset: number, limit: number) {
-		return await dict.words({ offset, limit })
+		const data = await dict.words({ offset, limit })
+		return { complete: true, ...data }
 	}
 }
 
@@ -282,7 +356,7 @@ class QuerySearch extends Query {
 
 	async fetch_entries(offset: number, limit: number) {
 		const result = await dict.search(this.text, { offset, limit })
-		return { count: result.total, list: result.page.entries, elapsed: result.elapsed }
+		return { count: result.total, list: result.page.entries, elapsed: result.elapsed, complete: !result.loading }
 	}
 }
 

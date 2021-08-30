@@ -1,0 +1,112 @@
+@use 'sass:color';
+@use '../css/theme';
+
+.entry-view {
+	padding-right: theme.$scroll-bar + theme.$spacing-thin;
+
+	label {
+		@include theme.no-select;
+		font-size: 0.7em;
+		padding: 5px;
+		background-color: theme.$background-deep;
+	}
+
+	//------------------------------------------------------------------------//
+	// Title
+	//------------------------------------------------------------------------//
+
+	.entry-match-icon {
+		@include theme.no-select;
+		color: theme.$color-light;
+		display: inline-block;
+		width: 1.5em;
+		text-align: center;
+	}
+
+	h1,
+	h2 {
+		display: inline-block;
+		font-weight: inherit;
+
+		margin: 0;
+
+		label {
+			color: theme.$color-light;
+			padding: inherit;
+			background-color: inherit;
+			margin-right: theme.$spacing-thin;
+		}
+
+		&:not(:last-of-type)::after {
+			content: '、';
+			color: theme.$color-light;
+		}
+	}
+
+	h1 {
+		font-size: 1.5rem;
+		[lang='jp'] {
+			color: theme.$highlight;
+		}
+	}
+
+	h2 {
+		font-size: 1.2rem;
+
+		&:first-of-type {
+			margin-left: theme.$spacing;
+		}
+
+		&:first-of-type::before {
+			content: '～';
+			color: theme.$color-light;
+			margin-left: theme.$spacing;
+			margin-right: theme.$spacing;
+		}
+	}
+
+	.entry-view-extra {
+		margin-left: theme.$spacing-thin;
+	}
+
+	//------------------------------------------------------------------------//
+	// Body
+	//------------------------------------------------------------------------//
+
+	p {
+		margin-left: 2em;
+
+		.entry-sense-glossary {
+			&:not(:first-of-type)::before {
+				content: '|';
+				color: theme.$color-light;
+				margin-left: theme.$spacing;
+				margin-right: theme.$spacing;
+			}
+		}
+
+		.entry-sense-extra-info {
+			color: theme.$highlight-info;
+		}
+
+		label.tag {
+			margin-right: theme.$spacing-thin;
+			&:last-of-type {
+				margin-right: theme.$spacing;
+			}
+		}
+
+		.entry-sense-stag {
+			background-color: theme.$background-fore;
+			margin-right: theme.$spacing-thin;
+			&:last-of-type {
+				margin-right: theme.$spacing;
+			}
+		}
+
+		.entry-sense-link {
+			background-color: theme.$background-fore;
+			margin-left: theme.$spacing;
+		}
+	}
+}

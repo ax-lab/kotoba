@@ -6,6 +6,7 @@ import * as entries from '../api/entries'
 import List from '../components/list'
 
 import './dict.scss'
+import EntryView from './entry_view'
 
 interface DictProps {
 	search: string
@@ -32,9 +33,9 @@ class ResultListing extends React.Component<DictProps> {
 		const query = this.props.query
 		const total = query.count
 		const elapsed = query.elapsed
-		const label = `"${this.props.search || ''}"`
-		const found = total != null ? `found ${total} ${total != 1 ? 'entries' : 'entry'}` : ``
-		const message = query.complete ? `${label} ${found}` : `${label} ${found}...`
+		const label = this.props.search ? `"${this.props.search || ''}" found ` : `Found `
+		const found = total != null ? `${total} ${total != 1 ? 'entries' : 'entry'}` : ``
+		const message = query.complete ? `${label}${found}` : `${label} ${found}...`
 		return (
 			<>
 				<div>
@@ -50,17 +51,7 @@ class ResultListing extends React.Component<DictProps> {
 						if (!entry) {
 							return <div key={n}>Loading...</div>
 						}
-						return (
-							<div key={entry.id}>
-								<strong>
-									{entry.word || entry.read}
-									{entry.word && entry.word != entry.read ? ` (${entry.read})` : ``}
-								</strong>
-								<p>
-									{entry.text} ({entry.match_mode})
-								</p>
-							</div>
-						)
+						return <EntryView key={entry.id} entry={entry} />
 					}}
 				/>
 			</>
@@ -164,6 +155,7 @@ const Dict = () => {
 	return (
 		<div className="dict-view">
 			<input
+				type="search"
 				ref={input_el}
 				lang="ja"
 				defaultValue={expr}

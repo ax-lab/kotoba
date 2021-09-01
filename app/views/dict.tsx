@@ -8,6 +8,33 @@ import List from '../components/list'
 import './dict.scss'
 import EntryView from './entry_view'
 
+/*
+	----------------------------------------------------------------------------
+	TODO
+	----------------------------------------------------------------------------
+
+	Back-end:
+	- Implement word de-inflection
+	- Allow querying entire phrases
+	- Display matched information on the results
+	- Kanji lookup
+	- Maybe return related words on a query? (same kanji/reading)
+	- Improve sorting of results by relevance
+	- Allow searching by english word
+	- Add name entries to dictionary
+
+	Rendering:
+	- Render pitch information
+	- Add kanji information
+	- Kanji drawing order
+
+	Future improvements:
+	- Favorite words
+	- History
+	- Custom notes
+	- Phrases
+*/
+
 interface DictProps {
 	search: string
 	query: entries.Query

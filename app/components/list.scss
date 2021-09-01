@@ -1,0 +1,8 @@
+@use '../css/theme';
+@use 'sass:color';
+
+// This is the container for the rendered list elements. This is rendered
+// inside the Scroller component and offset to the right position.
+.list-root {
+	padding: 0;
+}

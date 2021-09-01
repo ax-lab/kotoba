@@ -57,6 +57,7 @@ module.exports = (env, _args) => {
 		output: {
 			filename: 'app.js',
 			path: OUTPUT,
+			publicPath: '/',
 		},
 		plugins: [
 			new CopyPlugin({
@@ -64,6 +65,7 @@ module.exports = (env, _args) => {
 			}),
 		],
 		devServer: {
+			host: '0.0.0.0',
 			contentBase: 'public',
 			port: 9090,
 			injectClient: false,
@@ -71,8 +73,13 @@ module.exports = (env, _args) => {
 				'/api': {
 					target: 'http://localhost:8086',
 				},
+				'/graphql': {
+					target: 'http://localhost:8086',
+				},
 			},
-			historyApiFallback: true,
+			historyApiFallback: {
+				index: '/index.html',
+			},
 		},
 	}
 

@@ -1,9 +1,19 @@
+## Application specific
+
+# Generated data files
+data/*.db
+
+# Local configuration
+config/app.local.json
+
+# Store files
+.store
+
+#------------------------------------------------------------------------------#
+
 # Ignore build and dist files
 dist
 build
-
-config/app.local.json
-.store
 
 # Logs
 logs

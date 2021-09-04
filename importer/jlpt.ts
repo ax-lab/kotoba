@@ -1,8 +1,7 @@
 import * as path from 'path'
 
 import { kana } from '../lib'
-
-import { read_text } from './files'
+import { read_text } from '../lib/files'
 
 const JLPT_JSON = 'jlpt.json'
 

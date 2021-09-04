@@ -1,8 +1,7 @@
 import sax from 'sax'
 
 import * as lib from '../lib'
-
-import { open_zip } from './files'
+import { open_zip } from '../lib/files'
 
 export const LIST_SEPARATOR = '||'
 

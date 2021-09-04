@@ -1,8 +1,7 @@
 import * as path from 'path'
 
 import * as lib from '../lib'
-
-import { read_lines } from './files'
+import { read_lines } from '../lib/files'
 
 const PITCH_FILE = 'accents.txt'
 

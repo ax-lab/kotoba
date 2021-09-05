@@ -1,7 +1,6 @@
 import { buildSchema, graphql } from 'graphql'
 
-import * as dict from '../dict'
-
+import { ROOT_RESOLVER } from './resolver'
 import { SCHEMA_TEXT } from './schema'
 
 /**
@@ -9,21 +8,7 @@ import { SCHEMA_TEXT } from './schema'
  */
 export const SCHEMA = buildSchema(SCHEMA_TEXT)
 
-/**
- * The root GraphQL resolver.
- */
-export const ROOT = {
-	tags: dict.tags.all,
-
-	word_count: dict.entries.word_count,
-	words: dict.entries.words,
-
-	entry: dict.entries.by_id,
-	entries: dict.entries.by_ids,
-	lookup: dict.entries.lookup,
-	search: dict.entries.search,
-	list: dict.entries.list,
-}
+export const ROOT = ROOT_RESOLVER
 
 /**
  * Executes a GraphQL query directly.

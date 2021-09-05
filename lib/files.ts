@@ -18,6 +18,15 @@ export async function read_text(filename: string) {
 	return await fs_read_file(filename, 'utf-8')
 }
 
+/**
+ * Synchronously loads a JSON configuration file.
+ */
+export function load_json_file<T>(filename: string) {
+	const lines = split_lines(fs.readFileSync(filename, 'utf-8'))
+	const text = lines.filter((x) => !x.trim().startsWith('//')).join('\n')
+	return JSON.parse(text) as T
+}
+
 export async function read_lines(filename: string) {
 	const data = await fs_read_file(filename, 'utf-8')
 	return data.split(/\n|\r\n?/)

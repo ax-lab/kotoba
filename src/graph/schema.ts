@@ -58,6 +58,8 @@ function Query() {
 			"Retrieves a list of dictionary entries by their id"
 			entries(ids: [String!]!): [Entry!]!
 
+			deinflect(input: String!): [String!]!
+
 			"""
 			Lookup entries by the kanji/reading pair.
 

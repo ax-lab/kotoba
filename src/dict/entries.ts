@@ -190,7 +190,20 @@ export class Entry {
 	 * by the de-inflection algorithm.
 	 */
 	has_rule_tag(tags: Set<string>) {
-		const has = (src: tags.Tag[]) => src.some((x) => tags.has(x.name))
+		const has = (src: tags.Tag[]) => {
+			if (src.some((x) => tags.has(x.name))) {
+				return true
+			}
+
+			// We also need to test the tags prefix, because the actual entries
+			// have tags like `v5u` while the rules are simply `v5`.
+			for (const it of tags) {
+				if (src.some((x) => x.name.startsWith(it))) {
+					return true
+				}
+			}
+			return false
+		}
 		return (
 			this.kanji.some((x) => has(x.info)) ||
 			this.reading.some((x) => has(x.info)) ||

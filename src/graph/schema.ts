@@ -489,6 +489,11 @@ function Entry() {
 			match_mode: String
 
 			"""
+			De-inflection rules used to match this entry.
+			"""
+			deinflect: [String!]
+
+			"""
 			This will be the expression for the first entry in 'kanji' if available,
 			or the first entry in 'reading' otherwise.
 			"""

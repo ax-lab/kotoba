@@ -155,6 +155,7 @@ export class Entry {
 	readonly reading: EntryReading[]
 	readonly sense: EntrySense[]
 
+	deinflect?: string[]
 	match_mode?: string
 
 	constructor(
@@ -180,6 +181,15 @@ export class Entry {
 				source: sources.filter((x) => x.$pos == row.$pos),
 				glossary: glossaries.filter((x) => x.$pos == row.$pos),
 			})))
+	}
+
+	has_some_tag(tags: Set<string>) {
+		const has = (src: tags.Tag[]) => src.some((x) => tags.has(x.name))
+		return (
+			this.kanji.some((x) => has(x.info)) ||
+			this.reading.some((x) => has(x.info)) ||
+			this.sense.some((x) => has(x.pos))
+		)
 	}
 
 	word() {

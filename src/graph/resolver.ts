@@ -9,7 +9,7 @@ export const ROOT_RESOLVER = {
 	word_count: dict.entries.word_count,
 	words: dict.entries.words,
 
-	deinflect: (args: { input: string }) => dict.deinflect.candidates(args.input),
+	deinflect: (args: { input: string }) => dict.inflection.deinflect(args.input),
 
 	entry: dict.entries.by_id,
 	entries: dict.entries.by_ids,

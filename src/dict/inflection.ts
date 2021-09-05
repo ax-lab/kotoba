@@ -1,6 +1,8 @@
 import { kana } from '../../lib'
 import { load_json_file } from '../../lib/files'
 
+import { entries_exact } from './entries'
+
 type InflectionRow = {
 	kanaIn: string
 	kanaOut: string
@@ -17,7 +19,12 @@ const RULES = (() => {
 	return Object.keys(data).flatMap((name) => data[name].map((x) => ({ ...x, name })))
 })()
 
-export function candidates(source: string) {
+export async function deinflect(word: string) {
+	const all = candidates(word)
+	return await entries_exact(all)
+}
+
+function candidates(source: string) {
 	const out = new Set<string>()
 	const queue = [kana.to_hiragana(source)]
 

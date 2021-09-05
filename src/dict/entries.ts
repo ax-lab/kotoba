@@ -10,6 +10,34 @@ function split(ls: string): string[] {
 	return ls ? ls.split('||') : []
 }
 
+export async function entries_exact(words: string[]) {
+	if (!words.length) {
+		return []
+	}
+
+	const params: Record<string, string> = {}
+	const where = words
+		.map((w, n) => {
+			const name = `p${n + 1}`
+			params[name] = w
+			return `(m.expr LIKE @${name} OR m.hiragana LIKE @${name})`
+		})
+		.join(' OR ')
+
+	const sql = [
+		`SELECT DISTINCT m.sequence, e.position`,
+		`FROM entries_map m`,
+		`LEFT JOIN entries e ON e.sequence = m.sequence`,
+		`WHERE ${where}`,
+		`ORDER BY e.position`,
+	].join('\n')
+
+	const db = await DB.get_dict()
+	const rows = await db.query<SearchRow>(sql, params)
+
+	return await entries_by_ids(rows.map((x) => x.sequence))
+}
+
 async function entries_by_ids(ids: string[]) {
 	if (!ids.length) {
 		return []

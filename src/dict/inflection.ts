@@ -36,7 +36,7 @@ export async function deinflect(word: string) {
 			return []
 		})
 		.filter(({ entry, rule }) => {
-			return !rule.rules.size || entry.has_some_tag(rule.rules)
+			return !rule.rules.size || entry.has_rule_tag(rule.rules)
 		})
 		.map((x) => x.entry)
 	console.log(`deinflect(${word}) took ${elapsed(start)}`)

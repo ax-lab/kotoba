@@ -183,7 +183,13 @@ export class Entry {
 			})))
 	}
 
-	has_some_tag(tags: Set<string>) {
+	/**
+	 * Returns if the Entry contains one of the tags given in the set.
+	 *
+	 * This only checks for grammatically relevant tags, such as the ones used
+	 * by the de-inflection algorithm.
+	 */
+	has_rule_tag(tags: Set<string>) {
 		const has = (src: tags.Tag[]) => src.some((x) => tags.has(x.name))
 		return (
 			this.kanji.some((x) => has(x.info)) ||

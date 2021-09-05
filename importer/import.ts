@@ -5,8 +5,8 @@ import sqlite from 'sqlite3'
 
 import * as lib from '../lib'
 import { kana } from '../lib'
+import { file_exists, remove_file } from '../lib/files'
 
-import { file_exists, remove_file } from './files'
 import { Frequency, import_frequencies } from './frequency'
 import * as jlpt from './jlpt'
 import * as jmdict from './jmdict'

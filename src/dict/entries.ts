@@ -10,6 +10,34 @@ function split(ls: string): string[] {
 	return ls ? ls.split('||') : []
 }
 
+export async function entries_exact(words: string[]) {
+	if (!words.length) {
+		return []
+	}
+
+	const params: Record<string, string> = {}
+	const where = words
+		.map((w, n) => {
+			const name = `p${n + 1}`
+			params[name] = w
+			return `(m.expr LIKE @${name} OR m.hiragana LIKE @${name})`
+		})
+		.join(' OR ')
+
+	const sql = [
+		`SELECT DISTINCT m.sequence, e.position`,
+		`FROM entries_map m`,
+		`LEFT JOIN entries e ON e.sequence = m.sequence`,
+		`WHERE ${where}`,
+		`ORDER BY e.position`,
+	].join('\n')
+
+	const db = await DB.get_dict()
+	const rows = await db.query<SearchRow>(sql, params)
+
+	return await entries_by_ids(rows.map((x) => x.sequence))
+}
+
 async function entries_by_ids(ids: string[]) {
 	if (!ids.length) {
 		return []
@@ -127,6 +155,7 @@ export class Entry {
 	readonly reading: EntryReading[]
 	readonly sense: EntrySense[]
 
+	deinflect?: string[]
 	match_mode?: string
 
 	constructor(
@@ -152,6 +181,21 @@ export class Entry {
 				source: sources.filter((x) => x.$pos == row.$pos),
 				glossary: glossaries.filter((x) => x.$pos == row.$pos),
 			})))
+	}
+
+	/**
+	 * Returns if the Entry contains one of the tags given in the set.
+	 *
+	 * This only checks for grammatically relevant tags, such as the ones used
+	 * by the de-inflection algorithm.
+	 */
+	has_rule_tag(tags: Set<string>) {
+		const has = (src: tags.Tag[]) => src.some((x) => tags.has(x.name))
+		return (
+			this.kanji.some((x) => has(x.info)) ||
+			this.reading.some((x) => has(x.info)) ||
+			this.sense.some((x) => has(x.pos))
+		)
 	}
 
 	word() {

@@ -1,8 +1,7 @@
 import * as path from 'path'
 
 import * as lib from '../lib'
-
-import { open_zip, split_lines } from './files'
+import { open_zip, split_lines } from '../lib/files'
 
 const INNOCENT = 'innocent_corpus.zip'
 const WORDLEX = 'Jap.Freq.2.zip'

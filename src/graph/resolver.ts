@@ -16,5 +16,4 @@ export const ROOT_RESOLVER = {
 	entries: dict.entries.by_ids,
 	lookup: dict.entries.lookup,
 	search: dict.entries.search,
-	list: dict.entries.list,
 }

@@ -24,6 +24,8 @@ export const SCHEMA_TEXT = `
 	${EntrySenseSource()}
 
 	${EntrySenseGlossary()}
+
+	${DeinflectEntry()}
 `
 
 function Query() {
@@ -59,6 +61,8 @@ function Query() {
 			entries(ids: [String!]!): [Entry!]!
 
 			deinflect(input: String!): [Entry!]!
+
+			deinflect_all(input: String!): [DeinflectEntry!]!
 
 			"""
 			Lookup entries by the kanji/reading pair.
@@ -875,6 +879,35 @@ function EntrySenseGlossary() {
 			Possible values are 'literal' | 'figurative' | 'explanation'
 			"""
 			type: String
+		}
+	`
+}
+
+function DeinflectEntry() {
+	return `
+		"""
+		Entry in the list returned by 'deinflect_all'.
+		"""
+		type DeinflectEntry {
+			"""
+			Raw part of the input text that was matched to this entry.
+			"""
+			input: String!
+
+			"""
+			The processed input that was used to actually match to the entry.
+			"""
+			keyword: String!
+
+			"""
+			Position in the input text that was matched to this entry.
+			"""
+			position: Int!
+
+			"""
+			De-inflected entries.
+			"""
+			entries: [Entry!]!
 		}
 	`
 }

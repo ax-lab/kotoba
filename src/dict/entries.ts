@@ -135,13 +135,22 @@ async function entries_by_ids(ids: string[]) {
 	)
 
 	const entries = (await rows).map((row) => {
-		const out = new Entry(row, kanji_map, reading_map, sense_map, source_map, glossary_map)
+		const out = new Entry({ row, kanji_map, reading_map, sense_map, source_map, glossary_map })
 		return out
 	})
 
 	const entries_map = new Map(entries.map((x) => [x.id, x]))
 	const out = ids.map((x) => entries_map.get(x)!).filter((x) => !!x)
 	return out
+}
+
+type EntryRowArgs = {
+	row: table.Entry
+	kanji_map: Map<string, EntryKanji[]>
+	reading_map: Map<string, EntryReading[]>
+	sense_map: Map<string, EntrySense[]>
+	source_map: Map<string, EntrySenseSource[]>
+	glossary_map: Map<string, EntrySenseGlossary[]>
 }
 
 export class Entry {
@@ -155,32 +164,64 @@ export class Entry {
 	readonly reading: EntryReading[]
 	readonly sense: EntrySense[]
 
-	deinflect?: string[]
-	match_mode?: string
+	readonly deinflect?: string[]
+	readonly match_mode?: string
 
-	constructor(
-		row: table.Entry,
-		kanji_map: Map<string, EntryKanji[]>,
-		reading_map: Map<string, EntryReading[]>,
-		sense_map: Map<string, EntrySense[]>,
-		source_map: Map<string, EntrySenseSource[]>,
-		glossary_map: Map<string, EntrySenseGlossary[]>,
-	) {
-		const sources = source_map.get(row.sequence) || []
-		const glossaries = glossary_map.get(row.sequence) || []
-		;(this.id = row.sequence),
-			(this.rank = row.rank),
-			(this.position = row.position),
-			(this.frequency = row.frequency),
-			(this.jlpt = row.jlpt),
-			(this.popular = !!row.popular),
-			(this.kanji = kanji_map.get(row.sequence) || []),
-			(this.reading = reading_map.get(row.sequence) || []),
-			(this.sense = (sense_map.get(row.sequence) || []).map((row) => ({
+	constructor(args: EntryRowArgs | Entry, mode?: { deinflect?: string[]; match_mode?: string }) {
+		if (args instanceof Entry) {
+			this.id = args.id
+			this.rank = args.rank
+			this.position = args.position
+			this.frequency = args.frequency
+			this.jlpt = args.jlpt
+			this.popular = args.popular
+			this.kanji = args.kanji
+			this.reading = args.reading
+			this.sense = args.sense
+			this.deinflect = args.deinflect && [...args.deinflect]
+			this.match_mode = args.match_mode
+			if (mode) {
+				if (mode.deinflect) {
+					this.deinflect = [...mode.deinflect]
+				}
+				if (mode.match_mode) {
+					this.match_mode = mode.match_mode
+				}
+			}
+		} else {
+			const row = args.row
+			const sources = args.source_map.get(row.sequence) || []
+			const glossaries = args.glossary_map.get(row.sequence) || []
+			this.id = row.sequence
+			this.rank = row.rank
+			this.position = row.position
+			this.frequency = row.frequency
+			this.jlpt = row.jlpt
+			this.popular = !!row.popular
+			this.kanji = args.kanji_map.get(row.sequence) || []
+			this.reading = args.reading_map.get(row.sequence) || []
+			this.sense = (args.sense_map.get(row.sequence) || []).map((row) => ({
 				...row,
 				source: sources.filter((x) => x.$pos == row.$pos),
 				glossary: glossaries.filter((x) => x.$pos == row.$pos),
-			})))
+			}))
+		}
+	}
+
+	/**
+	 * Returns a shallow clone of the entry with the given de-inflections.
+	 */
+	with_deinflect(deinflect: string[]) {
+		const out = new Entry(this, { deinflect })
+		return out
+	}
+
+	/**
+	 * Returns a shallow clone of the entry with the given match mode.
+	 */
+	with_match_mode(match_mode: string) {
+		const out = new Entry(this, { match_mode })
+		return out
 	}
 
 	/**
@@ -578,12 +619,13 @@ class Search {
 					const rows = this.rows
 						.slice(it.offset, it.offset + it.limit)
 						.map((x) => all_rows.get(x.sequence)!)
-						.filter((x) => {
+						.filter((x) => !!x)
+						.map((x) => {
 							const row = this.row_map.get(x.id)
-							if (x && row) {
-								x.match_mode = row.mode
+							if (row && row.mode) {
+								return x.with_match_mode(row.mode)
 							}
-							return !!x
+							return x
 						})
 					it.callback(rows)
 				}

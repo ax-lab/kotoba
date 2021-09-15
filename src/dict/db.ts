@@ -11,6 +11,7 @@ type Job = {
 	params?: unknown
 	resolve: (data: unknown) => void
 	reject: (error: Error) => void
+	each?: (data: unknown) => void
 }
 
 const DB_TIMEOUT_MS = 5000
@@ -38,6 +39,7 @@ function spawn_worker() {
 				file: job.db,
 				sql: job.sql,
 				params: job.params,
+				incremental: !!job.each,
 			})
 			return true
 		}
@@ -53,9 +55,15 @@ function spawn_worker() {
 	})
 
 	worker.on('message', (data: unknown) => {
+		const current_job = job!
+		const incremental = !!current_job.each
 		process.nextTick(drain_queue)
-		job!.resolve(data)
-		job = null
+		if (!incremental || data == 'done') {
+			current_job.resolve(data == 'done' ? null : data)
+			job = null
+		} else {
+			current_job.each!(data)
+		}
 	})
 
 	worker.on('error', (err: Error) => {
@@ -124,6 +132,43 @@ export default class DB {
 	// #endregion
 
 	static id = 0
+
+	async query_each<T = Record<string, string>>(each: (row: T) => void, sql: string, params?: unknown) {
+		const id = ++DB.id
+		return new Promise<void>((resolve, reject) => {
+			const job: Job = {
+				db: this.name,
+				id,
+				sql,
+				params,
+				resolve: () => {
+					ok()
+					resolve()
+				},
+				reject: (error) => {
+					ok()
+					reject(error)
+				},
+				each: (row) => each(row as T),
+			}
+
+			// Timeout:
+
+			const to = setTimeout(() => {
+				const index = db_queue.indexOf(job)
+				if (index >= 0) {
+					db_queue.splice(index, 1)
+				}
+				reject(new Error(`SQL query timed out after ${DB_TIMEOUT_MS}ms`))
+			}, DB_TIMEOUT_MS)
+
+			const ok = () => clearTimeout(to)
+
+			// Post the job
+			db_queue.push(job)
+			drain_queue()
+		})
+	}
 
 	async query<T = Record<string, string>>(sql: string, params?: unknown) {
 		const id = ++DB.id

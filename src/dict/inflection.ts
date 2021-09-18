@@ -1,7 +1,8 @@
-import { elapsed, kana, now } from '../../lib'
+import { compile_glob, elapsed, kana, now } from '../../lib'
 import { load_json_file } from '../../lib/files'
 
-import { entries_exact, Entry } from './entries'
+import { entries_exact } from './entries'
+import { Entry } from './entry'
 
 type InflectionRow = {
 	kanaIn: string
@@ -168,12 +169,13 @@ type Candidate = {
 	input: string
 	rules: Set<string>
 	reasons: string[]
+	glob?: RegExp
 }
 
 /**
  * Generate de-inflection candidates.
  */
-function candidates(source: string): Candidate[] {
+export function candidates(source: string): Candidate[] {
 	// Based on https://github.com/FooSoft/yomichan/blob/f68ad1f843607d4ba1ad216fe16305c420cee8d6/ext/js/language/deinflector.js#L23
 
 	const out = new Set<Candidate>()
@@ -203,4 +205,108 @@ function candidates(source: string): Candidate[] {
 	}
 
 	return [...out]
+}
+
+/**
+ * This class provides deinflection support for multi-term queries.
+ *
+ * The base lookup entries can be added using `add` and a list of all possible
+ * deinflection candidates retrieved with `list_candidates`.
+ *
+ * Once loaded, the matching entries can then be filtered using `filter` to
+ * narrow it down to only valid deinflections.
+ */
+export class Deinflector {
+	readonly _map = new Map<string, Candidate[]>()
+	readonly _set = new Map<string, Candidate[]>()
+
+	readonly _glob: Array<{ re: RegExp; all: Candidate[] }> = []
+
+	/**
+	 * Add an entry to the deinflection list. This will generate all possible
+	 * candidates for this entry.
+	 */
+	add(entry: string) {
+		if (!this._map.has(entry)) {
+			const list = this._candidates(entry)
+			this._map.set(entry, list)
+			for (const it of list) {
+				this._set.set(it.input, list)
+				if (it.glob) {
+					this._glob.push({ re: it.glob, all: list })
+				}
+			}
+		}
+	}
+
+	/**
+	 * List all possible candidates for the added entries. The purpose of those
+	 * is to be matched exactly when attempting to load.
+	 */
+	list_candidates() {
+		return [...this._set.keys()]
+	}
+
+	/**
+	 * Filter a list of entries loaded from the candidates to only those that
+	 * are valid de-inflections.
+	 *
+	 * In addition, this will also fill the de-inflection info on the returned
+	 * entries.
+	 */
+	filter(entries: Entry[]) {
+		const out = entries
+			.flatMap((entry) => {
+				for (const it of [...entry.kanji, ...entry.reading]) {
+					const expr = kana.to_hiragana(it.expr)
+					const all = this._set.get(it.expr) || this._glob.filter((x) => x.re.test(it.expr)).shift()?.all
+					if (!all) {
+						continue
+					}
+					const rule = all.find((x) => expr == x.input || (x.glob && x.glob.test(expr)))
+					if (rule) {
+						return [{ entry: entry.with_deinflect(rule.reasons), rule }]
+					}
+				}
+				return []
+			})
+			.filter(({ entry, rule }) => {
+				return !rule.rules.size || entry.has_rule_tag(rule.rules)
+			})
+			.map((x) => x.entry.with_deinflect(x.rule.reasons))
+		return out
+	}
+
+	private _candidates(source: string) {
+		// Based on https://github.com/FooSoft/yomichan/blob/f68ad1f843607d4ba1ad216fe16305c420cee8d6/ext/js/language/deinflector.js#L23
+
+		const out = new Set<Candidate>()
+		const queue: Candidate[] = [{ input: source, rules: new Set(), reasons: [] }]
+
+		for (let i = 0; i < queue.length; i++) {
+			const { input, rules, reasons } = queue[i]
+			const glob = /[*?]/.test(input) ? compile_glob(input) : undefined
+			out.add({ input, rules, reasons, glob })
+
+			for (const rule of RULES) {
+				const src = rule.kanaIn
+				const dst = rule.kanaOut
+				if (!input.endsWith(src) || input.length - src.length + dst.length <= 0) {
+					continue
+				}
+				if (rules.size && !rule.rulesIn.some((x) => rules.has(x))) {
+					continue
+				}
+
+				const next = input.slice(0, input.length - src.length) + dst
+				queue.push({
+					input: next,
+					rules: new Set(rule.rulesOut),
+					reasons: [rule.name, ...reasons],
+				})
+			}
+		}
+
+		return [...out]
+	}
 }

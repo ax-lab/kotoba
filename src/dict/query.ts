@@ -3,80 +3,118 @@
  *
  * # Query Syntax
  *
- * - A keyword is matched against an entry kanji and reading elements. By
- *   default a keyword is compared both exactly and using approximate matching.
- *   - Prefixing a keyword with `=` will only match exactly
- *   - Prefixing a keyword with `>` will also enable fuzzy matching.
- *   - A keyword can contain `*` to match any sequence of zero or more characters.
- *   - A keyword can contain `?` to match any single character.
- * - Keywords can be combined with `&` (AND).
- *   - Only entries containing reading/kanji elements matching all keywords
- *     will be matched.
- * - Keywords can be combined with `~` (AND NOT).
- *   - Same as AND but only entries not containing the keyword prefixed
- *     by `~` will be matched.
- * - Multiple predicates can be separated by spaces. Entries can match either
- *   predicate (OR).
- * - A predicate can be negated by prefixing with `!` (NOT).
- *   - Within multiple predicates a NOT takes precedence and negates the match.
- *   - `A !B !C D` is equivalent to `(A OR D) AND NOT (B OR C)`.
- * - Parenthesis `()` or square brackets `[]` can be used to group predicates.
+ * The query string is split by spaces into predicates. The results of all
+ * predicates are combined.
  *
- * Note that any of the above operators also accept their Japanese full-width
- * counterparts.
- */
-
-import { kana } from '../../lib'
-
-const DEBUG_QUERIES = true
-
-/**
- * This is used to split tokens in the query string. It must include all special
- * operator characters.
+ * By default predicates are considered as plain sentences (see below for
+ * details).
  *
- * Note that keyword specific characters (e.g. `=`, `*`, `?`) are not included
- * here because they are not separate tokens.
- */
-const OPERATORS = /[!！+＋~～&＆（）()「」[\]]/u
-
-/** Not operator (full match). */
-const NOT = /^[!！]$/u
-
-/** And operator (full match). */
-const AND = /^[+＋&＆]$/u
-
-/** And-not operator (full match). */
-const AND_NOT = /^[~～]$/u
-
-/** Left parenthesis (full match). */
-const LP = /^[（(「[]$/u
-
-/** Right parenthesis (full match). */
-const RP = /^[)）」\]]$/u
-
-// (note that the keyword operators below are not separate tokens)
-
-/** Glob characters inside a keyword. */
-const KEYWORD_NEXT_GLOB = /[*＊?？]/u
-
-/**
- * Glob operator for sequences (full match).
+ * Advanced search predicates can be constructed by starting them with one
+ * of these prefix operators:
  *
- * Other matches from {KEYWORD_NEXT_GLOB} not matching this are considered the
- * glob operator for single characters.
+ * - `+` or `＋`: disables the normal sentence matching and enables operators
+ *   in the predicate. Does nothing otherwise.
+ *
+ * - `!` or `！`: negates the predicate. Negated predicates have precedence,
+ *   filtering out any matching entries regardless of other predicates.
+ *
+ * - `=` or `＝`: only matches exact entries for this predicate.
+ *   - Disables de-inflection when searching for terms.
+ *   - This disables the default behavior that tries to match approximate
+ *     entries when a predicate returns no exact results.
+ *   - This will also disable fuzzy matching with this predicate if no results
+ *     are found overall.
+ *
+ * - `>` or `＞`: forces approximate matching in this predicate even if exact
+ *   matches are found. By default approximate matching is only used when a
+ *   predicate has no exact match.
+ *
+ * - `?` or `？`: forces fuzzy matching this predicate, regardless of other
+ *   results. The default behavior is to only use fuzzy matching if no results
+ *   are found overall.
+ *
+ * Additionally, the following operators can be used anywhere in an advanced
+ * search predicate:
+ *
+ * - `&` or `＆`: combine terms in a predicate with an AND. Only entries that
+ *   match all operator-prefixed terms and the main entry (in any reading or
+ *   kanji element) will match.
+ *
+ * - `~` or `～`: combine terms in a predicate with a NOT AND. Only matching
+ *   entries that also do not match any operator-prefixed term will match.
+ *
+ * - `*` or `＊`: matches any sequence of zero or more characters in the term.
+ *
+ * - `?` or `？`: matches any single character in the term.
+ *
+ * NOTES:
+ *
+ * - Predicates are always converted to hiragana before matching. Note that
+ *   hiragana conversion does affect kanji or Japanese symbols.
+ * - Terms are matched against all kanji and reading elements for an entry.
+ * - The `&` and `~` can be freely combined. Empty terms are ignored.
+ * - Approximate and fuzzy matching only apply to positive matching (i.e. not
+ *   for negated and the `~` operator).
+ *
+ *
+ * ## Sentence Lookup
+ *
+ * Sentence predicates are also normalized. Any sentences are first looked up
+ * for exact matches. If nothing is found, then the search will attempt to
+ * match contained words and their de-inflections.
+ *
+ * When matching words inside a sentence, the sentence is first split by
+ * punctuation and symbols. Only letters are matched.
+ *
+ * Word matching will always try to match the longest sequences possible. In
+ * general, if a sequence matches, no sub-matches inside that sequence are
+ * returned, except:
+ *
+ * - The sub-match has kanji and is entirely contained within the outer match.
+ * - Additional prefix matches that are longer than single-kana entries.
+ * - The longest suffix sub-match is also returned if it does not overlap with
+ *   any other sub-matches.
+ *
+ * After the basic search and if this is the last predicate, any unmatched
+ * suffix leftover in the sentence is further looked up as follows:
+ *
+ * - As a de-inflected entry including partial suffixes.
+ * - As a prefix, suffix (including de-inflections), and contains query.
+ * - If still nothing is matched, then approximate matching is attempted.
+ * - De-inflection is not attempted if the unmatched suffix is a single kana.
+ *
+ * The unmatched suffix is also used as a candidate for fuzzy matching if no
+ * results are found in the overall query.
+ *
+ * ## Result Order
+ *
+ * The search is divided in phases. More precise (and faster) lookups are
+ * attempted first. Results are made available incrementally as soon as they
+ * are available.
+ *
+ * The general order of the search goes as follows:
+ *
+ * - Exact matches.
+ * - Exact prefix matches.
+ * - Exact suffix matches.
+ * - Sentence matching and de-inflections.
+ * - Approximate matching (exact / prefix / suffix).
+ * - Fuzzy matching.
+ *
+ * For each phase, results are generally ordered by frequency and relevance of
+ * the word. For multi-word sentences, results are sorted by appearance in the
+ * sentence.
+ *
  */
-const GLOB_SEQUENCE = /^[*＊]$/u
 
-/** Keyword prefix for an exact match. */
-const EXACT = /^[=＝]/u
+import { compile_glob, kana } from '../../lib'
 
-/** Keyword prefix for a fuzzy match. */
-const FUZZY = /^[>＞]/u
+import { SearchCache } from './cache'
+import DB from './db'
+import { Entry } from './entry'
+import * as inflection from './inflection'
 
-/**
- * Type for a parsed search element.
- */
-export type Search = Or | And | Not | Keyword
+const DEBUG_QUERIES = false
 
 /**
  * Defines how to match entries in the search to the specified keywords.
@@ -107,210 +145,356 @@ export type SearchMode = 'full' | 'prefix' | 'suffix' | 'contains'
  */
 export type MatchMode = 'exact' | 'approx' | 'fuzzy'
 
-/**
- * Search OR operator.
- */
-type Or = { op: 'or'; expr: Search[] }
+type SearchSentence = {
+	type: 'sentence'
+	full_text: string
+	terms: string[]
+}
 
-/**
- * Search AND operator.
- */
-type And = { op: 'and'; expr: Search[] }
+type SearchQueryMode = 'normal' | 'negate' | 'exact' | 'approximate' | 'fuzzy'
 
-/**
- * Search NOT operator.
- */
-type Not = { op: 'not'; expr: Search }
+type SearchQueryTerm = { text: string; not?: boolean; glob?: boolean }
 
-/**
- * Search keyword.
- */
-type Keyword = {
-	op: 'text'
+type SearchQuery = {
+	type: 'query'
+	mode: SearchQueryMode
+	terms: SearchQueryTerm[]
+}
 
-	/**
-	 * How the keyword was specified in the search. This affects how the
-	 * different {MatchMode}s are generated.
-	 *
-	 * - `normal` is the default mode for any keyword. This will enable the
-	 *   keyword when {MatchMode} is both `exact` and `approx`, but will not
-	 *   enable it with `fuzzy` mode.
-	 *
-	 * - `exact` disables the keyword when {MatchMode} is not `exact`.
-	 *
-	 * - `fuzzy` will enable this keyword when {MatchMode} is `fuzzy`.
-	 */
-	mode: 'normal' | 'exact' | 'fuzzy'
+type SearchPredicate = SearchSentence | SearchQuery
 
-	/**
-	 * Text chunks and glob operators that make up this keyword. Note that
-	 * any literal text is always contiguous as a single string.
-	 */
-	text: Array<string | { glob: '*' | '?' }>
+type Search = {
+	id: string
+	predicates: SearchPredicate[]
+}
 
-	/**
-	 * If true, the entire keyword match is negated.
-	 */
-	negate?: boolean
+type SearchRow = {
+	sequence: string
+	position: number
 }
 
 /**
- * Parses a query string returning a parsed {Search} node or undefined if the
- * query is empty.
- *
- * This method throws exceptions on syntax errors.
+ * Parses a query string returning a parsed {Search} node.
  */
-export function parse(query: string) {
-	// Split the query string into tokens to facilitate parsing
-	const tokens = query
+export function parse(query: string): Search {
+	const text = query
 		.normalize()
 		.toUpperCase()
-		.split(/\s+/)
-		.flatMap((expr) => {
-			// Split the string into raw text and operators. Operators are
-			// each returned as a separate item.
-			const out: string[] = []
-			while (expr) {
-				const pos = expr.search(OPERATORS)
-				if (pos < 0) {
-					out.push(expr)
-					expr = ''
-				} else {
-					if (pos > 0) {
-						out.push(expr.slice(0, pos))
-						expr = expr.slice(pos)
-					}
-					const op = String.fromCharCode(expr.charCodeAt(0))
-					out.push(op)
-					expr = expr.slice(op.length)
-				}
-			}
-			return out
-		})
+		.split(/\s+/u)
 		.filter((x) => !!x)
 
-	const expr: Search | undefined = parse_root(tokens)
-	if (!expr) {
-		return
-	}
+	// Parse a non-sentence query, except for the first operator.
+	const parse_query = (mode: SearchQueryMode): SearchQuery => {
+		const terms: SearchQueryTerm[] = query
+			.slice(1) // ignore the first operator
+			.split(/[&＆]/) // first split by the AND
+			.filter((x) => !!x)
+			.flatMap((txt) => {
+				return txt
+					.split(/[~～]/) // split by the AND-NOT
+					.map((term, n) => {
+						const text = kana.to_hiragana(term).replace(/＊/g, '*').replace(/？/g, '?')
+						return n == 0 ? { text } : { text, not: true, glob: /[?*]/.test(text) }
+					})
+					.filter((x) => x.text)
+			})
 
-	if (DEBUG_QUERIES) {
-		console.log(JSON.stringify(expr, null, '    '))
-	}
-
-	const has_sql = new Set<string>()
-	const sql = (search: SearchMode, match: MatchMode) => {
-		const where = sql_from_node(expr, search, match)
-		if (!where || has_sql.has(where)) {
-			return ''
-		}
-
-		if (DEBUG_QUERIES) {
-			console.log()
-			console.log(`==> ${search} / ${match}`)
-			console.log(`    ${where}`)
-		}
-
-		has_sql.add(where)
-		return [
-			`SELECT DISTINCT m.sequence, e.position FROM (`,
-			`  SELECT expr, sequence FROM entries_map`,
-			`  WHERE ${where}`,
-			`) m LEFT JOIN entries e ON e.sequence = m.sequence`,
-			`ORDER BY length(m.expr), e.position`,
-		].join('\n')
-	}
-
-	const queries = {
-		exact_match: sql('full', 'exact'),
-		exact_prefix: sql('prefix', 'exact'),
-		exact_suffix: sql('suffix', 'exact'),
-		exact_contains: sql('contains', 'exact'),
-		approx_match: sql('full', 'approx'),
-		approx_prefix: sql('prefix', 'approx'),
-		approx_suffix: sql('suffix', 'approx'),
-		approx_contains: sql('contains', 'approx'),
-		fuzzy_match: sql('full', 'fuzzy'),
-		fuzzy_prefix: sql('prefix', 'fuzzy'),
-		fuzzy_suffix: sql('suffix', 'fuzzy'),
-		fuzzy_contains: sql('contains', 'fuzzy'),
-	}
-
-	if (DEBUG_QUERIES) {
-		console.log()
-	}
-
-	return { ...queries, id: tokens.join(' ') }
-}
-
-//============================================================================//
-// SQL generation
-//============================================================================//
-
-/**
- * Top level search SQL generation. This generates the main WHERE condition
- * for a given node.
- */
-function sql_from_node(node: Search, search: SearchMode, match: MatchMode): string {
-	const p = (node: Search) => {
-		const out = sql_from_node(node, search, match)
-		switch (node.op) {
-			case 'and':
-			case 'or':
-				return out ? `(${out})` : out
-		}
-		return out
-	}
-	switch (node.op) {
-		case 'not': {
-			const out = p(node.expr)
-			return out ? `NOT ${out}` : ``
-		}
-		case 'and': {
-			const out = node.expr
-				.map((x) => p(x))
-				.filter((x) => !!x)
-				.map((x, i) => (i == 0 ? x : `(sequence IN (SELECT sequence FROM entries_map WHERE ${x}))`))
-				.join(' AND ')
-			return out ? `${out}` : ''
-		}
-		case 'or': {
-			const pos_ops = node.expr.filter((x) => x.op != 'not')
-			const neg_ops = node.expr.filter((x) => x.op == 'not')
-			const pos = pos_ops
-				.map((x) => p(x))
-				.filter((x) => !!x)
-				.join(' OR ')
-			const neg = neg_ops
-				.map((x) => p(x))
-				.filter((x) => !!x)
-				.join(' AND ')
-			if (neg.length) {
-				return pos ? `(${pos}) AND (${neg})` : `${neg}`
+		// Sort the terms so that positive and more restrictive terms come
+		// first. In general, it is only the first term that will determine
+		// the performance of the overall query.
+		terms.sort((a, b) => {
+			// positive terms first, since negative terms are slower to query
+			// and broader
+			if (a.not != b.not) {
+				return (a.not ? 1 : 0) - (b.not ? 1 : 0)
 			}
-			return pos
-		}
-		case 'text': {
-			const condition = sql_from_keyword(node, search, match)
-			return condition ? `${condition}` : ''
+
+			// sort by the largest non-glob prefix
+			const ng_a = a.text.match(/^[^*?]*/)![0]
+			const ng_b = b.text.match(/^[^*?]*/)![0]
+			if (ng_a.length != ng_b.length) {
+				return ng_b.length - ng_a.length
+			}
+
+			// sort by the largest number of non-glob characters
+			const sa = a.text.replace(/[*?]/g, '')
+			const sb = b.text.replace(/[*?]/g, '')
+			return sb.length - sa.length
+		})
+
+		return {
+			type: 'query',
+			mode,
+			terms,
 		}
 	}
+
+	const SPLIT_RE = /[^\p{Alpha}\p{Number}－・]+/u
+
+	const predicates = text
+		.map<SearchPredicate>((txt) => {
+			switch (txt[0]) {
+				case '+':
+				case '＋':
+					return parse_query('normal')
+				case '!':
+				case '！':
+					return parse_query('negate')
+				case '=':
+				case '＝':
+					return parse_query('exact')
+				case '>':
+				case '＞':
+					return parse_query('approximate')
+				case '?':
+				case '？':
+					return parse_query('fuzzy')
+				default: {
+					return {
+						id: txt,
+						type: 'sentence',
+						full_text: kana.to_hiragana(txt),
+						terms: txt
+							.split(SPLIT_RE)
+							.filter((x) => !!x)
+							.map((x) => kana.to_hiragana(x)),
+					}
+				}
+			}
+		})
+		.filter((x) => x.terms.length)
+
+	const id = text.join(' ')
+
+	const out = { id, predicates }
+
+	if (DEBUG_QUERIES) {
+		console.log('QUERY:', query)
+		console.log(JSON.stringify(out, null, '    '))
+	}
+
+	return out
 }
 
 /**
- * Generate the LIKE operator for matching a keyword with the given parameters.
+ * Search for an exact match for the given predicate.
  *
- * This will return empty if the keyword is disabled for the given search and
- * match modes.
+ * The performance of this lookup depends on the terms:
+ *
+ * - For an exact search this is a direct index lookup.
+ * - If the term contains glob characters then the performance depends on the
+ *   size of the literal (non-glob) prefix.
+ * - For multiple terms, the lookup will attempt to use the more specific
+ *   term for filtering first.
  */
-function sql_from_keyword(keyword: Keyword, search: SearchMode, match: MatchMode) {
-	// Handle cases where the keyword mode does not match the match mode.
-	if (keyword.mode == 'exact' && match != 'exact') {
-		return ''
-	} else if (match == 'fuzzy' && keyword.mode != 'fuzzy') {
-		return ''
+export async function search_exact(cache: SearchCache, db: DB, predicate: SearchPredicate) {
+	const where: string[] = []
+	if (predicate.type == 'sentence') {
+		// For a sentence, just try the exact match.
+		where.push(like(predicate.full_text, 'full', 'exact'))
+	} else {
+		// Ignore fully negative searches since those are too broad and slow.
+		if (!predicate.terms.some((x) => !x.not)) {
+			return 0
+		}
+
+		for (const it of predicate.terms) {
+			const negate = it.not
+			if (!where.length && !it.not) {
+				// For the first positive term we do a simple LIKE since those
+				// are faster. We are also counting on the term sorting to make
+				// sure the first term is the most efficient lookup.
+				const condition = like(it.text, 'full', 'exact', { glob: true, negate })
+				where.push(condition)
+			} else {
+				// For additional conditions we use the IN operator to further
+				// specify the search. We need to use this so that we consider
+				// all kanji and readings of the entry at once.
+				const condition = like(it.text, 'full', 'exact', { glob: true })
+				where.push(`sequence ${negate ? 'NOT IN' : 'IN'} (SELECT sequence FROM entries_map WHERE ${condition})`)
+			}
+		}
+	}
+	return await load_entries(cache, db, where.join(' AND '))
+}
+
+// TODO: use readings of kanji to try to find partial matches (巻きぞえ -> 巻き添え - まきぞえ)
+
+/**
+ * Search for deinflected versions of the given predicate. This will only apply
+ * to the entire terms and will not attempt to look for sub-matches.
+ *
+ * This is compatible with glob characters. The performance of this is
+ * comparable to `search_exact` but this will try to load all possible
+ * deinflections for the terms, so the candidate list might be big.
+ */
+export async function search_deinflection(cache: SearchCache, _db: DB, predicate: SearchPredicate) {
+	const inflector = new inflection.Deinflector()
+	const reject: RegExp[] = []
+	if (predicate.type == 'sentence') {
+		// attempt to de-inflect the whole sentence
+		inflector.add(predicate.full_text)
+	} else {
+		for (const it of predicate.terms) {
+			if (it.not) {
+				// negative terms are added to the rejection list so we can
+				// filter then later
+				reject.push(compile_glob(it.text))
+			} else {
+				// positive terms are added to the de-inflection candidate list
+				inflector.add(it.text)
+			}
+		}
 	}
 
+	// Load all candidates
+	const all = inflector.list_candidates()
+
+	const candidates = await Entry.exact(all, { glob: true })
+
+	// Apply negative filters
+	const entries = candidates.filter((it) => !it.matches_any(reject))
+
+	// Filter the entries through the de-inflector.
+	const output = inflector.filter(entries)
+	return await cache.push_and_solve(output)
+}
+
+/**
+ * Search for a prefix match for the given predicate.
+ *
+ * The performance and broadness of this lookup depends on the size of the
+ * literal prefix available for the filtering.
+ */
+export async function search_exact_prefix(cache: SearchCache, db: DB, predicate: SearchPredicate, limit = 0) {
+	// This is mostly the same as `search_exact` except that we are generating
+	// prefix matches.
+	const where: string[] = []
+	if (predicate.type == 'sentence') {
+		where.push(like(predicate.full_text, 'prefix', 'exact'))
+	} else {
+		// Ignore fully negative searches since those are too broad and slow.
+		if (!predicate.terms.some((x) => !x.not)) {
+			return 0
+		}
+
+		for (const it of predicate.terms) {
+			const negate = it.not
+			if (!where.length && !negate) {
+				const condition = like(it.text, 'prefix', 'exact', { glob: true, negate })
+				where.push(condition)
+			} else {
+				// Note that for negative filters we still use full matching
+				const condition = like(it.text, negate ? 'full' : 'prefix', 'exact', { glob: true })
+				where.push(`sequence ${negate ? 'NOT IN' : 'IN'} (SELECT sequence FROM entries_map WHERE ${condition})`)
+			}
+		}
+	}
+	return await load_entries(cache, db, where.join(' AND '), limit)
+}
+
+/**
+ * Search for a suffix match for the given predicate.
+ *
+ * In terms of performance this is the same as the prefix match, since we just
+ * use a reversed keyword and index.
+ */
+export async function search_exact_suffix(cache: SearchCache, db: DB, predicate: SearchPredicate, limit = 0) {
+	// This is mostly the same as `search_exact` except that we are generating
+	// prefix matches.
+	const where: string[] = []
+	if (predicate.type == 'sentence') {
+		where.push(like(predicate.full_text, 'suffix', 'exact'))
+	} else {
+		// Ignore fully negative searches since those are too broad and slow.
+		if (!predicate.terms.some((x) => !x.not)) {
+			return 0
+		}
+
+		for (const it of predicate.terms) {
+			const negate = it.not
+			if (!where.length && !negate) {
+				const condition = like(it.text, 'suffix', 'exact', { glob: true, negate })
+				where.push(condition)
+			} else {
+				// Note that for negative filters we still use full matching
+				const condition = like(it.text, negate ? 'full' : 'suffix', 'exact', { glob: true })
+				where.push(`sequence ${negate ? 'NOT IN' : 'IN'} (SELECT sequence FROM entries_map WHERE ${condition})`)
+			}
+		}
+	}
+	return await load_entries(cache, db, where.join(' AND '), limit)
+}
+
+/**
+ * Helper to load a list of entries by SQL condition. This function loads
+ * asynchronously and incrementally.
+ */
+async function load_entries(cache: SearchCache, db: DB, where: string, limit = 0) {
+	console.log('WHERE:', where)
+	const limit_sql = limit > 0 ? ` LIMIT ${limit}` : ``
+	const sql = [
+		`SELECT DISTINCT m.sequence, e.position FROM (`,
+		`  SELECT expr, sequence FROM entries_map`,
+		`  WHERE ${where}${limit_sql}`,
+		`) m LEFT JOIN entries e ON e.sequence = m.sequence`,
+	].join('\n')
+
+	console.log(sql)
+
+	// Size of the batch to load entries by ID
+	const LOAD_BATCH = 1000
+
+	// Queue of pending IDs
+	let queue: string[] = []
+
+	// Number of rows loaded
+	let count = 0
+
+	// Asynchronous function to flush the queue and load items.
+	let is_flushing = false
+	let current_flush: Promise<void> | null = null
+	const flush_async = async () => {
+		is_flushing = true
+		try {
+			while (queue.length) {
+				const ids = queue.slice(0, LOAD_BATCH)
+				queue = queue.slice(LOAD_BATCH)
+				const rows = await Entry.get(ids)
+				count += rows.length
+				await cache.push_and_solve(rows)
+			}
+		} finally {
+			is_flushing = false
+		}
+	}
+
+	const flush = () => {
+		if (!is_flushing && queue.length) {
+			current_flush = flush_async()
+		}
+	}
+
+	await db.query_each<SearchRow>((row: SearchRow) => {
+		queue.push(row.sequence)
+		if (queue.length % 100 == 0) {
+			flush()
+		}
+	}, sql)
+
+	flush()
+
+	if (current_flush) {
+		await current_flush!
+	}
+
+	return count
+}
+
+/**
+ * Internal helper to generate a SQL `like` condition.
+ */
+function like(text: string, search: SearchMode, match: MatchMode, args?: { glob?: boolean; negate?: boolean }) {
 	// For suffix searches we reverse the keyword text and match the `_rev`
 	// columns.
 	const reverse = search == 'suffix' ? '_rev' : ''
@@ -320,213 +504,30 @@ function sql_from_keyword(keyword: Keyword, search: SearchMode, match: MatchMode
 	const column = (match == 'exact' ? 'hiragana' : 'keyword') + reverse
 
 	const exact = match == 'exact'
-	const base = keyword.text.map((x) =>
-		typeof x != 'string' ? x : exact ? kana.to_hiragana(x) : kana.to_hiragana_key(x),
-	)
-
-	// Reverse the keyword for a `suffix` match.
-	const text = reverse ? base.reverse().map((x) => (typeof x == 'string' ? [...x].reverse().join('') : x)) : base
-
-	// Generate the literal string used for the LIKE operator
-	const expr = text
-		.map((txt) => {
-			if (typeof txt == 'string') {
-				// Split and escape each individual character in the keyword text
-				return (
-					[...txt]
-						// escape string quotes and LIKE operators
-						.map((x) => (x == `'` ? `''` : /[%_\\]/.test(x) ? `\\${x}` : x))
-						// for fuzzy matching we add a '%' between each character
-						.join(match == 'fuzzy' ? '%' : '')
-				)
-			} else {
-				// map the glob operators to the SQLite LIKE ones
-				return txt.glob == '*' ? '%' : '_'
+	const base = exact ? text : kana.to_hiragana_key(text)
+	const chars = [...base]
+	const expr = (reverse ? chars.reverse() : chars)
+		.map((x) => {
+			// escape string quotes and LIKE operators
+			if (x == `'`) {
+				return `''`
+			} else if (/[%_\\]/.test(x)) {
+				return `\\${x}`
+			} else if (args?.glob) {
+				if (x == '*' || x == '＊') {
+					return '%'
+				} else if (x == '?' || x == '？') {
+					return '?'
+				}
 			}
+			return x
 		})
-		.join('')
+		// for fuzzy matching we add a '%' between each character
+		.join(match == 'fuzzy' ? '%' : '')
+
+	const escape = expr.includes('\\') ? ` ESCAPE '\\'` : ``
 
 	const pos = search != 'full' ? '%' : ''
 	const pre = search == 'contains' ? '%' : ''
-
-	// Check if we needed to escape the LIKE operands inside the string
-	const escape = expr.includes('\\') ? ` ESCAPE '\\'` : ``
-	return `${column} ${keyword.negate ? 'NOT LIKE' : 'LIKE'} '${pre}${expr}${pos}'${escape}`
-}
-
-//============================================================================//
-// Parsing
-//============================================================================//
-
-/**
- * Root parsing function for the query.
- */
-function parse_root(input: string[]) {
-	// Just call the main expression parsing function and make sure there are
-	// no invalid tokens left after it.
-	const expr = parse_expr(input)
-	if (expr?.input.length) {
-		throw new Error(`invalid syntax at '${input[0]}'`)
-	}
-	return expr?.node
-}
-
-/**
- * Parse a top level (or parenthesized) expression consisting of individual
- * predicates separated by spaces.
- *
- * Each predicate is combined with an OR operator.
- */
-function parse_expr(input: string[]) {
-	const expr: Search[] = []
-
-	// Parse until the end of the input or until a right parenthesis, consuming
-	// each space-separated predicate.
-	while (input.length && !RP.test(input[0])) {
-		const next = parse_not(input)
-		if (!next) {
-			break
-		}
-		input = next.input
-		expr.push(next.node)
-	}
-
-	if (!expr.length) {
-		return
-	}
-
-	// Simplify the returned expression if possible. We do not return NOT
-	// as a single unit because it has a special meaning inside an OR node
-	// (e.g. `A B !C` is different than `A B (!C)`).
-	if (expr.length == 1 && expr[0].op != 'not') {
-		return { node: expr[0], input }
-	}
-
-	const node: Search = { op: 'or', expr }
-	return { node, input }
-}
-
-/**
- * Parse a prefix `NOT` operator.
- */
-function parse_not(input: string[]) {
-	// Consume any prefix NOT operators
-	let negate = false
-	while (NOT.test(input[0])) {
-		input = input.slice(1)
-		negate = !negate
-	}
-
-	// Parse the unary operand
-	const next = parse_operand(input)
-	if (next) {
-		const node: Search = negate && next.node.op != 'not' ? { op: 'not', expr: next.node } : next.node
-		return { node, input: next.input }
-	}
-
-	return
-}
-
-/**
- * Parse a unary operand. Either a parenthesized expression or a AND(NOT)
- * sequence.
- */
-function parse_operand(input: string[]) {
-	// Check for a parenthesized sub-expression...
-	while (LP.test(input[0])) {
-		// Next can return undefined for an empty group `()`
-		const next = parse_expr(input.slice(1))
-		input = next ? next.input : input
-
-		// Check for the closing parenthesis
-		if (!input.length || !RP.test(input[0])) {
-			throw new Error(`invalid syntax at ${input[0]}`)
-		}
-		input = input.slice(1)
-
-		// In case of an empty group we just ignore it and continue parsing.
-		if (next) {
-			return { input: next.input, node: next.node }
-		}
-	}
-
-	// ...otherwise parse an AND expression.
-	return parse_and(input)
-}
-
-/**
- * Parse a sequence of keywords joined by `AND` / `AND NOT` operators.
- */
-function parse_and(input: string[]) {
-	const expr: Search[] = []
-	do {
-		// Consume 'AND' and 'NOT' operators. We also allow for prefix
-		// operators and ignore repeated
-		let negate = false
-		while (AND.test(input[0]) || AND_NOT.test(input[0])) {
-			negate = AND_NOT.test(input[0]) ? !negate : negate
-			input = input.slice(1)
-		}
-
-		const next = parse_keyword(input)
-		if (next) {
-			// ignore empty keywords
-			next.node.text.length && expr.push({ ...next.node, negate })
-			input = next.input
-		}
-	} while (AND.test(input[0]) || AND_NOT.test(input[0]))
-
-	if (!expr.length) {
-		return
-	}
-
-	const node: Search = expr.length == 1 ? expr[0] : { op: 'and', expr }
-	return { node, input }
-}
-
-/**
- * Parse a single keyword from the input.
- */
-function parse_keyword(input: string[]) {
-	if (input.length) {
-		let raw_text = input[0]
-
-		// Misplaced operator
-		if (OPERATORS.test(raw_text)) {
-			throw new Error(`invalid syntax at '${raw_text}'`)
-		}
-
-		// Check for the exact and fuzzy prefixes
-		const exact = EXACT.test(raw_text)
-		const fuzzy = FUZZY.test(raw_text)
-		if (exact || fuzzy) {
-			raw_text = raw_text.slice(String.fromCodePoint(raw_text.codePointAt(0)!).length)
-		}
-
-		// Parse the keyword text splitting by glob characters.
-		const node: Keyword = { op: 'text', mode: exact ? 'exact' : fuzzy ? 'fuzzy' : 'normal', text: [] }
-		while (raw_text.length) {
-			const index = raw_text.search(KEYWORD_NEXT_GLOB)
-			if (index < 0) {
-				node.text.push(raw_text)
-				raw_text = ''
-			} else {
-				if (index > 0) {
-					node.text.push(raw_text.slice(0, index))
-					raw_text = raw_text.slice(index)
-				}
-
-				const op = String.fromCodePoint(raw_text.codePointAt(0)!)
-				if (GLOB_SEQUENCE.test(op)) {
-					node.text.push({ glob: '*' })
-				} else {
-					node.text.push({ glob: '?' })
-				}
-				raw_text = raw_text.slice(op.length)
-			}
-		}
-
-		return { node, input: input.slice(1) }
-	}
-	return
+	return `${column} ${args?.negate ? 'NOT LIKE' : 'LIKE'} '${pre}${expr}${pos}'${escape}`
 }

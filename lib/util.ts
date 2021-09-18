@@ -119,3 +119,18 @@ export function duration(delta_ms: number) {
 export function escape_regex(text: string) {
 	return text.trim().replace(/[.(){|}+?*^$[\]\\]/g, '\\$&')
 }
+
+export function compile_glob(text: string) {
+	const src = [...text]
+		.map((chr) => {
+			if (chr == '*') {
+				return '.*'
+			} else if (chr == '?') {
+				return '.'
+			} else {
+				return escape_regex(chr)
+			}
+		})
+		.join('')
+	return new RegExp(`^${src}$`, 'iu')
+}

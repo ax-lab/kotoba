@@ -159,6 +159,7 @@ const Dict = () => {
 
 		console.log('LOOKUP', text)
 		search.current = text
+		input_el.current && (input_el.current.value = text)
 		if (text == '') {
 			set_query(entries.all())
 		} else {
@@ -185,13 +186,13 @@ const Dict = () => {
 				type="search"
 				ref={input_el}
 				lang="ja"
-				defaultValue={expr}
+				defaultValue={search_text}
 				placeholder="Search..."
 				spellCheck={false}
 				onInput={(ev) => on_search((ev.target as HTMLInputElement).value)}
 			/>
 			<hr />
-			<ResultListing query={query} search={expr} />
+			<ResultListing query={query} search={search_text} />
 		</div>
 	)
 }

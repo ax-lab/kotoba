@@ -184,9 +184,9 @@ export function parse(query: string): Search {
 		.filter((x) => !!x)
 
 	// Parse a non-sentence query, except for the first operator.
-	const parse_query = (mode: SearchQueryMode): SearchQuery => {
+	const parse_query = (mode: SearchQueryMode, skip_operator: boolean): SearchQuery => {
 		const terms: SearchQueryTerm[] = query
-			.slice(1) // ignore the first operator
+			.slice(skip_operator ? 1 : 0) // ignore the first operator
 			.split(/[&＆]/) // first split by the AND
 			.filter((x) => !!x)
 			.flatMap((txt) => {
@@ -236,20 +236,26 @@ export function parse(query: string): Search {
 			switch (txt[0]) {
 				case '+':
 				case '＋':
-					return parse_query('normal')
+					return parse_query('normal', true)
 				case '!':
 				case '！':
-					return parse_query('negate')
+					return parse_query('negate', true)
 				case '=':
 				case '＝':
-					return parse_query('exact')
+					return parse_query('exact', true)
 				case '>':
 				case '＞':
-					return parse_query('approximate')
+					return parse_query('approximate', true)
 				case '?':
 				case '？':
-					return parse_query('fuzzy')
+					return parse_query('fuzzy', true)
 				default: {
+					// If the term contains any operators we also consider it
+					// as an advanced query.
+					if (/[*＊?？~～&＆]/.test(txt)) {
+						return parse_query('normal', false)
+					}
+
 					return {
 						id: txt,
 						type: 'sentence',
@@ -335,6 +341,10 @@ export async function search_deinflection(cache: SearchCache, _db: DB, predicate
 		// attempt to de-inflect the whole sentence
 		inflector.add(predicate.full_text)
 	} else {
+		if (predicate.mode == 'exact') {
+			return 0
+		}
+
 		for (const it of predicate.terms) {
 			if (it.not) {
 				// negative terms are added to the rejection list so we can
@@ -373,6 +383,10 @@ export async function search_exact_prefix(cache: SearchCache, db: DB, predicate:
 	if (predicate.type == 'sentence') {
 		where.push(like(predicate.full_text, 'prefix', 'exact'))
 	} else {
+		if (predicate.mode == 'exact') {
+			return 0
+		}
+
 		// Ignore fully negative searches since those are too broad and slow.
 		if (!predicate.terms.some((x) => !x.not)) {
 			return 0
@@ -406,6 +420,10 @@ export async function search_exact_suffix(cache: SearchCache, db: DB, predicate:
 	if (predicate.type == 'sentence') {
 		where.push(like(predicate.full_text, 'suffix', 'exact'))
 	} else {
+		if (predicate.mode == 'exact') {
+			return 0
+		}
+
 		// Ignore fully negative searches since those are too broad and slow.
 		if (!predicate.terms.some((x) => !x.not)) {
 			return 0
@@ -517,7 +535,7 @@ function like(text: string, search: SearchMode, match: MatchMode, args?: { glob?
 				if (x == '*' || x == '＊') {
 					return '%'
 				} else if (x == '?' || x == '？') {
-					return '?'
+					return '_'
 				}
 			}
 			return x

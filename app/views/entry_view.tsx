@@ -1,40 +1,11 @@
 import React from 'react'
 
-import { Entry, EntryMatchMode, EntrySense, Tag } from '../api/client_dict'
+import { Entry, EntrySense, Tag } from '../api/client_dict'
 
 import './entry_view.scss'
 
 interface EntryViewProps {
 	entry: Entry
-}
-
-const MatchMode = (mode: EntryMatchMode) => {
-	switch (mode) {
-		case 'exact':
-			return '★'
-		case 'prefix':
-			return '⮞'
-		case 'suffix':
-			return '⮜'
-		case 'contains':
-			return '⮟'
-		case 'approx':
-			return '☆'
-		case 'approx-prefix':
-			return '⮚'
-		case 'approx-suffix':
-			return '⮘'
-		case 'approx-contains':
-			return '⮛'
-		case 'fuzzy':
-			return '❋'
-		case 'fuzzy-prefix':
-			return '↝'
-		case 'fuzzy-suffix':
-			return '↜'
-		case 'fuzzy-contains':
-			return '↯'
-	}
 }
 
 const Tag = (tag: Tag) => {
@@ -105,11 +76,13 @@ const EntryView = ({ entry }: EntryViewProps) => {
 		entry.jlpt ? `jlpt${entry.jlpt}` : '',
 		frequency ? `freq: ${frequency}` : ``,
 		`rank: ${entry.position.toString().padStart(2, '0')}`,
+		entry.deinflect ? `inflection: ${entry.deinflect.join(' + ')}` : ``,
+		entry.match_mode ? `match: ${entry.match_mode}` : ``,
+		entry.match_text ? `match: ${entry.match_text}` : ``,
 	].filter((x) => x)
 
 	return (
 		<div className="entry-view">
-			{entry.match_mode && <span className="entry-match-icon">{MatchMode(entry.match_mode)} </span>}
 			{pri.map((item) => (
 				<h1 key={item.expr}>
 					<span lang="jp">{item.expr}</span>

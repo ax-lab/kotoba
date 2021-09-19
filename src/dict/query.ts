@@ -111,7 +111,7 @@ import { compile_glob, kana } from '../../lib'
 
 import { SearchCache } from './cache'
 import DB from './db'
-import { Entry } from './entry'
+import { Entry, EntryMatchMode } from './entry'
 import * as inflection from './inflection'
 
 const DEBUG_QUERIES = false
@@ -184,7 +184,7 @@ export function parse(query: string): Search {
 		.filter((x) => !!x)
 
 	// Parse a non-sentence query, except for the first operator.
-	const parse_query = (mode: SearchQueryMode, skip_operator: boolean): SearchQuery => {
+	const parse_query = (query: string, mode: SearchQueryMode, skip_operator: boolean): SearchQuery => {
 		const terms: SearchQueryTerm[] = query
 			.slice(skip_operator ? 1 : 0) // ignore the first operator
 			.split(/[&＆]/) // first split by the AND
@@ -236,24 +236,24 @@ export function parse(query: string): Search {
 			switch (txt[0]) {
 				case '+':
 				case '＋':
-					return parse_query('normal', true)
+					return parse_query(txt, 'normal', true)
 				case '!':
 				case '！':
-					return parse_query('negate', true)
+					return parse_query(txt, 'negate', true)
 				case '=':
 				case '＝':
-					return parse_query('exact', true)
+					return parse_query(txt, 'exact', true)
 				case '>':
 				case '＞':
-					return parse_query('approximate', true)
+					return parse_query(txt, 'approximate', true)
 				case '?':
 				case '？':
-					return parse_query('fuzzy', true)
+					return parse_query(txt, 'fuzzy', true)
 				default: {
 					// If the term contains any operators we also consider it
 					// as an advanced query.
 					if (/[*＊?？~～&＆]/.test(txt)) {
-						return parse_query('normal', false)
+						return parse_query(txt, 'normal', false)
 					}
 
 					return {
@@ -321,7 +321,7 @@ export async function search_exact(cache: SearchCache, db: DB, predicate: Search
 			}
 		}
 	}
-	return await load_entries(cache, db, where.join(' AND '))
+	return await load_entries(cache, db, where.join(' AND '), 'exact', predicate)
 }
 
 // TODO: use readings of kanji to try to find partial matches (巻きぞえ -> 巻き添え - まきぞえ)
@@ -334,12 +334,17 @@ export async function search_exact(cache: SearchCache, db: DB, predicate: Search
  * comparable to `search_exact` but this will try to load all possible
  * deinflections for the terms, so the candidate list might be big.
  */
-export async function search_deinflection(cache: SearchCache, _db: DB, predicate: SearchPredicate) {
+export async function search_deinflection(
+	cache: SearchCache,
+	_db: DB,
+	predicate: SearchPredicate,
+	allow_partial = false,
+) {
 	const inflector = new inflection.Deinflector()
 	const reject: RegExp[] = []
 	if (predicate.type == 'sentence') {
 		// attempt to de-inflect the whole sentence
-		inflector.add(predicate.full_text)
+		inflector.add(predicate.full_text, allow_partial)
 	} else {
 		if (predicate.mode == 'exact') {
 			return 0
@@ -352,7 +357,7 @@ export async function search_deinflection(cache: SearchCache, _db: DB, predicate
 				reject.push(compile_glob(it.text))
 			} else {
 				// positive terms are added to the de-inflection candidate list
-				inflector.add(it.text)
+				inflector.add(it.text, allow_partial)
 			}
 		}
 	}
@@ -404,7 +409,7 @@ export async function search_exact_prefix(cache: SearchCache, db: DB, predicate:
 			}
 		}
 	}
-	return await load_entries(cache, db, where.join(' AND '), limit)
+	return await load_entries(cache, db, where.join(' AND '), 'prefix', predicate, limit)
 }
 
 /**
@@ -441,14 +446,21 @@ export async function search_exact_suffix(cache: SearchCache, db: DB, predicate:
 			}
 		}
 	}
-	return await load_entries(cache, db, where.join(' AND '), limit)
+	return await load_entries(cache, db, where.join(' AND '), 'suffix', predicate, limit)
 }
 
 /**
  * Helper to load a list of entries by SQL condition. This function loads
  * asynchronously and incrementally.
  */
-async function load_entries(cache: SearchCache, db: DB, where: string, limit = 0) {
+async function load_entries(
+	cache: SearchCache,
+	db: DB,
+	where: string,
+	mode: EntryMatchMode,
+	predicate: SearchPredicate,
+	limit = 0,
+) {
 	console.log('WHERE:', where)
 	const limit_sql = limit > 0 ? ` LIMIT ${limit}` : ``
 	const sql = [
@@ -480,7 +492,7 @@ async function load_entries(cache: SearchCache, db: DB, where: string, limit = 0
 				queue = queue.slice(LOAD_BATCH)
 				const rows = await Entry.get(ids)
 				count += rows.length
-				await cache.push_and_solve(rows)
+				await cache.push_and_solve(rows.map((x) => match_predicate(x, mode, predicate)))
 			}
 		} finally {
 			is_flushing = false
@@ -548,4 +560,50 @@ function like(text: string, search: SearchMode, match: MatchMode, args?: { glob?
 	const pos = search != 'full' ? '%' : ''
 	const pre = search == 'contains' ? '%' : ''
 	return `${column} ${args?.negate ? 'NOT LIKE' : 'LIKE'} '${pre}${expr}${pos}'${escape}`
+}
+
+function match_predicate(entry: Entry, mode: EntryMatchMode, predicate: SearchPredicate) {
+	const terms = entry.kanji.map((x) => x.expr).concat(entry.reading.map((x) => x.expr))
+	const query =
+		predicate.type == 'sentence'
+			? [predicate.full_text]
+			: predicate.terms.filter((x) => predicate.mode != 'negate' && !x.not).map((x) => x.text)
+	const match = terms
+		.map((expr) => {
+			return query
+				.map((q) => best_match_text(q, expr)!)
+				.filter((x) => !!x)
+				.sort((a, b) => b.p - a.p)
+				.shift()!
+		})
+		.sort((a, b) => b.p - a.p)
+		.filter((x) => !!x)
+		.shift()
+
+	const match_text = match ? `${match.query}:${match.expr}:${match.match}` : ``
+	return entry.with_match_mode(mode, match_text)
+}
+
+function best_match_text(query: string, expr: string) {
+	const pos = expr.indexOf(query)
+	if (pos >= 0) {
+		return { p: 10 + query.length / expr.length, query, expr, match: query }
+	}
+
+	if (query.length >= expr.length) {
+		return null
+	}
+
+	let cur = 0,
+		str = ''
+	for (const chr of query) {
+		const next = expr.indexOf(chr, cur)
+		if (next < 0) {
+			return null
+		}
+		cur = next
+		str += chr
+	}
+
+	return { p: str.length / expr.length, query, expr, match: str }
 }

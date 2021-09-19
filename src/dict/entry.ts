@@ -13,6 +13,21 @@ type EntryRowArgs = {
 	glossary_map: Map<string, EntrySenseGlossary[]>
 }
 
+export type EntryMatchMode =
+	| 'exact'
+	| 'deinflect'
+	| 'prefix'
+	| 'suffix'
+	| 'contains'
+	| 'approx'
+	| 'approx-prefix'
+	| 'approx-suffix'
+	| 'approx-contains'
+	| 'fuzzy'
+	| 'fuzzy-prefix'
+	| 'fuzzy-suffix'
+	| 'fuzzy-contains'
+
 export class Entry {
 	readonly id: string
 	readonly rank: number | null
@@ -25,9 +40,13 @@ export class Entry {
 	readonly sense: EntrySense[]
 
 	readonly deinflect?: string[]
-	readonly match_mode?: string
+	readonly match_mode?: EntryMatchMode
+	readonly match_text?: string
 
-	private constructor(args: EntryRowArgs | Entry, mode?: { deinflect?: string[]; match_mode?: string }) {
+	private constructor(
+		args: EntryRowArgs | Entry,
+		mode?: { deinflect?: string[]; match_mode?: EntryMatchMode; match_text?: string },
+	) {
 		if (args instanceof Entry) {
 			this.id = args.id
 			this.rank = args.rank
@@ -46,6 +65,9 @@ export class Entry {
 				}
 				if (mode.match_mode) {
 					this.match_mode = mode.match_mode
+				}
+				if (mode.match_text) {
+					this.match_text = mode.match_text
 				}
 			}
 		} else {
@@ -79,8 +101,8 @@ export class Entry {
 	/**
 	 * Returns a shallow clone of the entry with the given match mode.
 	 */
-	with_match_mode(match_mode: string) {
-		const out = new Entry(this, { match_mode })
+	with_match_mode(match_mode: EntryMatchMode, match_text: string) {
+		const out = new Entry(this, { match_mode, match_text })
 		return out
 	}
 

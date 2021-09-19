@@ -32,7 +32,9 @@ export async function to_tags(names: Array<{ name: string }>) {
 
 export type Entry = {
 	id: string
-	match_mode: EntryMatchMode
+	match_mode: string
+	match_text: string
+	deinflect: string[] | null
 	word: string
 	read: string
 	text: string
@@ -93,20 +95,6 @@ export type EntrySenseGlossary = {
 	text: string
 	type: 'literal' | 'figurative' | 'explanation'
 }
-
-export type EntryMatchMode =
-	| 'exact'
-	| 'prefix'
-	| 'suffix'
-	| 'contains'
-	| 'approx'
-	| 'approx-prefix'
-	| 'approx-suffix'
-	| 'approx-contains'
-	| 'fuzzy'
-	| 'fuzzy-prefix'
-	| 'fuzzy-suffix'
-	| 'fuzzy-contains'
 
 let _word_count: Promise<number> | null = null
 

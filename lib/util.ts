@@ -134,3 +134,9 @@ export function compile_glob(text: string) {
 		.join('')
 	return new RegExp(`^${src}$`, 'iu')
 }
+
+export function check(condition: boolean, message: string) {
+	if (!condition) {
+		throw new Error(`check failed: ${message}`)
+	}
+}

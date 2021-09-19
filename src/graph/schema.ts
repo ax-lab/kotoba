@@ -321,6 +321,21 @@ function Entry() {
 			match_mode: String
 
 			"""
+			When the entry is loaded through a search, this is the matched text
+			for the entry.
+
+			The format is "query:match:segment.inflection" where:
+			- "query" is the portion of the original text that matched.
+			- "match" is one of the entry's kanji or reading that was matched
+			  the original query.
+			- "segment" is a possibly non-continuous sequence of characters
+			  from "match" that matched "query"
+			- "inflection" is the inflected suffix from the original query
+			  in case this match was de-inflected.
+			"""
+			match_text: String
+
+			"""
 			De-inflection rules used to match this entry.
 			"""
 			deinflect: [String!]

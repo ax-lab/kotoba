@@ -15,14 +15,6 @@
 	// Title
 	//------------------------------------------------------------------------//
 
-	.entry-match-icon {
-		@include theme.no-select;
-		color: theme.$color-light;
-		display: inline-block;
-		width: 1.5em;
-		text-align: center;
-	}
-
 	h1,
 	h2 {
 		display: inline-block;

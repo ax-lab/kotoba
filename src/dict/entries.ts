@@ -108,24 +108,30 @@ export async function search(args: { id: string; query: string }) {
 
 			let count = 0
 
+			// TODO: implement negative terms
+
 			// We search each predicate in turn.
 			for (let i = 0; i < parsed.predicates.length; i++) {
 				// For the last predicate we return extended results
 				const extended = i == parsed.predicates.length - 1
 				const predicate = parsed.predicates[i]
 
-				count += await query.search_exact(cache, db, predicate)
+				let cur_count = 0
+				cur_count += await query.search_exact(cache, db, predicate)
 
-				count += await query.search_deinflection(cache, db, predicate)
+				const allow_partial = extended
+				cur_count += await query.search_deinflection(cache, db, predicate, allow_partial)
 
 				// We limit prefix and suffix queries on all but the last
 				// predicate. The reason for this is that we want to have
 				// as many predicate results visible on the first page.
-				if (count == 0 || extended) {
+				if (cur_count == 0 || extended) {
 					const limit = extended ? 0 : 10
-					count += await query.search_exact_prefix(cache, db, predicate, limit)
-					count += await query.search_exact_suffix(cache, db, predicate, limit)
+					cur_count += await query.search_exact_prefix(cache, db, predicate, limit)
+					cur_count += await query.search_exact_suffix(cache, db, predicate, limit)
 				}
+
+				count += cur_count
 			}
 
 			cache.log(`search completed in ${elapsed(start)}`)

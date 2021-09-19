@@ -46,6 +46,8 @@ export const ENTRY_FRAGMENTS = `
 	fragment EntryF on Entry {
 		id
 		match_mode
+		match_text
+		deinflect
 		word
 		read
 		text

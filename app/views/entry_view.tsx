@@ -71,13 +71,23 @@ const EntryView = ({ entry }: EntryViewProps) => {
 	const frequency = Math.round(entry.frequency || 0)
 
 	// additional tags for the entry
-	const extra = [
+
+	// Important information about the whole entry. This is shown highlighted
+	// right after the term kanji/readings.
+	const extra_info = [
+		// is the entry popular
 		entry.popular ? 'popular' : '',
+		// match mode
+		entry.match_mode && entry.match_mode != 'exact' ? `${entry.match_mode}` : ``,
+	].filter((x) => !!x)
+
+	// Extra information about the entry. This is shown after `extra_info` and
+	// not highlighted.
+	const extra = [
 		entry.jlpt ? `jlpt${entry.jlpt}` : '',
 		frequency ? `freq: ${frequency}` : ``,
 		`rank: ${entry.position.toString().padStart(2, '0')}`,
 		entry.deinflect ? `inflection: ${entry.deinflect.join(' + ')}` : ``,
-		entry.match_mode ? `match: ${entry.match_mode}` : ``,
 		entry.match_text ? `match: ${entry.match_text}` : ``,
 	].filter((x) => x)
 
@@ -88,6 +98,12 @@ const EntryView = ({ entry }: EntryViewProps) => {
 					<span lang="jp">{item.expr}</span>
 					{item.info.map(Tag)}
 				</h1>
+			))}
+
+			{extra_info.map((it) => (
+				<label key={it} className="entry-view-extra highlight">
+					{it}
+				</label>
 			))}
 
 			{extra.map((it) => (

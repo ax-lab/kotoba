@@ -59,6 +59,10 @@
 
 	.entry-view-extra {
 		margin-left: theme.$spacing-thin;
+
+		&.highlight {
+			color: theme.$highlight-info;
+		}
 	}
 
 	//------------------------------------------------------------------------//

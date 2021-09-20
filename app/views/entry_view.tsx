@@ -78,17 +78,19 @@ const EntryView = ({ entry }: EntryViewProps) => {
 		// is the entry popular
 		entry.popular ? 'popular' : '',
 		// match mode
-		entry.match_mode && entry.match_mode != 'exact' ? `${entry.match_mode}` : ``,
+		entry.match?.mode && !/^(exact|deinflect)$/.test(entry.match.mode) ? `${entry.match.mode}` : ``,
+		// inflections
+		entry.match?.inflection_rules ? `inflection: ${entry.match.inflection_rules.join(' + ')}` : ``,
 	].filter((x) => !!x)
 
 	// Extra information about the entry. This is shown after `extra_info` and
 	// not highlighted.
+	const inflection = entry.match && entry.match.inflected_suffix ? `.${entry.match.inflected_suffix}` : ``
 	const extra = [
 		entry.jlpt ? `jlpt${entry.jlpt}` : '',
 		frequency ? `freq: ${frequency}` : ``,
 		`rank: ${entry.position.toString().padStart(2, '0')}`,
-		entry.deinflect ? `inflection: ${entry.deinflect.join(' + ')}` : ``,
-		entry.match_text ? `match: ${entry.match_text}` : ``,
+		entry.match ? `match: ${entry.match.query} → ${entry.match.text} (${entry.match.segments}${inflection})` : ``,
 	].filter((x) => x)
 
 	return (

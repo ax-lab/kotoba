@@ -11,6 +11,8 @@ export const SCHEMA_TEXT = `
 
 	${Entry()}
 
+	${EntryMatch()}
+
 	${EntryKanji()}
 
 	${EntryReading()}
@@ -310,35 +312,10 @@ function Entry() {
 			id: String!
 
 			"""
-			When the entry is loaded through a search, this is the match mode for
-			the expression.
-
-			Valid values are:
-			- exact, prefix, suffix, contains
-			- approx, approx-prefix, approx-suffix, approx-contains
-			- fuzzy, fuzzy-prefix, fuzzy-suffix, fuzzy-contains
+			When the entry is loaded through a search, this contains additional
+			information about the match.
 			"""
-			match_mode: String
-
-			"""
-			When the entry is loaded through a search, this is the matched text
-			for the entry.
-
-			The format is "query:match:segment.inflection" where:
-			- "query" is the portion of the original text that matched.
-			- "match" is one of the entry's kanji or reading that was matched
-			  the original query.
-			- "segment" is a possibly non-continuous sequence of characters
-			  from "match" that matched "query"
-			- "inflection" is the inflected suffix from the original query
-			  in case this match was de-inflected.
-			"""
-			match_text: String
-
-			"""
-			De-inflection rules used to match this entry.
-			"""
-			deinflect: [String!]
+			match: EntryMatch
 
 			"""
 			This will be the expression for the first entry in 'kanji' if available,
@@ -430,6 +407,55 @@ function Entry() {
 			meanings of the word, multiple sense elements will be employed.
 			"""
 			sense: [EntrySense!]!
+		}
+	`
+}
+
+function EntryMatch() {
+	return `
+		"""
+		For an Entry matched through a search this includes additional
+		information about the match.
+		"""
+		type EntryMatch {
+			"""
+			Lookup mode that matched the entry.
+
+			Valid values are:
+			- exact, prefix, suffix, contains
+			- approx, approx-prefix, approx-suffix, approx-contains
+			- fuzzy, fuzzy-prefix, fuzzy-suffix, fuzzy-contains
+			"""
+			mode: String!
+
+			"""
+			Portion of the search query that matched.
+			"""
+			query: String!
+
+			"""
+			Full text of the kanji or reading that was matched.
+			"""
+			text: String!
+
+			"""
+			Sequence (possibly non-continuous) of "match_text" that was matched.
+			"""
+			segments: String!
+
+			"""
+			For de-inflected entries, this is the inflected suffix of the
+			original query term.
+
+			Note that if the suffix had to be completed, this will contain
+			a dot (.) splitting the completed suffix.
+			"""
+			inflected_suffix: String
+
+			"""
+			De-inflection rules used to match this entry.
+			"""
+			inflection_rules: [String!]
 		}
 	`
 }

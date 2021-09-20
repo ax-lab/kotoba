@@ -285,11 +285,17 @@ export class Deinflector {
 			if (best) {
 				const expr = best.expr
 				const deinflect = best.item
-				const info = get_inflection_info(expr, deinflect.reasons)
+				const info = get_inflection_info(expr, deinflect.reasons, deinflect.partial)
 
-				const match_text = `${deinflect.source}:${expr}:${info.prefix}.${info.suffix_pos}`
 				return [
-					entry.with_deinflect(deinflect.reasons.map((x) => x.name)).with_match_mode('deinflect', match_text),
+					entry.with_match_info({
+						mode: 'deinflect',
+						query: deinflect.source,
+						text: expr,
+						segments: info.prefix,
+						inflected_suffix: info.suffix_pos,
+						inflection_rules: deinflect.reasons.map((x) => x.name),
+					}),
 				]
 			}
 
@@ -365,7 +371,7 @@ export class Deinflector {
 	}
 }
 
-function get_inflection_info(expr: string, reasons: InflectionRule[]) {
+function get_inflection_info(expr: string, reasons: InflectionRule[], partial: string) {
 	if (!reasons.length) {
 		return { prefix: expr, suffix_pre: '', suffix_pos: '' }
 	}
@@ -379,6 +385,11 @@ function get_inflection_info(expr: string, reasons: InflectionRule[]) {
 	for (const it of reasons) {
 		check(suffix_pos.endsWith(it.kanaOut), 'inflection rule and suffix match')
 		suffix_pos = suffix_pos.slice(0, suffix_pos.length - it.kanaOut.length) + it.kanaIn
+	}
+
+	if (partial && suffix_pos.endsWith(partial)) {
+		const p = suffix_pos.length - partial.length
+		suffix_pos = suffix_pos.slice(0, p) + '.' + suffix_pos.slice(p)
 	}
 
 	return { prefix, suffix_pre, suffix_pos }

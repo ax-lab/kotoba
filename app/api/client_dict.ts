@@ -1,3 +1,5 @@
+import { EntryMatch } from '../../lib/entries'
+
 import * as graphql from './graphql'
 
 //----------------------------------------------------------------------------//
@@ -32,9 +34,7 @@ export async function to_tags(names: Array<{ name: string }>) {
 
 export type Entry = {
 	id: string
-	match_mode: string
-	match_text: string
-	deinflect: string[] | null
+	match?: EntryMatch
 	word: string
 	read: string
 	text: string

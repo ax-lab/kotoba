@@ -580,8 +580,14 @@ function match_predicate(entry: Entry, mode: EntryMatchMode, predicate: SearchPr
 		.filter((x) => !!x)
 		.shift()
 
-	const match_text = match ? `${match.query}:${match.expr}:${match.match}` : ``
-	return entry.with_match_mode(mode, match_text)
+	return !match
+		? entry
+		: entry.with_match_info({
+				mode,
+				query: match.query,
+				text: match.expr,
+				segments: match.match,
+		  })
 }
 
 function best_match_text(query: string, expr: string) {

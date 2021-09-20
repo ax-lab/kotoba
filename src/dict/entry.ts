@@ -1,8 +1,11 @@
+import { EntryMatch } from '../../lib/entries'
 import { group_by } from '../../lib/list'
 
 import DB from './db'
 import * as table from './table'
 import * as tags from './tags'
+
+export { EntryMatch, EntryMatchMode } from '../../lib/entries'
 
 type EntryRowArgs = {
 	row: table.Entry
@@ -12,21 +15,6 @@ type EntryRowArgs = {
 	source_map: Map<string, EntrySenseSource[]>
 	glossary_map: Map<string, EntrySenseGlossary[]>
 }
-
-export type EntryMatchMode =
-	| 'exact'
-	| 'deinflect'
-	| 'prefix'
-	| 'suffix'
-	| 'contains'
-	| 'approx'
-	| 'approx-prefix'
-	| 'approx-suffix'
-	| 'approx-contains'
-	| 'fuzzy'
-	| 'fuzzy-prefix'
-	| 'fuzzy-suffix'
-	| 'fuzzy-contains'
 
 export class Entry {
 	readonly id: string
@@ -39,14 +27,9 @@ export class Entry {
 	readonly reading: EntryReading[]
 	readonly sense: EntrySense[]
 
-	readonly deinflect?: string[]
-	readonly match_mode?: EntryMatchMode
-	readonly match_text?: string
+	readonly match?: EntryMatch
 
-	private constructor(
-		args: EntryRowArgs | Entry,
-		mode?: { deinflect?: string[]; match_mode?: EntryMatchMode; match_text?: string },
-	) {
+	private constructor(args: EntryRowArgs | Entry, match?: EntryMatch) {
 		if (args instanceof Entry) {
 			this.id = args.id
 			this.rank = args.rank
@@ -57,18 +40,8 @@ export class Entry {
 			this.kanji = args.kanji
 			this.reading = args.reading
 			this.sense = args.sense
-			this.deinflect = args.deinflect && [...args.deinflect]
-			this.match_mode = args.match_mode
-			if (mode) {
-				if (mode.deinflect) {
-					this.deinflect = [...mode.deinflect]
-				}
-				if (mode.match_mode) {
-					this.match_mode = mode.match_mode
-				}
-				if (mode.match_text) {
-					this.match_text = mode.match_text
-				}
+			if (match) {
+				this.match = match
 			}
 		} else {
 			const row = args.row
@@ -91,18 +64,10 @@ export class Entry {
 	}
 
 	/**
-	 * Returns a shallow clone of the entry with the given de-inflections.
+	 * Returns a shallow clone of the entry with the given match information.
 	 */
-	with_deinflect(deinflect: string[]) {
-		const out = new Entry(this, { deinflect })
-		return out
-	}
-
-	/**
-	 * Returns a shallow clone of the entry with the given match mode.
-	 */
-	with_match_mode(match_mode: EntryMatchMode, match_text: string) {
-		const out = new Entry(this, { match_mode, match_text })
+	with_match_info(match: EntryMatch) {
+		const out = new Entry(this, match)
 		return out
 	}
 

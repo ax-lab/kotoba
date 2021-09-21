@@ -151,15 +151,14 @@ const Dict = () => {
 
 	const [query, set_query] = React.useState<entries.Query>(entries.all())
 
-	const lookup = async (text: string) => {
-		text = text.trim().replace(/\s+/g, ' ')
+	const lookup = async (raw_text: string) => {
+		const text = raw_text.trim().replace(/\s+/g, ' ')
 		if (text == search.current) {
 			return
 		}
 
-		console.log('LOOKUP', text)
 		search.current = text
-		input_el.current && (input_el.current.value = text)
+		input_el.current && (input_el.current.value = raw_text)
 		if (text == '') {
 			set_query(entries.all())
 		} else {

@@ -571,7 +571,7 @@ function match_predicate(entry: Entry, mode: EntryMatchMode, predicate: SearchPr
 	const match = terms
 		.map((expr) => {
 			return query
-				.map((q) => best_match_text(q, expr)!)
+				.map((q) => best_match_text(q, kana.to_hiragana(expr))!)
 				.filter((x) => !!x)
 				.sort((a, b) => b.p - a.p)
 				.shift()!

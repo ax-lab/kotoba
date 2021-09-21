@@ -119,7 +119,7 @@ export async function search(args: { id: string; query: string }) {
 				let cur_count = 0
 				cur_count += await query.search_exact(cache, db, predicate)
 
-				const allow_partial = extended
+				const allow_partial = extended && cur_count == 0
 				cur_count += await query.search_deinflection(cache, db, predicate, allow_partial)
 
 				// We limit prefix and suffix queries on all but the last

@@ -1,5 +1,6 @@
 import React from 'react'
 
+import { kana } from '../../lib'
 import { Entry, EntrySense, Tag } from '../api/client_dict'
 
 import './entry_view.scss'
@@ -60,6 +61,61 @@ const EntryViewSense = ({ sense }: { sense: EntrySense }) => {
 	)
 }
 
+const EntryLabel = (entry: Entry, text: string) => {
+	const match = entry.match
+	if (!match || !match.segments) {
+		return text
+	}
+
+	const hiragana = kana.to_hiragana(text)
+	if (hiragana != match.text) {
+		return text
+	}
+
+	let key = 0
+	const h = (s: string) => (
+		<span className="highlight-match" key={key++}>
+			{s}
+		</span>
+	)
+
+	if (hiragana.length != text.length) {
+		// this should not happen, but in case the hiragana conversion
+		// does not match the text we just highlight the entire entry
+		return h(text)
+	}
+
+	const sequence: Array<string | JSX.Element> = []
+
+	let position = 0
+	let highlight = ''
+	for (const chr of match.segments) {
+		const next = hiragana.indexOf(chr, position)
+		if (next < 0) {
+			break
+		} else if (next > position) {
+			if (highlight) {
+				sequence.push(h(highlight))
+				highlight = ''
+			}
+			sequence.push(text.slice(position, next))
+		}
+		highlight += text.slice(next, next + chr.length)
+		position = next + chr.length
+	}
+
+	if (highlight) {
+		sequence.push(h(highlight))
+	}
+	if (position < text.length) {
+		sequence.push(text.slice(position))
+	}
+
+	console.log(sequence)
+
+	return sequence
+}
+
 const EntryView = ({ entry }: EntryViewProps) => {
 	const words = [...entry.kanji, ...entry.reading]
 	const p1 = words.filter((x) => x.popular)
@@ -74,36 +130,41 @@ const EntryView = ({ entry }: EntryViewProps) => {
 
 	// Important information about the whole entry. This is shown highlighted
 	// right after the term kanji/readings.
+	const inflect_label = entry.match?.inflected_suffix ? (
+		<span lang="jp" key="lbl">
+			{entry.match?.inflected_suffix}：
+		</span>
+	) : (
+		<></>
+	)
 	const extra_info = [
 		// is the entry popular
 		entry.popular ? 'popular' : '',
 		// match mode
 		entry.match?.mode && !/^(exact|deinflect)$/.test(entry.match.mode) ? `${entry.match.mode}` : ``,
 		// inflections
-		entry.match?.inflection_rules ? `inflection: ${entry.match.inflection_rules.join(' + ')}` : ``,
+		entry.match?.inflection_rules ? [inflect_label, entry.match.inflection_rules.join(' + ')] : ``,
 	].filter((x) => !!x)
 
 	// Extra information about the entry. This is shown after `extra_info` and
 	// not highlighted.
-	const inflection = entry.match && entry.match.inflected_suffix ? `.${entry.match.inflected_suffix}` : ``
 	const extra = [
 		entry.jlpt ? `jlpt${entry.jlpt}` : '',
 		frequency ? `freq: ${frequency}` : ``,
 		`rank: ${entry.position.toString().padStart(2, '0')}`,
-		entry.match ? `match: ${entry.match.query} → ${entry.match.text} (${entry.match.segments}${inflection})` : ``,
 	].filter((x) => x)
 
 	return (
 		<div className="entry-view">
 			{pri.map((item) => (
 				<h1 key={item.expr}>
-					<span lang="jp">{item.expr}</span>
+					<span lang="jp">{EntryLabel(entry, item.expr)}</span>
 					{item.info.map(Tag)}
 				</h1>
 			))}
 
-			{extra_info.map((it) => (
-				<label key={it} className="entry-view-extra highlight">
+			{extra_info.map((it, n) => (
+				<label key={n} className="entry-view-extra highlight">
 					{it}
 				</label>
 			))}
@@ -117,7 +178,7 @@ const EntryView = ({ entry }: EntryViewProps) => {
 			{sec.map((item) => (
 				<h2 key={item.expr}>
 					{item.info.map(Tag)}
-					<span lang="jp">{item.expr}</span>
+					<span lang="jp">{EntryLabel(entry, item.expr)}</span>
 				</h2>
 			))}
 

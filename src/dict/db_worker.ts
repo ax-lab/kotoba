@@ -47,19 +47,26 @@ parentPort!.on(
 		params?: unknown
 		incremental?: boolean
 	}) => {
-		const db = get_db(file)
-		const stmt = db.prepare(sql)
-		if (params) {
-			stmt.bind(params)
-		}
-		if (incremental) {
-			for (const row of stmt.iterate()) {
-				parentPort!.postMessage(row)
+		try {
+			const db = get_db(file)
+			const stmt = db.prepare(sql)
+			if (params) {
+				stmt.bind(params)
 			}
-			parentPort!.postMessage('done')
-		} else {
-			const rows = stmt.all()
-			parentPort!.postMessage(rows)
+			if (incremental) {
+				for (const row of stmt.iterate()) {
+					parentPort!.postMessage(row)
+				}
+				parentPort!.postMessage('done')
+			} else {
+				const rows = stmt.all()
+				parentPort!.postMessage(rows)
+			}
+		} catch (e) {
+			const err = e as Error
+			parentPort!.postMessage({
+				error: `${err}${err.stack ? ' \n-- Stack: ' + err.stack + '\n--' : ''}`,
+			})
 		}
 	},
 )

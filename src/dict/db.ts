@@ -58,7 +58,12 @@ function spawn_worker() {
 		const current_job = job!
 		const incremental = !!current_job.each
 		process.nextTick(drain_queue)
-		if (!incremental || data == 'done') {
+
+		const row = data as Record<string, unknown>
+		if (row && row.error) {
+			current_job.reject(new Error(row.error as string))
+			job = null
+		} else if (!incremental || data == 'done') {
 			current_job.resolve(data == 'done' ? null : data)
 			job = null
 		} else {

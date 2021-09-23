@@ -253,19 +253,43 @@ export class Entry {
 		}
 
 		const params: Record<string, string> = {}
-		const where = (args?.glob ? words.map((w) => w.replace(/[?？]/g, '?').replace(/[*＊]/g, '%')) : words)
-			.map((w, n) => {
-				const name = `p${n + 1}`
-				params[name] = w
-				return `(m.expr LIKE @${name} OR m.hiragana LIKE @${name})`
+
+		// Split the words in batches to avoid the expression tree limit and
+		// the compound SELECT limit in SQLite.
+		const max_batch = 250
+		const batches = (args?.glob ? words.map((w) => w.replace(/[?？]/g, '?').replace(/[*＊]/g, '%')) : words).reduce<
+			Array<string[]>
+		>(
+			(list, item) => {
+				const last = list[list.length - 1]
+				if (last.length < max_batch) {
+					last.push(item)
+				} else {
+					list.push([item])
+				}
+				return list
+			},
+			[[]],
+		)
+
+		const subquery = batches
+			.map((batch, nb) => {
+				const where = batch
+					.map((word, nw) => {
+						const n = nb * max_batch + nw
+						const name = `p${n + 1}`
+						params[name] = word
+						return `(expr LIKE @${name} OR hiragana LIKE @${name})`
+					})
+					.join(' OR ')
+				return `SELECT sequence FROM entries_map WHERE ${where}`
 			})
-			.join(' OR ')
+			.join(' UNION ')
 
 		const sql = [
 			`SELECT DISTINCT m.sequence`,
-			`FROM entries_map m`,
+			`FROM (${subquery}) m`,
 			`LEFT JOIN entries e ON e.sequence = m.sequence`,
-			`WHERE ${where}`,
 			`ORDER BY e.position`,
 		].join('\n')
 

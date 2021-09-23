@@ -143,7 +143,7 @@ const EntryView = ({ entry }: EntryViewProps) => {
 		// match mode
 		entry.match?.mode && !/^(exact|deinflect)$/.test(entry.match.mode) ? `${entry.match.mode}` : ``,
 		// inflections
-		entry.match?.inflection_rules ? [inflect_label, entry.match.inflection_rules.join(' + ')] : ``,
+		entry.match?.inflection_rules?.length ? [inflect_label, entry.match.inflection_rules.join(' + ')] : ``,
 	].filter((x) => !!x)
 
 	// Extra information about the entry. This is shown after `extra_info` and

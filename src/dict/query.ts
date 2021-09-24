@@ -147,7 +147,16 @@ export type MatchMode = 'exact' | 'approx' | 'fuzzy'
 
 type SearchSentence = {
 	type: 'sentence'
+
+	/**
+	 * Full text of the sentence.
+	 */
 	full_text: string
+
+	/**
+	 * This is `full_text` split by punctuation and symbols. This is used
+	 * by the phrase deinflection to limit the word search.
+	 */
 	terms: string[]
 }
 
@@ -377,23 +386,34 @@ export async function search_deinflection(
  * Search for deinflected submatches in an entire phrase.
  */
 export async function search_phrase(cache: SearchCache, db: DB, predicate: SearchPredicate, allow_partial = false) {
-	// Only try for sentences.
 	if (predicate.type != 'sentence') {
 		return 0
 	}
 
+	// Deinflect all parts of the phrase.
 	const inflector = new inflection.Deinflector()
-	for (let i = 0; i < predicate.terms.length; i++) {
-		const term = predicate.terms[i]
-		const is_last = i == predicate.terms.length - 1
-		inflector.add_phrase(term, allow_partial && is_last)
+	for (const term of predicate.terms) {
+		inflector.add_phrase(term)
 	}
 
+	// Try to load all possible candidates and feed them back to the deinflector.
 	const all = inflector.list_candidates()
 	const candidates = await Entry.exact(all, { glob: false })
-	const output = inflector.deinflect_all(candidates, predicate.full_text, predicate.terms)
+	const result = inflector.deinflect_all(candidates, predicate.full_text, predicate.terms)
 
-	return await cache.push_and_solve(output)
+	let count = await cache.push_and_solve(result.entries)
+
+	// If there is an uninflected suffix, forward it to a normal search.
+	if (result.suffix && count > 0) {
+		count += await search_deinflection(
+			cache,
+			db,
+			{ type: 'sentence', full_text: result.suffix, terms: [result.suffix] },
+			allow_partial,
+		)
+	}
+
+	return count
 }
 
 /**

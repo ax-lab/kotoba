@@ -40,7 +40,8 @@ export async function deinflect_all(input_text: string) {
 	const all = deinflector.list_candidates()
 	const entries = await entries_exact(all)
 
-	return deinflector.deinflect_all(entries, input_text, [input_text])
+	const result = deinflector.deinflect_all(entries, input_text, [input_text])
+	return result.entries
 }
 
 /**
@@ -145,7 +146,7 @@ export class Deinflector {
 	 * Add an entire phrase to the deinflection list. This will try to find
 	 * deinflected words inside the phrase.
 	 */
-	add_phrase(phrase: string, allow_partial = false) {
+	add_phrase(phrase: string) {
 		if (this._segments.has(phrase)) {
 			return
 		}
@@ -164,7 +165,7 @@ export class Deinflector {
 			const end = Math.min(phrase.length, i + max_segment)
 			for (let j = end; j > i; j--) {
 				const segment = phrase.slice(i, j)
-				this.add(segment, allow_partial && j == phrase.length)
+				this.add(segment, false)
 				segments.push({ match: segment, sta: i, end: j })
 			}
 		}
@@ -192,9 +193,6 @@ export class Deinflector {
 		return out
 	}
 
-	// TODO: extract unmatched suffix to continue the search (e.g. prefix)
-	// TODO: return position info for the match
-
 	/**
 	 * Deinflect all phrases in the list using the loaded list of candidate
 	 * entries.
@@ -202,7 +200,7 @@ export class Deinflector {
 	 * All phrases must have been added through `add_phrase` beforehand and the
 	 * entries loaded from the `list_candidates`.
 	 */
-	deinflect_all(entries: Entry[], full_text: string, phrases: string[]): Entry[] {
+	deinflect_all(entries: Entry[], full_text: string, phrases: string[]) {
 		// Map all entries that were loaded.
 		const entries_map = new Map<string, Entry[]>()
 
@@ -327,7 +325,7 @@ export class Deinflector {
 		}
 
 		const set = new Set<string>()
-		return output
+		const result = output
 			.sort((a, b) => a.position - b.position)
 			.flatMap((m) => {
 				return m.entries.filter((x) => {
@@ -338,6 +336,9 @@ export class Deinflector {
 					return true
 				})
 			})
+
+		const max_pos = result.map((x) => x.match!.position! + x.match!.query.length).reduce((v, x) => Math.max(v, x))
+		return { entries: result, suffix: full_text.slice(max_pos) }
 	}
 
 	/**

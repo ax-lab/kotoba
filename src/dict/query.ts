@@ -301,34 +301,7 @@ export function parse(query: string): Search {
  *   term for filtering first.
  */
 export async function search_exact(cache: SearchCache, db: DB, predicate: SearchPredicate) {
-	const where: string[] = []
-	if (predicate.type == 'sentence') {
-		// For a sentence, just try the exact match.
-		where.push(like(predicate.full_text, 'full', 'exact'))
-	} else {
-		// Ignore fully negative searches since those are too broad and slow.
-		if (!predicate.terms.some((x) => !x.not)) {
-			return 0
-		}
-
-		for (const it of predicate.terms) {
-			const negate = it.not
-			if (!where.length && !it.not) {
-				// For the first positive term we do a simple LIKE since those
-				// are faster. We are also counting on the term sorting to make
-				// sure the first term is the most efficient lookup.
-				const condition = like(it.text, 'full', 'exact', { glob: true, negate })
-				where.push(condition)
-			} else {
-				// For additional conditions we use the IN operator to further
-				// specify the search. We need to use this so that we consider
-				// all kanji and readings of the entry at once.
-				const condition = like(it.text, 'full', 'exact', { glob: true })
-				where.push(`sequence ${negate ? 'NOT IN' : 'IN'} (SELECT sequence FROM entries_map WHERE ${condition})`)
-			}
-		}
-	}
-	return await load_entries(cache, db, where.join(' AND '), 'exact', predicate)
+	return await search_with_mode('full', 'exact', cache, db, predicate)
 }
 
 // TODO: use readings of kanji to try to find partial matches (巻きぞえ -> 巻き添え - まきぞえ)
@@ -417,19 +390,34 @@ export async function search_phrase(cache: SearchCache, db: DB, predicate: Searc
 }
 
 /**
- * Search for a prefix match for the given predicate.
+ * Search the given predicate using the given search and match modes.
  *
  * The performance and broadness of this lookup depends on the size of the
  * literal prefix available for the filtering.
  */
-export async function search_exact_prefix(cache: SearchCache, db: DB, predicate: SearchPredicate, limit = 0) {
+export async function search_with_mode(
+	search: SearchMode,
+	match: MatchMode,
+	cache: SearchCache,
+	db: DB,
+	predicate: SearchPredicate,
+	limit = 0,
+) {
+	const is_exact = search == 'full' && match == 'exact'
+
 	// This is mostly the same as `search_exact` except that we are generating
 	// prefix matches.
 	const where: string[] = []
 	if (predicate.type == 'sentence') {
-		where.push(like(predicate.full_text, 'prefix', 'exact'))
+		where.push(like(predicate.full_text, search, match))
 	} else {
-		if (predicate.mode == 'exact') {
+		// The exact operator forces an exact match only.
+		if (predicate.mode == 'exact' && !is_exact) {
+			return 0
+		}
+
+		// Those are used only for negative filtering
+		if (predicate.mode == 'negate') {
 			return 0
 		}
 
@@ -441,53 +429,81 @@ export async function search_exact_prefix(cache: SearchCache, db: DB, predicate:
 		for (const it of predicate.terms) {
 			const negate = it.not
 			if (!where.length && !negate) {
-				const condition = like(it.text, 'prefix', 'exact', { glob: true, negate })
+				// For the first positive term we use the LIKE operator because
+				// it is faster than the IN. We are counting on the term sorting
+				// done by the search parsing to make sure the first term is the
+				// most efficient lookup.
+				const condition = like(it.text, search, match, { glob: true, negate })
 				where.push(condition)
 			} else {
-				// Note that for negative filters we still use full matching
-				const condition = like(it.text, negate ? 'full' : 'prefix', 'exact', { glob: true })
+				// Additional or negative terms have to use the IN operator to
+				// consider all reading/kanji for a term.
+				//
+				// Note that for negative terms we use full matching regardless
+				// of the lookup mode.
+				const condition = like(it.text, negate ? 'full' : search, negate ? 'exact' : match, { glob: true })
 				where.push(`sequence ${negate ? 'NOT IN' : 'IN'} (SELECT sequence FROM entries_map WHERE ${condition})`)
 			}
 		}
 	}
-	return await load_entries(cache, db, where.join(' AND '), 'prefix', predicate, limit)
-}
 
-/**
- * Search for a suffix match for the given predicate.
- *
- * In terms of performance this is the same as the prefix match, since we just
- * use a reversed keyword and index.
- */
-export async function search_exact_suffix(cache: SearchCache, db: DB, predicate: SearchPredicate, limit = 0) {
-	// This is mostly the same as `search_exact` except that we are generating
-	// prefix matches.
-	const where: string[] = []
-	if (predicate.type == 'sentence') {
-		where.push(like(predicate.full_text, 'suffix', 'exact'))
-	} else {
-		if (predicate.mode == 'exact') {
-			return 0
-		}
-
-		// Ignore fully negative searches since those are too broad and slow.
-		if (!predicate.terms.some((x) => !x.not)) {
-			return 0
-		}
-
-		for (const it of predicate.terms) {
-			const negate = it.not
-			if (!where.length && !negate) {
-				const condition = like(it.text, 'suffix', 'exact', { glob: true, negate })
-				where.push(condition)
-			} else {
-				// Note that for negative filters we still use full matching
-				const condition = like(it.text, negate ? 'full' : 'suffix', 'exact', { glob: true })
-				where.push(`sequence ${negate ? 'NOT IN' : 'IN'} (SELECT sequence FROM entries_map WHERE ${condition})`)
+	let match_mode: EntryMatchMode
+	switch (search) {
+		case 'full':
+			switch (match) {
+				case 'exact':
+					match_mode = 'exact'
+					break
+				case 'approx':
+					match_mode = 'approx'
+					break
+				case 'fuzzy':
+					match_mode = 'fuzzy'
+					break
 			}
-		}
+			break
+		case 'prefix':
+			switch (match) {
+				case 'exact':
+					match_mode = 'prefix'
+					break
+				case 'approx':
+					match_mode = 'approx-prefix'
+					break
+				case 'fuzzy':
+					match_mode = 'fuzzy-prefix'
+					break
+			}
+			break
+		case 'suffix':
+			switch (match) {
+				case 'exact':
+					match_mode = 'suffix'
+					break
+				case 'approx':
+					match_mode = 'approx-suffix'
+					break
+				case 'fuzzy':
+					match_mode = 'fuzzy-suffix'
+					break
+			}
+			break
+		case 'contains':
+			switch (match) {
+				case 'exact':
+					match_mode = 'contains'
+					break
+				case 'approx':
+					match_mode = 'approx-contains'
+					break
+				case 'fuzzy':
+					match_mode = 'fuzzy-contains'
+					break
+			}
+			break
 	}
-	return await load_entries(cache, db, where.join(' AND '), 'suffix', predicate, limit)
+
+	return await load_entries(cache, db, where.join(' AND '), match_mode, predicate, limit)
 }
 
 /**

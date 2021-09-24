@@ -127,8 +127,8 @@ export async function search(args: { id: string; query: string }) {
 				// as many predicate results visible on the first page.
 				if (cur_count == 0 || extended) {
 					const limit = extended ? 0 : 10
-					cur_count += await query.search_exact_prefix(cache, db, predicate, limit)
-					cur_count += await query.search_exact_suffix(cache, db, predicate, limit)
+					cur_count += await query.search_with_mode('prefix', 'exact', cache, db, predicate, limit)
+					cur_count += await query.search_with_mode('suffix', 'exact', cache, db, predicate, limit)
 				}
 
 				// Search an entire phrase

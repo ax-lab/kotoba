@@ -337,7 +337,9 @@ export class Deinflector {
 				})
 			})
 
-		const max_pos = result.map((x) => x.match!.position! + x.match!.query.length).reduce((v, x) => Math.max(v, x))
+		const max_pos = result
+			.map((x) => x.match!.position! + x.match!.query.length)
+			.reduce((v, x) => Math.max(v, x), 0)
 		return { entries: result, suffix: full_text.slice(max_pos) }
 	}
 

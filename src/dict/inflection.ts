@@ -22,17 +22,6 @@ const RULES = (() => {
 	return Object.keys(data).flatMap<InflectionRule>((name) => data[name].map((x) => ({ ...x, name })))
 })()
 
-const { SUFFIXES, MAX_SUFFIX } = (() => {
-	let max_len = 0
-	const out = new Set<string>()
-	for (const it of RULES) {
-		const suffix = it.kanaIn
-		max_len = Math.max(max_len, suffix.length)
-		out.add(suffix)
-	}
-	return { SUFFIXES: out, MAX_SUFFIX: max_len }
-})()
-
 export async function deinflect(word: string) {
 	const start = now()
 	const deinflector = new Deinflector()
@@ -45,118 +34,13 @@ export async function deinflect(word: string) {
 }
 
 export async function deinflect_all(input_text: string) {
-	type Segment = {
-		match: string
-		exact: boolean
-		sta: number
-		end: number
-	}
-
 	const deinflector = new Deinflector()
-
-	const start = now()
-
-	let segments: Segment[] = []
-	for (let i = 0; i < input_text.length - 1; i++) {
-		for (let j = input_text.length; j > i; j--) {
-			const segment = input_text.slice(i, j)
-			const hiragana = kana.to_hiragana(segment)
-
-			let can_deinflect = false
-			for (let k = 1; k <= hiragana.length && k <= MAX_SUFFIX; k++) {
-				if (SUFFIXES.has(hiragana.slice(hiragana.length - k))) {
-					can_deinflect = true
-					break
-				}
-			}
-
-			deinflector.add(hiragana)
-			segments.push({ match: hiragana, exact: !can_deinflect, sta: i, end: j })
-		}
-	}
-
-	// const all = new Set<string>()
-	// const candidate_map = new Map<string, Candidate[]>()
-	// for (const it of segments) {
-	// 	if (it.exact) {
-	// 		all.add(it.match)
-	// 	} else if (!candidate_map.has(it.match)) {
-	// 		const ls = candidates(it.match)
-	// 		candidate_map.set(it.match, ls)
-	// 		for (const word of ls) {
-	// 			all.add(word.input)
-	// 		}
-	// 	}
-	// }
+	deinflector.add_phrase(input_text)
 
 	const all = deinflector.list_candidates()
-	const entries = deinflector.filter(await entries_exact(all))
+	const entries = await entries_exact(all)
 
-	const entries_map = new Map<string, Entry[]>()
-
-	const push = (entry: Entry, txt: string) => {
-		txt = kana.to_hiragana(txt)
-		const ls = entries_map.get(txt)
-		if (!ls) {
-			entries_map.set(txt, [entry])
-		} else {
-			ls.push(entry)
-		}
-	}
-
-	for (const entry of entries) {
-		for (const it of entry.kanji) {
-			push(entry, it.expr)
-		}
-		for (const it of entry.reading) {
-			push(entry, it.expr)
-		}
-	}
-
-	segments.sort((a, b) => {
-		if (a.match.length != b.match.length) {
-			return b.match.length - a.match.length
-		}
-		if (a.sta != b.sta) {
-			return a.sta - b.sta
-		}
-		return b.end - a.end
-	})
-
-	const output = []
-	while (segments.length) {
-		const segment = segments.shift()!
-
-		const entries = entries_map.get(segment.match)
-		const matches: Entry[] = []
-		if (entries) {
-			matches.push(...entries)
-		} else {
-			// ;(candidate_map.get(segment.match) || []).map((row) => {
-			// 	const entries = (entries_map.get(row.input) || [])
-			// 		.filter((x) => row.rules.size == 0 || x.has_rule_tag(row.rules))
-			// 		.map((x) => x.with_deinflect([...row.reasons]))
-			// 	matches.push(...entries)
-			// })
-		}
-
-		if (matches.length) {
-			output.push({
-				input: input_text.slice(segment.sta, segment.end),
-				keyword: segment.match,
-				position: segment.sta,
-				entries: matches,
-			})
-
-			segments = segments.filter((it) => it.end <= segment.sta || it.sta >= segment.end)
-		}
-	}
-
-	output.sort((a, b) => a.position - b.position)
-
-	console.log(`deinflect_all(${input_text}) took ${elapsed(start)}`)
-
-	return output
+	return deinflector.deinflect_all(entries, input_text, [input_text])
 }
 
 /**
@@ -199,7 +83,11 @@ type Candidate = {
 	glob?: RegExp
 }
 
-// TODO: fix 認められない
+type Segment = {
+	match: string
+	sta: number
+	end: number
+}
 
 /**
  * This class provides deinflection support for multi-term queries.
@@ -213,8 +101,13 @@ type Candidate = {
 export class Deinflector {
 	readonly _added = new Set<string>()
 
+	// This maps the resulting deinflected terms to the list of candidate
+	// deinflections that generated that term.
 	readonly _map = new Map<string, Candidate[]>()
 	readonly _glob: Candidate[] = []
+
+	// This maps a source segment to a list of candidate de-inflections.
+	readonly _reverse_map = new Map<string, Candidate[]>()
 
 	/**
 	 * Add an entry to the deinflection list. This will generate all possible
@@ -228,6 +121,8 @@ export class Deinflector {
 
 			// Map the form to the specific de-inflection
 			const list = this._candidates(entry, allow_partial)
+			this._reverse_map.set(entry, list)
+
 			for (const it of list) {
 				const ls = this._map.get(it.term) || []
 				ls.push(it)
@@ -239,12 +134,199 @@ export class Deinflector {
 		}
 	}
 
+	readonly _segments = new Map<string, Segment[]>()
+
+	/**
+	 * Add an entire phrase to the deinflection list. This will try to find
+	 * deinflected words inside the phrase.
+	 */
+	add_phrase(phrase: string, allow_partial = false) {
+		if (this._segments.has(phrase)) {
+			return
+		}
+
+		// Limit the maximum length of the phrase we allow.
+		if (phrase.length > 150) {
+			this._segments.set(phrase, [])
+			return
+		}
+
+		// Limit the max segment length to a reasonable word size.
+		const max_segment = 50
+
+		const segments: Segment[] = []
+		for (let i = 0; i < phrase.length - 1; i++) {
+			const end = Math.min(phrase.length, i + max_segment)
+			for (let j = end; j > i; j--) {
+				const segment = phrase.slice(i, j)
+				this.add(segment, allow_partial && j == phrase.length)
+				segments.push({ match: segment, sta: i, end: j })
+			}
+		}
+
+		// We sort the segments by the largest match first and then position.
+		segments.sort((a, b) => {
+			if (a.match.length != b.match.length) {
+				return b.match.length - a.match.length
+			}
+			if (a.sta != b.sta) {
+				return a.sta - b.sta
+			}
+			return b.end - a.end
+		})
+
+		this._segments.set(phrase, segments)
+	}
+
 	/**
 	 * List all possible candidates for the added entries. The purpose of those
 	 * is to be matched exactly when attempting to load.
 	 */
 	list_candidates() {
-		return [...this._map.keys()]
+		const out = [...this._map.keys()]
+		return out
+	}
+
+	// TODO: extract unmatched suffix to continue the search (e.g. prefix)
+	// TODO: return position info for the match
+
+	/**
+	 * Deinflect all phrases in the list using the loaded list of candidate
+	 * entries.
+	 *
+	 * All phrases must have been added through `add_phrase` beforehand and the
+	 * entries loaded from the `list_candidates`.
+	 */
+	deinflect_all(entries: Entry[], full_text: string, phrases: string[]): Entry[] {
+		// Map all entries that were loaded.
+		const entries_map = new Map<string, Entry[]>()
+
+		const push = (entry: Entry, txt: string) => {
+			txt = kana.to_hiragana(txt)
+			const ls = entries_map.get(txt)
+			if (!ls) {
+				entries_map.set(txt, [entry])
+			} else {
+				ls.push(entry)
+			}
+		}
+
+		for (const entry of entries) {
+			for (const it of entry.kanji) {
+				push(entry, it.expr)
+			}
+			for (const it of entry.reading) {
+				push(entry, it.expr)
+			}
+		}
+
+		const parsed = new Set<string>()
+		const output: Array<{ position: number; entries: Entry[] }> = []
+		for (const phrase of phrases) {
+			if (parsed.has(phrase)) {
+				continue
+			}
+			parsed.add(phrase)
+
+			const pos = full_text.indexOf(phrase)
+			let segments = this._segments.get(phrase) || []
+
+			while (segments.length) {
+				const segment = segments.shift()!
+
+				// All candidates de-inflections for this segment
+				const candidates = this._reverse_map.get(segment.match)
+				if (!candidates || !candidates.length) {
+					continue
+				}
+
+				const match = candidates
+					.flatMap((candidate) => {
+						const entries = (entries_map.get(candidate.term) || []).filter(
+							(entry) => !candidate.rules.size || entry.has_rule_tag(candidate.rules),
+						)
+						return entries.length ? [{ candidate, entries }] : []
+					})
+					.sort((a, b) => {
+						// Favor full deinflections or with smaller completed suffixes
+						const partial = a.candidate.partial.length - b.candidate.partial.length
+						if (partial != 0) {
+							return partial
+						}
+
+						// prioritize the shortest number of rules applied
+						const rules = a.candidate.reasons.length - b.candidate.reasons.length
+						if (rules != 0) {
+							return rules
+						}
+
+						// favor the shortest prefix (i.e. longest inflection)
+						const shortest = a.candidate.prefix.length - b.candidate.prefix.length
+						if (shortest != 0) {
+							return shortest
+						}
+
+						// favor the least number of matching entries (more specific)
+						return a.entries.length - b.entries.length
+					})
+					.shift()
+
+				if (match) {
+					const candidate = match.candidate
+					const info = get_inflection_info(candidate.term, candidate.reasons, candidate.partial)
+					const input_text = phrase.slice(segment.sta, segment.end)
+
+					let matches = match.entries.map((x) =>
+						x.with_match_info({
+							mode: candidate.reasons.length ? 'deinflect' : 'exact',
+							query: input_text,
+							text: candidate.term,
+							segments: info.prefix,
+							inflected_suffix: info.suffix_pos,
+							inflection_rules: candidate.reasons.map((x) => x.name),
+						}),
+					)
+
+					// If this is a single kana input, limit the output to
+					// matching kana-only entries
+					if (kana.is_kana(input_text) && input_text.length == 1) {
+						matches = matches.filter((x) => !x.kanji.length && x.reading[0].expr == input_text)
+					}
+
+					// Try to further limit the maching entries
+					const filter_if = (cond: (e: Entry) => boolean) => {
+						const aux = matches.filter(cond)
+						if (aux.length > 0) {
+							matches = aux
+						}
+					}
+
+					filter_if((x) => (x.kanji[0] && x.kanji[0].expr == input_text) || x.reading[0].expr == input_text)
+
+					if (matches.length) {
+						output.push({
+							position: pos + segment.sta,
+							entries: matches,
+						})
+
+						segments = segments.filter((it) => it.end <= segment.sta || it.sta >= segment.end)
+					}
+				}
+			}
+		}
+
+		const set = new Set<string>()
+		return output
+			.sort((a, b) => a.position - b.position)
+			.flatMap((m) => {
+				return m.entries.filter((x) => {
+					if (set.has(x.id)) {
+						return false
+					}
+					set.add(x.id)
+					return true
+				})
+			})
 	}
 
 	/**

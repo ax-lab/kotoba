@@ -256,14 +256,12 @@ export function parse(query: string): Search {
 						return parse_query(txt, 'normal', false)
 					}
 
+					const full_text = kana.to_hiragana(txt)
 					return {
 						id: txt,
 						type: 'sentence',
-						full_text: kana.to_hiragana(txt),
-						terms: txt
-							.split(SPLIT_RE)
-							.filter((x) => !!x)
-							.map((x) => kana.to_hiragana(x)),
+						full_text,
+						terms: full_text.split(SPLIT_RE).filter((x) => !!x),
 					}
 				}
 			}
@@ -372,6 +370,29 @@ export async function search_deinflection(
 
 	// Filter the entries through the de-inflector.
 	const output = inflector.filter(entries)
+	return await cache.push_and_solve(output)
+}
+
+/**
+ * Search for deinflected submatches in an entire phrase.
+ */
+export async function search_phrase(cache: SearchCache, db: DB, predicate: SearchPredicate, allow_partial = false) {
+	// Only try for sentences.
+	if (predicate.type != 'sentence') {
+		return 0
+	}
+
+	const inflector = new inflection.Deinflector()
+	for (let i = 0; i < predicate.terms.length; i++) {
+		const term = predicate.terms[i]
+		const is_last = i == predicate.terms.length - 1
+		inflector.add_phrase(term, allow_partial && is_last)
+	}
+
+	const all = inflector.list_candidates()
+	const candidates = await Entry.exact(all, { glob: false })
+	const output = inflector.deinflect_all(candidates, predicate.full_text, predicate.terms)
+
 	return await cache.push_and_solve(output)
 }
 

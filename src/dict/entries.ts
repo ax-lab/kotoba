@@ -131,6 +131,11 @@ export async function search(args: { id: string; query: string }) {
 					cur_count += await query.search_exact_suffix(cache, db, predicate, limit)
 				}
 
+				// Search an entire phrase
+				if (cur_count == 0) {
+					cur_count += await query.search_phrase(cache, db, predicate, allow_partial)
+				}
+
 				count += cur_count
 			}
 

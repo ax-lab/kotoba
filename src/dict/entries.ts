@@ -122,11 +122,14 @@ export async function search(args: { id: string; query: string }) {
 				const allow_partial = extended && cur_count == 0
 				cur_count += await query.search_deinflection(cache, db, predicate, allow_partial)
 
-				// We limit prefix and suffix queries on all but the last
-				// predicate. The reason for this is that we want to have
-				// as many predicate results visible on the first page.
+				// Limit applied to partial searches like prefix, suffix, and
+				// contains.
+				//
+				// We limit all but the last predicate to keep the results of
+				// multiple-term queries more manageable.
+				const limit = extended ? 0 : 10
+
 				if (cur_count == 0 || extended) {
-					const limit = extended ? 0 : 10
 					cur_count += await query.search_with_mode('prefix', 'exact', cache, db, predicate, limit)
 					cur_count += await query.search_with_mode('suffix', 'exact', cache, db, predicate, limit)
 				}
@@ -134,6 +137,42 @@ export async function search(args: { id: string; query: string }) {
 				// Search an entire phrase
 				if (cur_count == 0) {
 					cur_count += await query.search_phrase(cache, db, predicate, allow_partial)
+				}
+
+				// The contains search is very slow, so we limit this the last
+				// term and only if no other results were found.
+				if (cur_count == 0 || extended) {
+					cur_count += await query.search_with_mode('contains', 'exact', cache, db, predicate, limit)
+				}
+
+				// If no results were found, try the approximate search. Also if
+				// explicitly requested.
+				const is_approximate = predicate.type == 'query' && predicate.mode == 'approximate'
+
+				// We also return approximate results for the last predicate
+				// regardless.
+				if (cur_count == 0 || extended || is_approximate) {
+					cur_count += await query.search_with_mode('full', 'approx', cache, db, predicate, limit)
+				}
+
+				if (cur_count == 0 && (extended || is_approximate)) {
+					cur_count += await query.search_with_mode('prefix', 'approx', cache, db, predicate, limit)
+				}
+
+				if (cur_count == 0 && (extended || is_approximate)) {
+					cur_count += await query.search_with_mode('suffix', 'approx', cache, db, predicate, limit)
+				}
+
+				if (cur_count == 0 && (extended || is_approximate)) {
+					cur_count += await query.search_with_mode('contains', 'approx', cache, db, predicate, limit)
+				}
+
+				// Fuzzy queries are only done if explicitly requested.
+				if (predicate.type == 'query' && predicate.mode == 'fuzzy') {
+					cur_count += await query.search_with_mode('full', 'fuzzy', cache, db, predicate, limit)
+					cur_count += await query.search_with_mode('prefix', 'fuzzy', cache, db, predicate, limit)
+					cur_count += await query.search_with_mode('suffix', 'fuzzy', cache, db, predicate, limit)
+					cur_count += await query.search_with_mode('contains', 'fuzzy', cache, db, predicate, limit)
 				}
 
 				count += cur_count

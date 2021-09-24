@@ -638,7 +638,7 @@ function match_predicate(entry: Entry, mode: EntryMatchMode, predicate: SearchPr
 		.shift()
 
 	return !match
-		? entry
+		? entry.with_match_info({ mode, query: '', text: '', segments: '' })
 		: entry.with_match_info({
 				mode,
 				query: match.query,

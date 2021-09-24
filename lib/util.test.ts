@@ -1,5 +1,5 @@
 import { describe, expect, test } from './testutil'
-import { bytes, duration, escape_regex } from './util'
+import { bytes, compile_glob, duration, escape_regex } from './util'
 
 describe('lib/util', () => {
 	test('bytes', () => {
@@ -70,5 +70,25 @@ describe('lib/util', () => {
 		const src = `^ $ * + ? . ( ) | { } [ ] [[]] \\`
 		const out = `\\^ \\$ \\* \\+ \\? \\. \\( \\) \\| \\{ \\} \\[ \\] \\[\\[\\]\\] \\\\`
 		expect(escape_regex(src)).toBe(out)
+	})
+
+	test('compile_glob', () => {
+		const re = compile_glob('abc???-(*)_+')
+		// basic glob matching
+		expect(re.test('abcXYZ-()_+')).toBeTruthy()
+		expect(re.test('abc123-(A)_+')).toBeTruthy()
+		expect(re.test('abc123-(AB)_+')).toBeTruthy()
+		expect(re.test('abc123-(ABC)_+')).toBeTruthy()
+
+		// extra characters
+		expect(re.test('!abc123-(ABC)_+')).toBeFalsy()
+		expect(re.test('abc123-(ABC)_+!')).toBeFalsy()
+
+		// regex escaping
+		expect(re.test('abc123-(ABC)__+')).toBeFalsy()
+
+		// multi-byte characters
+		expect(re.test('abc𤭢𤭢𤭢-(ABC)_+')).toBeTruthy()
+		expect(re.test('abc𤭢𤭢-(ABC)_+')).toBeFalsy()
 	})
 })

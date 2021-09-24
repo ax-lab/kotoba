@@ -15,14 +15,6 @@
 	// Title
 	//------------------------------------------------------------------------//
 
-	.entry-match-icon {
-		@include theme.no-select;
-		color: theme.$color-light;
-		display: inline-block;
-		width: 1.5em;
-		text-align: center;
-	}
-
 	h1,
 	h2 {
 		display: inline-block;
@@ -67,6 +59,14 @@
 
 	.entry-view-extra {
 		margin-left: theme.$spacing-thin;
+
+		&.highlight {
+			color: theme.$highlight-info-alt;
+		}
+	}
+
+	.highlight-match {
+		background-color: color.scale(theme.$background, $lightness: -30%);
 	}
 
 	//------------------------------------------------------------------------//

@@ -7,11 +7,11 @@ export const SCHEMA_TEXT = `
 
 	${SearchPage()}
 
-	${KeywordList()}
-
 	${Tag()}
 
 	${Entry()}
+
+	${EntryMatch()}
 
 	${EntryKanji()}
 
@@ -24,8 +24,6 @@ export const SCHEMA_TEXT = `
 	${EntrySenseSource()}
 
 	${EntrySenseGlossary()}
-
-	${DeinflectEntry()}
 `
 
 function Query() {
@@ -62,7 +60,7 @@ function Query() {
 
 			deinflect(input: String!): [Entry!]!
 
-			deinflect_all(input: String!): [DeinflectEntry!]!
+			deinflect_all(input: String!): [Entry!]!
 
 			"""
 			Lookup entries by the kanji/reading pair.
@@ -192,15 +190,6 @@ function Query() {
 				query: String!
 
 			): SearchResult!
-
-			"""
-			List entries by keyword.
-
-			The keyword is searched in both the kanji and reading elements of the
-			entries. Both keyword and entry elements are also converted to hiragana
-			before matching.
-			"""
-			list(keyword: String!): KeywordList!
 		}
 	`
 }
@@ -296,167 +285,6 @@ function SearchPage() {
 	`
 }
 
-function KeywordList() {
-	return `
-		"""
-		Main element for looking up entries by keyword.
-		"""
-		type KeywordList {
-			"""
-			List of entries that have an exact match to the keyword.
-			"""
-			exact: [Entry!]!
-
-			"""
-			List of entries that match the keyword. This differs from 'exact' in
-			that it allows approximate and fuzzy matching.
-			"""
-			matches(
-				"""
-				Offset the returned results by the given number of entries. Zero
-				will return the first entry.
-				"""
-				offset: Int! = 0,
-
-				"""
-				Limits the number of entries returned. This must be a positive
-				non-zero value.
-				"""
-				limit: Int! = 100,
-
-				"""
-				If true, instead of matching literally the text will be matched
-				using an approximate comparison. This approximate comparison is
-				meant to match similar words by ignoring things like long vowels,
-				the small-tsu, kana voiced marks (e.g. は、ば、ぱ will match), and
-				any extraneous characters (e.g. symbols, and leftover ASCII from
-				a partial IME conversion).
-				"""
-				approx: Boolean,
-
-				"""
-				This performs the same comparison as with 'approx' enabled, but will
-				also match a non-continuous sequence of characters. That means that
-				as long as every character of the approximate keyword is contained
-				in order in the matched sequence, the entry will match.
-				"""
-				fuzzy: Boolean
-			): [Entry!]
-
-			"""
-			List of entries that have a prefix that matches the keyword.
-
-			Note that this excludes exact matches.
-			"""
-			prefix(
-				"""
-				Offset the returned results by the given number of entries. Zero
-				will return the first entry.
-				"""
-				offset: Int! = 0,
-
-				"""
-				Limits the number of entries returned. This must be a positive
-				non-zero value.
-				"""
-				limit: Int! = 100,
-
-				"""
-				If true, instead of matching literally the text will be matched
-				using an approximate comparison. This approximate comparison is
-				meant to match similar words by ignoring things like long vowels,
-				the small-tsu, kana voiced marks (e.g. は、ば、ぱ will match), and
-				any extraneous characters (e.g. symbols, and leftover ASCII from
-				a partial IME conversion).
-				"""
-				approx: Boolean,
-
-				"""
-				This performs the same comparison as with 'approx' enabled, but will
-				also match a non-continuous sequence of characters. That means that
-				as long as every character of the approximate keyword is contained
-				in order in the matched sequence, the entry will match.
-				"""
-				fuzzy: Boolean
-			): [Entry!]!
-
-			"""
-			List of entries that have a suffix that matches the keyword.
-
-			Note that this excludes exact matches.
-			"""
-			suffix(
-				"""
-				Offset the returned results by the given number of entries. Zero
-				will return the first entry.
-				"""
-				offset: Int! = 0,
-
-				"""
-				Limits the number of entries returned. This must be a positive
-				non-zero value.
-				"""
-				limit: Int! = 100,
-
-				"""
-				If true, instead of matching literally the text will be matched
-				using an approximate comparison. This approximate comparison is
-				meant to match similar words by ignoring things like long vowels,
-				the small-tsu, kana voiced marks (e.g. は、ば、ぱ will match), and
-				any extraneous characters (e.g. symbols, and leftover ASCII from
-				a partial IME conversion).
-				"""
-				approx: Boolean,
-
-				"""
-				This performs the same comparison as with 'approx' enabled, but will
-				also match a non-continuous sequence of characters. That means that
-				as long as every character of the approximate keyword is contained
-				in order in the matched sequence, the entry will match.
-				"""
-				fuzzy: Boolean
-			): [Entry!]!
-
-			"""
-			List of entries that contain text that match the keyword.
-
-			Note that this excludes exact, suffix, and prefix matches.
-			"""
-			contains(
-				"""
-				Offset the returned results by the given number of entries. Zero
-				will return the first entry.
-				"""
-				offset: Int! = 0,
-
-				"""
-				Limits the number of entries returned. This must be a positive
-				non-zero value.
-				"""
-				limit: Int! = 100,
-
-				"""
-				If true, instead of matching literally the text will be matched
-				using an approximate comparison. This approximate comparison is
-				meant to match similar words by ignoring things like long vowels,
-				the small-tsu, kana voiced marks (e.g. は、ば、ぱ will match), and
-				any extraneous characters (e.g. symbols, and leftover ASCII from
-				a partial IME conversion).
-				"""
-				approx: Boolean,
-
-				"""
-				This performs the same comparison as with 'approx' enabled, but will
-				also match a non-continuous sequence of characters. That means that
-				as long as every character of the approximate keyword is contained
-				in order in the matched sequence, the entry will match.
-				"""
-				fuzzy: Boolean
-			): [Entry!]!
-		}
-	`
-}
-
 function Tag() {
 	return `
 		"Tag applicable to dictionary entries."
@@ -482,20 +310,10 @@ function Entry() {
 			id: String!
 
 			"""
-			When the entry is loaded through a search, this is the match mode for
-			the expression.
-
-			Valid values are:
-			- exact, prefix, suffix, contains
-			- approx, approx-prefix, approx-suffix, approx-contains
-			- fuzzy, fuzzy-prefix, fuzzy-suffix, fuzzy-contains
+			When the entry is loaded through a search, this contains additional
+			information about the match.
 			"""
-			match_mode: String
-
-			"""
-			De-inflection rules used to match this entry.
-			"""
-			deinflect: [String!]
+			match: EntryMatch
 
 			"""
 			This will be the expression for the first entry in 'kanji' if available,
@@ -587,6 +405,61 @@ function Entry() {
 			meanings of the word, multiple sense elements will be employed.
 			"""
 			sense: [EntrySense!]!
+		}
+	`
+}
+
+function EntryMatch() {
+	return `
+		"""
+		For an Entry matched through a search this includes additional
+		information about the match.
+		"""
+		type EntryMatch {
+			"""
+			Lookup mode that matched the entry.
+
+			Valid values are:
+			- exact, prefix, suffix, contains
+			- approx, approx-prefix, approx-suffix, approx-contains
+			- fuzzy, fuzzy-prefix, fuzzy-suffix, fuzzy-contains
+			"""
+			mode: String!
+
+			"""
+			Portion of the search query that matched.
+			"""
+			query: String!
+
+			"""
+			Position from the query that matched. This is only available for
+			de-inflected matches.
+			"""
+			position: Int
+
+			"""
+			Full text of the kanji or reading that was matched.
+			"""
+			text: String!
+
+			"""
+			Sequence (possibly non-continuous) of "match_text" that was matched.
+			"""
+			segments: String!
+
+			"""
+			For de-inflected entries, this is the inflected suffix of the
+			original query term.
+
+			Note that if the suffix had to be completed, this will contain
+			a dot (.) splitting the completed suffix.
+			"""
+			inflected_suffix: String
+
+			"""
+			De-inflection rules used to match this entry.
+			"""
+			inflection_rules: [String!]
 		}
 	`
 }
@@ -879,35 +752,6 @@ function EntrySenseGlossary() {
 			Possible values are 'literal' | 'figurative' | 'explanation'
 			"""
 			type: String
-		}
-	`
-}
-
-function DeinflectEntry() {
-	return `
-		"""
-		Entry in the list returned by 'deinflect_all'.
-		"""
-		type DeinflectEntry {
-			"""
-			Raw part of the input text that was matched to this entry.
-			"""
-			input: String!
-
-			"""
-			The processed input that was used to actually match to the entry.
-			"""
-			keyword: String!
-
-			"""
-			Position in the input text that was matched to this entry.
-			"""
-			position: Int!
-
-			"""
-			De-inflected entries.
-			"""
-			entries: [Entry!]!
 		}
 	`
 }

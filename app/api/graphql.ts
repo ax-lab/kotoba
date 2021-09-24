@@ -45,7 +45,14 @@ export const ENTRY_FRAGMENTS = `
 
 	fragment EntryF on Entry {
 		id
-		match_mode
+		match {
+			mode
+			query
+			text
+			segments
+			inflected_suffix
+			inflection_rules
+		}
 		word
 		read
 		text

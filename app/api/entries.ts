@@ -308,8 +308,9 @@ export abstract class Query {
 
 		this._next_count_refresh = (setTimeout(() => {
 			this.fetch_entries(0, 0)
-				.then(({ count, complete }) => {
+				.then(({ count, complete, elapsed }) => {
 					this.count = count
+					this._elapsed = Math.max(this.elapsed, elapsed || 0)
 					if (complete) {
 						this._is_count_complete = true
 					} else {

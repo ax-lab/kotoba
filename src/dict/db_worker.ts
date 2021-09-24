@@ -33,12 +33,40 @@ function get_db(file: string) {
 
 PRELOAD.forEach((it) => get_db(it))
 
-parentPort!.on('message', ({ file, sql, params }: { id: number; file: string; sql: string; params?: unknown }) => {
-	const db = get_db(file)
-	const stmt = db.prepare(sql)
-	if (params) {
-		stmt.bind(params)
-	}
-	const rows = stmt.all()
-	parentPort!.postMessage(rows)
-})
+parentPort!.on(
+	'message',
+	({
+		file,
+		sql,
+		params,
+		incremental,
+	}: {
+		id: number
+		file: string
+		sql: string
+		params?: unknown
+		incremental?: boolean
+	}) => {
+		try {
+			const db = get_db(file)
+			const stmt = db.prepare(sql)
+			if (params) {
+				stmt.bind(params)
+			}
+			if (incremental) {
+				for (const row of stmt.iterate()) {
+					parentPort!.postMessage(row)
+				}
+				parentPort!.postMessage('done')
+			} else {
+				const rows = stmt.all()
+				parentPort!.postMessage(rows)
+			}
+		} catch (e) {
+			const err = e as Error
+			parentPort!.postMessage({
+				error: `${err}${err.stack ? ' \n-- Stack: ' + err.stack + '\n--' : ''}`,
+			})
+		}
+	},
+)

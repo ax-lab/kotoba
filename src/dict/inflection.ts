@@ -58,6 +58,11 @@ type Candidate = {
 	source: string
 
 	/**
+	 * Position from the query that match this candidate.
+	 */
+	position: number
+
+	/**
 	 * If the original deinflection is partial, this is the added suffix.
 	 */
 	partial: string
@@ -275,11 +280,13 @@ export class Deinflector {
 					const candidate = match.candidate
 					const info = get_inflection_info(candidate.term, candidate.reasons, candidate.partial)
 					const input_text = phrase.slice(segment.sta, segment.end)
+					const position = segment.sta + pos
 
 					let matches = match.entries.map((x) =>
 						x.with_match_info({
 							mode: candidate.reasons.length ? 'deinflect' : 'exact',
 							query: input_text,
+							position,
 							text: candidate.term,
 							segments: info.prefix,
 							inflected_suffix: info.suffix_pos,
@@ -303,9 +310,13 @@ export class Deinflector {
 
 					filter_if((x) => (x.kanji[0] && x.kanji[0].expr == input_text) || x.reading[0].expr == input_text)
 
+					if (!kana.is_kana(input_text)) {
+						filter_if((x) => x.popular)
+					}
+
 					if (matches.length) {
 						output.push({
-							position: pos + segment.sta,
+							position,
 							entries: matches,
 						})
 
@@ -373,6 +384,7 @@ export class Deinflector {
 					entry.with_match_info({
 						mode: 'deinflect',
 						query: deinflect.source,
+						position: deinflect.position,
 						text: expr,
 						segments: info.prefix,
 						inflected_suffix: info.suffix_pos,
@@ -391,7 +403,7 @@ export class Deinflector {
 
 		const out: Candidate[] = []
 		const queue: Candidate[] = [
-			{ term: source, source, partial: '', prefix: source, rules: new Set(), reasons: [] },
+			{ term: source, source, position: 0, partial: '', prefix: source, rules: new Set(), reasons: [] },
 		]
 
 		for (let i = 0; i < queue.length; i++) {
@@ -435,6 +447,7 @@ export class Deinflector {
 				queue.push({
 					term: next,
 					source: current.source,
+					position: current.position,
 					partial: current.partial || partial,
 					prefix,
 					rules: new Set(rule.rulesOut),

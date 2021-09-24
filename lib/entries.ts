@@ -31,6 +31,11 @@ export type EntryMatch = {
 	query: string
 
 	/**
+	 * Position in the query that matched.
+	 */
+	position?: number
+
+	/**
 	 * Expression (kanji or reading) that was matched.
 	 */
 	text: string

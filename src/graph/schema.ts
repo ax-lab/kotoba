@@ -432,6 +432,12 @@ function EntryMatch() {
 			query: String!
 
 			"""
+			Position from the query that matched. This is only available for
+			de-inflected matches.
+			"""
+			position: Int
+
+			"""
 			Full text of the kanji or reading that was matched.
 			"""
 			text: String!

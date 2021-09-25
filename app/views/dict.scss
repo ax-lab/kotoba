@@ -23,4 +23,19 @@ input {
 	flex-direction: column;
 	flex-grow: 1;
 	min-height: 0; // prevent parent flexbox overflow
+
+	.input-toolbar {
+		display: flex;
+		flex-direction: row;
+
+		& > input {
+			flex: 1;
+		}
+
+		button {
+			margin-right: theme.$spacing;
+			font-size: 0.9em;
+			width: 50px;
+		}
+	}
 }

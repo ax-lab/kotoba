@@ -159,6 +159,8 @@ const Dict = () => {
 
 	const [query, set_query] = React.useState<entries.Query>(entries.all())
 
+	const [remote, set_remote] = React.useState(false)
+
 	const lookup = async (raw_text: string) => {
 		const text = raw_text.trim().replace(/\s+/g, ' ')
 		if (text == search.current) {
@@ -189,15 +191,24 @@ const Dict = () => {
 
 	return (
 		<div className="dict-view">
-			<input
-				type="search"
-				ref={input_el}
-				lang="ja"
-				defaultValue={search_text}
-				placeholder="Search..."
-				spellCheck={false}
-				onInput={(ev) => on_search((ev.target as HTMLInputElement).value)}
-			/>
+			<div className="input-toolbar">
+				<input
+					type="search"
+					ref={input_el}
+					lang="ja"
+					defaultValue={search_text}
+					placeholder="Search..."
+					spellCheck={false}
+					onInput={(ev) => on_search((ev.target as HTMLInputElement).value)}
+				/>
+				<button
+					className={`fas fa-${remote ? 'link' : 'unlink'}`}
+					onClick={() => {
+						set_remote(!remote)
+						input_el.current?.focus()
+					}}
+				></button>
+			</div>
 			<hr />
 			<ResultListing query={query} search={search_text} />
 		</div>

@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { useHistory, useParams } from 'react-router'
 
 import { duration } from '../../lib'
+import { events } from '../api'
 import * as entries from '../api/entries'
 import List from '../components/list'
 
@@ -143,6 +144,13 @@ const Dict = () => {
 			input.focus()
 			input.select()
 		}
+	}, [])
+
+	useEffect(() => {
+		const cleanup = events.watch_remote_input('video', (ev) => {
+			console.log('REMOTE INPUT:', ev.input, ev.sequence)
+		})
+		return () => cleanup()
 	}, [])
 
 	const search = React.useRef('')

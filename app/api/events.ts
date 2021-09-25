@@ -1,4 +1,4 @@
-import { EventSubtitleChange, EventVideoPlayback, ServerEvent } from '../../lib'
+import { EventRemoteInput, EventSubtitleChange, EventVideoPlayback, ServerEvent } from '../../lib'
 
 export type EventCallback = (data: ServerEvent) => void
 
@@ -177,6 +177,14 @@ class Events {
 	watch_subtitle(name: string, callback: (ev: EventSubtitleChange) => void) {
 		return this.register(name, (ev) => {
 			if (ev.type == 'subtitle-change') {
+				callback(ev)
+			}
+		})
+	}
+
+	watch_remote_input(name: string, callback: (ev: EventRemoteInput) => void) {
+		return this.register(name, (ev) => {
+			if (ev.type == 'remote-input') {
 				callback(ev)
 			}
 		})

@@ -3,6 +3,8 @@
 export const SCHEMA_TEXT = `
 	${Query()}
 
+	${Mutation()}
+
 	${SearchResult()}
 
 	${SearchPage()}
@@ -190,6 +192,14 @@ function Query() {
 				query: String!
 
 			): SearchResult!
+		}
+	`
+}
+
+function Mutation() {
+	return `
+		type Mutation {
+			remote_input(input: String!, sequence: Float!): Boolean!
 		}
 	`
 }

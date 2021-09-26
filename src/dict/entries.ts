@@ -77,9 +77,6 @@ export async function lookup({ kanji, reading }: { kanji: string; reading: strin
  */
 export async function search(args: { id: string; query: string }) {
 	const parsed = query.parse(args.query)
-	if (!parsed.predicates.length) {
-		return
-	}
 
 	// Get a cached search instance if any. This will create a new instance if
 	// none is available.
@@ -92,19 +89,6 @@ export async function search(args: { id: string; query: string }) {
 		cache.start_if(async () => {
 			const db = await DB.get_dict()
 			const start = now()
-
-			// [X] - mode: 'exact', name: 'exact match'
-			// [X] - mode: 'prefix', name: 'exact prefix'
-			// [X] - mode: 'suffix', name: 'exact suffix'
-			// [ ] - mode: 'contains', name: 'exact contains'
-			// [ ] - mode: 'approx', name: 'approx match'
-			// [ ] - mode: 'approx-prefix', name: 'approx prefix'
-			// [ ] - mode: 'approx-suffix', name: 'approx suffix'
-			// [ ] - mode: 'approx-contains', name: 'approx contains'
-			// [ ] - mode: 'fuzzy', name: 'fuzzy match'
-			// [ ] - mode: 'fuzzy-prefix', name: 'fuzzy prefix'
-			// [ ] - mode: 'fuzzy-suffix', name: 'fuzzy suffix'
-			// [ ] - mode: 'fuzzy-contains', name: 'fuzzy contains'
 
 			let count = 0
 
@@ -119,8 +103,17 @@ export async function search(args: { id: string; query: string }) {
 				let cur_count = 0
 				cur_count += await query.search_exact(cache, db, predicate)
 
-				const allow_partial = extended && cur_count == 0
-				cur_count += await query.search_deinflection(cache, db, predicate, allow_partial)
+				if (extended || cur_count == 0) {
+					const allow_partial = extended && cur_count == 0
+					cur_count += await query.search_deinflection(
+						cache,
+						db,
+						predicate,
+						allow_partial,
+						// hard limit the maximum number of deinflected matches on entries that have results
+						cur_count > 0 ? 10 : 0,
+					)
+				}
 
 				// Limit applied to partial searches like prefix, suffix, and
 				// contains.
@@ -136,6 +129,7 @@ export async function search(args: { id: string; query: string }) {
 
 				// Search an entire phrase
 				if (cur_count == 0) {
+					const allow_partial = extended
 					cur_count += await query.search_phrase(cache, db, predicate, allow_partial)
 				}
 

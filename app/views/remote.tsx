@@ -24,6 +24,7 @@ const Remote = () => {
 				lang="ja"
 				placeholder="Search..."
 				spellCheck={false}
+				autoFocus={true}
 				onInput={(ev) => on_search((ev.target as HTMLInputElement).value)}
 				onKeyDown={(ev) => {
 					if (ev.key == 'Enter') {

@@ -4,6 +4,7 @@ import { NavLink, Route, BrowserRouter as Router } from 'react-router-dom'
 
 import Dict from './views/dict'
 import Home from './views/home'
+import Remote from './views/remote'
 import Video from './views/video'
 
 const App = () => (
@@ -26,6 +27,11 @@ const App = () => (
 							Video
 						</NavLink>
 					</li>
+					<li>
+						<NavLink to="/remote" activeClassName="active">
+							Remote
+						</NavLink>
+					</li>
 				</ul>
 			</nav>
 			<Switch>
@@ -37,6 +43,9 @@ const App = () => (
 				</Route>
 				<Route path="/dict/:expr*">
 					<Dict />
+				</Route>
+				<Route path="/remote">
+					<Remote />
 				</Route>
 			</Switch>
 		</>

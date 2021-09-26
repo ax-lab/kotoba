@@ -111,8 +111,6 @@ const EntryLabel = (entry: Entry, text: string) => {
 		sequence.push(text.slice(position))
 	}
 
-	console.log(sequence)
-
 	return sequence
 }
 

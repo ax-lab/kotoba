@@ -1,4 +1,5 @@
 import * as dict from '../dict'
+import { server_events } from '../event_dispatcher'
 
 /**
  * The root GraphQL resolver.
@@ -16,4 +17,13 @@ export const ROOT_RESOLVER = {
 	entries: dict.entries.by_ids,
 	lookup: dict.entries.lookup,
 	search: dict.entries.search,
+
+	remote_input: (args: { input: string; sequence: number }) => {
+		server_events.post({
+			type: 'remote-input',
+			input: args.input,
+			sequence: args.sequence,
+		})
+		return true
+	},
 }

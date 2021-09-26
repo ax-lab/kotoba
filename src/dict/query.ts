@@ -319,6 +319,7 @@ export async function search_deinflection(
 	_db: DB,
 	predicate: SearchPredicate,
 	allow_partial = false,
+	limit_max = 0,
 ) {
 	const inflector = new inflection.Deinflector()
 	const reject: RegExp[] = []
@@ -352,6 +353,10 @@ export async function search_deinflection(
 
 	// Filter the entries through the de-inflector.
 	const output = inflector.filter(entries)
+	if (limit_max > 0 && output.length > limit_max) {
+		return 0
+	}
+
 	return await cache.push_and_solve(output)
 }
 
@@ -360,6 +365,12 @@ export async function search_deinflection(
  */
 export async function search_phrase(cache: SearchCache, db: DB, predicate: SearchPredicate, allow_partial = false) {
 	if (predicate.type != 'sentence') {
+		return 0
+	}
+
+	// Fully kana sentences are usually not a phrase, and trying to deinflect
+	// them gets to noisy.
+	if (kana.is_kana(predicate.full_text)) {
 		return 0
 	}
 

@@ -1,0 +1,36 @@
+@use 'sass:color';
+@use '../css/theme';
+
+.history-view {
+	display: flex;
+	flex-direction: column;
+	flex-grow: 1;
+	min-height: 0; // prevent parent flexbox overflow
+
+	padding: theme.$spacing;
+
+	.history-entry {
+		display: flex;
+		flex-direction: row;
+
+		padding: theme.$spacing;
+
+		button {
+			margin-right: 1em;
+			padding: theme.$spacing * 2;
+			opacity: 0.5;
+
+			transition-property: opacity;
+			transition-duration: 0.3s;
+
+			&:hover {
+				opacity: 1;
+			}
+		}
+
+		p {
+			flex: 1;
+			font-size: 2em;
+		}
+	}
+}

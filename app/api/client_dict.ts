@@ -176,3 +176,54 @@ export type SearchPage = {
 	limit: number
 	entries: Entry[]
 }
+
+//----------------------------------------------------------------------------//
+// History
+//----------------------------------------------------------------------------//
+
+export type HistoryEntry = {
+	id: string
+	text: string
+	date: Date
+}
+
+/**
+ * Return the list of saved phrases from the history.
+ */
+export async function list_history() {
+	const out = await graphql.query<{ phrases: { id: string; text: string; date: string }[] }>(
+		`query {
+			phrases {
+				id text date
+			}
+		}`,
+	)
+	return out.phrases
+		.map<HistoryEntry>((x) => ({ ...x, date: new Date(x.date) }))
+		.sort((a, b) => b.date.getTime() - a.date.getTime())
+}
+
+/**
+ * Save a phrase to the history.
+ */
+export async function save_history(text: string) {
+	const out = await graphql.query<{ id: string }>(
+		`mutation($text: String!) {
+			id: add_phrase(text: $text)
+		}`,
+		{ text },
+	)
+	return out.id
+}
+
+/**
+ * Delete a phrase from the history.
+ */
+export async function remove_history(id: string) {
+	await graphql.query(
+		`mutation($id: String!) {
+			remove_phrase(id: $id)
+		}`,
+		{ id },
+	)
+}

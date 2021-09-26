@@ -127,7 +127,12 @@ export type SubtitleLoadParams = {
  * Server events
  *============================================================================*/
 
-export type ServerEvent = EventVideoPlayback | EventMediaHistory | EventSubtitleChange | EventRemoteInput
+export type ServerEvent =
+	| EventVideoPlayback
+	| EventMediaHistory
+	| EventSubtitleChange
+	| EventRemoteInput
+	| EventHistoryChange
 
 /**
  * Interface for a generic event.
@@ -171,4 +176,8 @@ export interface EventRemoteInput extends BaseEvent {
 	type: 'remote-input'
 	input: string
 	sequence: number
+}
+
+export interface EventHistoryChange extends BaseEvent {
+	type: 'history-change'
 }

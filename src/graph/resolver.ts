@@ -34,11 +34,14 @@ export const ROOT_RESOLVER = {
 	},
 
 	async add_phrase({ text }: { text: string }) {
-		return await phrases.add_phrase(text)
+		const out = await phrases.add_phrase(text)
+		server_events.post({ type: 'history-change' })
+		return out
 	},
 
 	async remove_phrase({ id }: { id: string }) {
 		await phrases.remove_phrase(id)
+		server_events.post({ type: 'history-change' })
 		return true
 	},
 }

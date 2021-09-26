@@ -3,6 +3,7 @@ import { Switch } from 'react-router'
 import { NavLink, Route, BrowserRouter as Router } from 'react-router-dom'
 
 import Dict from './views/dict'
+import History from './views/history'
 import Home from './views/home'
 import Remote from './views/remote'
 import Video from './views/video'
@@ -28,6 +29,11 @@ const App = () => (
 						</NavLink>
 					</li>
 					<li>
+						<NavLink to="/history" activeClassName="active">
+							History
+						</NavLink>
+					</li>
+					<li>
 						<NavLink to="/remote" activeClassName="active">
 							Remote
 						</NavLink>
@@ -43,6 +49,9 @@ const App = () => (
 				</Route>
 				<Route path="/dict/:expr*">
 					<Dict />
+				</Route>
+				<Route path="/history">
+					<History />
 				</Route>
 				<Route path="/remote">
 					<Remote />

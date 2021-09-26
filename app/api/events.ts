@@ -1,4 +1,4 @@
-import { EventRemoteInput, EventSubtitleChange, EventVideoPlayback, ServerEvent } from '../../lib'
+import { EventHistoryChange, EventRemoteInput, EventSubtitleChange, EventVideoPlayback, ServerEvent } from '../../lib'
 
 export type EventCallback = (data: ServerEvent) => void
 
@@ -185,6 +185,14 @@ class Events {
 	watch_remote_input(name: string, callback: (ev: EventRemoteInput) => void) {
 		return this.register(name, (ev) => {
 			if (ev.type == 'remote-input') {
+				callback(ev)
+			}
+		})
+	}
+
+	watch_history_change(name: string, callback: (ev: EventHistoryChange) => void) {
+		return this.register(name, (ev) => {
+			if (ev.type == 'history-change') {
 				callback(ev)
 			}
 		})

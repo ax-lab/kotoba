@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import { useHistory, useParams } from 'react-router'
 
-import { check, duration } from '../../lib'
+import { check, duration, kana } from '../../lib'
 import { events } from '../api'
 import * as entries from '../api/entries'
 import List from '../components/list'
@@ -125,6 +125,52 @@ const Dict = () => {
 	const { expr } = useParams<{ expr: string }>()
 
 	const search_text = decodeURIComponent(expr || '')
+
+	//----[ Kanji stroke order display ]--------------------------------------//
+
+	useEffect(() => {
+		let throttled = false
+		let element: Element | null = null
+
+		const clear_display = () => {
+			document.querySelectorAll('.stroke-order').forEach((x) => x.parentNode?.removeChild(x))
+		}
+
+		const scan_cursor = (ev: MouseEvent) => {
+			if (throttled) {
+				return
+			}
+			throttled = true
+			setTimeout(() => (throttled = false), 50)
+
+			const el = document.elementFromPoint(ev.clientX, ev.clientY)
+			if (element != el) {
+				clear_display()
+				element = el
+				if (el && el.tagName == 'SPAN') {
+					const text = [...(el.textContent || '')].filter((chr) => kana.is_kanji(chr))
+					text &&
+						setTimeout(() => {
+							if (element == el) {
+								const display = document.createElement('div')
+								display.classList.add('stroke-order')
+								display.textContent = text.join('')
+								document.body.appendChild(display)
+							}
+						}, 250)
+				}
+			}
+		}
+
+		document.addEventListener('mousemove', scan_cursor)
+		return () => {
+			document.removeEventListener('mousemove', scan_cursor)
+			clear_display()
+			element = null
+		}
+	}, [])
+
+	//----[ Dictionary search ]-----------------------------------------------//
 
 	// Synchronize the document title with the search query
 	useEffect(() => {

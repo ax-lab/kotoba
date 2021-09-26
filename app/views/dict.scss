@@ -39,3 +39,16 @@ input {
 		}
 	}
 }
+
+.stroke-order {
+	position: fixed;
+	right: 32px;
+	bottom: 32px;
+
+	background: color.change(theme.$background-deep, $alpha: 0.5);
+	padding: theme.$spacing;
+
+	font-family: stroke-order;
+	font-size: 10em;
+	border: 1px solid color.scale(theme.$background-deep, $lightness: -50%);
+}

@@ -33,4 +33,10 @@
 			font-size: 2em;
 		}
 	}
+
+	.history-separator {
+		border: 1px solid theme.$background-deep;
+		height: 1px;
+		opacity: 0.5;
+	}
 }

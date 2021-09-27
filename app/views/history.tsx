@@ -33,14 +33,17 @@ const History = () => {
 					item={(n) => {
 						const item = items[n]
 						return (
-							<div className="history-entry" key={item.id} title={format_date(item.date)}>
-								<button
-									className="fas fa-trash-alt"
-									onClick={() => {
-										void remove_history(item.id)
-									}}
-								></button>
-								<p lang="jp">{item.text}</p>
+							<div>
+								<div className="history-entry" key={item.id} title={format_date(item.date)}>
+									<button
+										className="fas fa-trash-alt"
+										onClick={() => {
+											void remove_history(item.id)
+										}}
+									></button>
+									<p lang="jp">{item.text}</p>
+								</div>
+								<div className="history-separator">&nbsp;</div>
 							</div>
 						)
 					}}

@@ -3,6 +3,7 @@ import { useHistory, useParams } from 'react-router'
 
 import { check, duration, kana } from '../../lib'
 import { events } from '../api'
+import { save_history } from '../api/client_dict'
 import * as entries from '../api/entries'
 import List from '../components/list'
 
@@ -322,6 +323,18 @@ const Dict = () => {
 					placeholder="Search..."
 					spellCheck={false}
 					onInput={(ev) => on_search((ev.target as HTMLInputElement).value)}
+					onKeyPress={(ev) => {
+						if (ev.key == 'Enter') {
+							const text = (ev.target as HTMLInputElement).value.replace(/[A-Za-z]+/g, (txt) =>
+								kana.to_hiragana(txt),
+							)
+							if (text) {
+								save_history(text)
+									.then((id) => console.log(`saved "${text}" as ${id}`))
+									.catch((err) => console.error('failed to save history', err))
+							}
+						}
+					}}
 				/>
 				<button
 					className={`fas fa-${remote ? 'link' : 'unlink'}`}

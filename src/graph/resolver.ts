@@ -1,6 +1,8 @@
 import * as dict from '../dict'
 import { server_events } from '../event_dispatcher'
 
+import * as phrases from './phrases'
+
 /**
  * The root GraphQL resolver.
  */
@@ -24,6 +26,22 @@ export const ROOT_RESOLVER = {
 			input: args.input,
 			sequence: args.sequence,
 		})
+		return true
+	},
+
+	async phrases() {
+		return await phrases.list_phrases()
+	},
+
+	async add_phrase({ text }: { text: string }) {
+		const out = await phrases.add_phrase(text)
+		server_events.post({ type: 'history-change' })
+		return out
+	},
+
+	async remove_phrase({ id }: { id: string }) {
+		await phrases.remove_phrase(id)
+		server_events.post({ type: 'history-change' })
 		return true
 	},
 }

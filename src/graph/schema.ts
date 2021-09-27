@@ -26,6 +26,8 @@ export const SCHEMA_TEXT = `
 	${EntrySenseSource()}
 
 	${EntrySenseGlossary()}
+
+	${PhraseEntry()}
 `
 
 function Query() {
@@ -192,6 +194,11 @@ function Query() {
 				query: String!
 
 			): SearchResult!
+
+			"""
+			List of saved phrases.
+			"""
+			phrases: [PhraseEntry!]!
 		}
 	`
 }
@@ -199,7 +206,33 @@ function Query() {
 function Mutation() {
 	return `
 		type Mutation {
+			"""
+			Post a remote input event.
+			"""
 			remote_input(input: String!, sequence: Float!): Boolean!
+
+			"""
+			Save a phrase to the history.
+			"""
+			add_phrase(text: String!): String!
+
+			"""
+			Remove a phrase from the history.
+			"""
+			remove_phrase(id: String!): Boolean!
+		}
+	`
+}
+
+function PhraseEntry() {
+	return `
+		"""
+		An entry from the phrase history.
+		"""
+		type PhraseEntry {
+			id: String!
+			text: String!
+			date: String!
 		}
 	`
 }

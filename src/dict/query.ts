@@ -183,6 +183,11 @@ type SearchRow = {
 }
 
 /**
+ * Should we consider a normal sentence with `?`, `*`, `&`, and `~` as a glob?
+ */
+const PARSE_GLOB_IN_NORMAL_SENTENCES = false
+
+/**
  * Parses a query string returning a parsed {Search} node.
  */
 export function parse(query: string): Search {
@@ -261,7 +266,7 @@ export function parse(query: string): Search {
 				default: {
 					// If the term contains any operators we also consider it
 					// as an advanced query.
-					if (/[*＊?？~～&＆]/.test(txt)) {
+					if (PARSE_GLOB_IN_NORMAL_SENTENCES && /[*＊?？~～&＆]/.test(txt)) {
 						return parse_query(txt, 'normal', false)
 					}
 

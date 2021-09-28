@@ -1,0 +1,22 @@
+Loaded 431943 lines
+Loaded 2537244 chars
+Testing to_hiragana (line)...
+- Took 1.486s
+- Took 1.409s
+- Took 1.405s
+Testing to_hiragana (text)...
+- Took 1.949s
+- Took 1.991s
+- Took 1.915s
+Testing to_katakana (line)...
+- Took 1.818s
+- Took 1.807s
+- Took 1.857s
+Testing to_romaji (line)...
+- Took 1.888s
+- Took 1.832s
+- Took 1.855s
+Testing to_romaji -> to_hiragana (line)...
+- Took 4.762s
+- Took 4.730s
+- Took 4.631s

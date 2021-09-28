@@ -20,7 +20,8 @@
 		"open-coverage": "run-s open-coverage:*",
 		"open-coverage:windows": "open-cli build\\coverage\\index.html",
 		"open-coverage:default": "open-cli build/coverage/index.html",
-		"import": "ts-node ./importer/import.ts"
+		"import": "ts-node ./importer/import.ts",
+		"kana-test": "ts-node ./src/kana-test.ts"
 	},
 	"repository": {
 		"type": "git",

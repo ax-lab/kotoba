@@ -70,9 +70,13 @@ module.exports = (env, _args) => {
 		],
 		devServer: {
 			host: '0.0.0.0',
-			contentBase: 'public',
+			static: {
+				directory: 'public',
+				serveIndex: true,
+				watch: true,
+			},
 			port: 9090,
-			injectClient: false,
+			client: false,
 			proxy: {
 				'/api': {
 					target: 'http://localhost:8086',

@@ -20,7 +20,7 @@ export default function serve_events(app: Express, base: string) {
 		const headers = {
 			'Content-Type': 'text/event-stream',
 			Connection: 'keep-alive',
-			'Cache-control': 'no-cache',
+			'Cache-control': 'no-cache, no-transform',
 		}
 
 		res.writeHead(200, headers)

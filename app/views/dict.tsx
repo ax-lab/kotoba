@@ -76,6 +76,7 @@ class ResultListing extends React.Component<DictProps> {
 				<hr />
 				<List
 					count={total}
+					list={query}
 					item={(n, args) => {
 						query.prefetch({ start: args.start, count: args.count, cancel_pending: true })
 						const entry = query.get(n)

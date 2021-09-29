@@ -283,6 +283,21 @@ class Scroller extends React.Component<ScrollerProps> {
 			// to a border.
 			this.scroll_top = scroll - base_offset
 			this._last_scroll = this.scroll_top
+		} else if (height <= actual_height && !this.scrolling && scroll != this.scroll_top) {
+			// When we are not rendering a virtual list, try to apply the
+			// specified scroll offset directly to the `scrollTop` of the
+			// element.
+			//
+			// This is mostly for situations where the renderer specifies a
+			// new scroll position different from the current scroll (e.g. when
+			// rendering a new set of items, programatically scrolling).
+			//
+			// This is important to synchronize the desired scroll with the
+			// actual `scrollTop` position, otherwise we would be scrolling
+			// using only the `translateY(offset)` and the user would become
+			// unable to scroll past the "real" scroll area without the virtual
+			// scroll bar.
+			this.scroll_top = scroll
 		}
 
 		// Recompute the base offset because desktop browser may round

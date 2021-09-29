@@ -33,6 +33,13 @@ type ListRenderArgs = {
 type ListProps = {
 	count: number
 	item: (index: number, args: ListRenderArgs) => React.ReactElement
+
+	/**
+	 * This is used just as a mutable reference to the underlying list of
+	 * items so that the list can reset state (e.g. anchor) when a new list
+	 * is loaded.
+	 */
+	list: unknown
 }
 
 /**
@@ -107,6 +114,16 @@ class List extends React.Component<ListProps> {
 
 	render() {
 		return <Scroller render={this.render_content.bind(this)} />
+	}
+
+	/**
+	 * Called when the props on the component change.
+	 */
+	componentDidUpdate(prev: ListProps) {
+		// Reset the anchor when the underlying list of items changes.
+		if (prev.list != this.props.list) {
+			this.anchor = { row_index: 0 }
+		}
 	}
 
 	/**

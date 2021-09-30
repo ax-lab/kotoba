@@ -6,7 +6,7 @@
 	"private": true,
 	"scripts": {
 		"start": "run-p start:*",
-		"main": "ts-node ./src/main.ts",
+		"main": "ts-node ./server-node/main.ts",
 		"build": "run-p build:*",
 		"build:ts": "tsc",
 		"build:web": "webpack --mode development",
@@ -21,7 +21,7 @@
 		"open-coverage:windows": "open-cli build\\coverage\\index.html",
 		"open-coverage:default": "open-cli build/coverage/index.html",
 		"import": "ts-node ./importer/import.ts",
-		"kana-test": "ts-node ./src/kana-test.ts"
+		"kana-test": "ts-node ./server-node/kana-test.ts"
 	},
 	"repository": {
 		"type": "git",

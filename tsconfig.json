@@ -4,9 +4,9 @@
 		"./app/**/*.tsx",
 		"./lib/**/*.ts",
 		"./lib/**/*.tsx",
-		"./src/**/*.js",
-		"./src/**/*.ts",
-		"./src/**/*.tsx",
+		"./server-node/**/*.js",
+		"./server-node/**/*.ts",
+		"./server-node/**/*.tsx",
 		"./importer/**/*.ts",
 		"test/**/*.test.ts"
 	],

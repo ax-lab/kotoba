@@ -10,7 +10,7 @@
 		"browser": true,
 		"jest": true
 	},
-	"ignorePatterns": ["node_modules", "build", "coverage", "dist", "*.config.js", "src/**/*_worker.js"],
+	"ignorePatterns": ["node_modules", "build", "coverage", "dist", "*.config.js", "server-node/**/*_worker.js"],
 	"plugins": ["@typescript-eslint", "import", "eslint-comments", "jest", "only-warn"],
 	"extends": [
 		"eslint:recommended",

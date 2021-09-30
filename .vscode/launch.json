@@ -11,7 +11,7 @@
 			"skipFiles": ["<node_internals>/**"],
 			"runtimeExecutable": "node",
 			"runtimeArgs": ["--nolazy", "-r", "ts-node/register/transpile-only"],
-			"args": ["${workspaceFolder}/src/main.ts"]
+			"args": ["${workspaceFolder}/server-node/main.ts"]
 		}
 	]
 }

@@ -1,6 +1,6 @@
 import { Express } from 'express'
 
-import { VideoLoopParams, VideoSeekParams } from '../lib'
+import { VideoLoopParams, VideoSeekParams } from '../lib-ts'
 
 import App from './app'
 import { list_files } from './media'

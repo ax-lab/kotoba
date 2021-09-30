@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 
-import { elapsed, now } from '../lib'
+import { elapsed, now } from '../lib-ts'
 
 import { word_count, words } from './dict/entries'
 import { Entry } from './dict/entry'

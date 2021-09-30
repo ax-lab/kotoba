@@ -1,4 +1,4 @@
-import { now, sleep } from '../../lib'
+import { now, sleep } from '../../lib-ts'
 import { EventField } from '../util/emitter'
 
 import * as dict from './client_dict'

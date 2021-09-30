@@ -1,7 +1,7 @@
 {
 	"watch": [
 		"server-node/",
-		"lib/",
+		"lib-ts/",
 		"config/"
 	],
 	"ext": "ts,json",

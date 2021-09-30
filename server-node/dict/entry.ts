@@ -1,11 +1,11 @@
-import { EntryMatch } from '../../lib/entries'
-import { group_by } from '../../lib/list'
+import { EntryMatch } from '../../lib-ts/entries'
+import { group_by } from '../../lib-ts/list'
 
 import DB from './db'
 import * as table from './table'
 import * as tags from './tags'
 
-export { EntryMatch, EntryMatchMode } from '../../lib/entries'
+export { EntryMatch, EntryMatchMode } from '../../lib-ts/entries'
 
 type EntryRowArgs = {
 	row: table.Entry

@@ -107,7 +107,7 @@
  *
  */
 
-import { compile_glob, kana } from '../../lib'
+import { compile_glob, kana } from '../../lib-ts'
 
 import { SearchCache } from './cache'
 import DB from './db'

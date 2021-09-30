@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { kana } from '../../lib'
+import { kana } from '../../lib-ts'
 import { Entry, EntrySense, Tag } from '../api/client_dict'
 
 import './entry_view.scss'

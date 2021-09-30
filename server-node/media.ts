@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 
-import { Dir } from '../lib'
+import { Dir } from '../lib-ts'
 
 import config from './config'
 

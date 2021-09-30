@@ -1,4 +1,10 @@
-import { EventHistoryChange, EventRemoteInput, EventSubtitleChange, EventVideoPlayback, ServerEvent } from '../../lib'
+import {
+	EventHistoryChange,
+	EventRemoteInput,
+	EventSubtitleChange,
+	EventVideoPlayback,
+	ServerEvent,
+} from '../../lib-ts'
 
 export type EventCallback = (data: ServerEvent) => void
 

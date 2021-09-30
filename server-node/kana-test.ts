@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 
-import { elapsed, now } from '../lib'
-import { to_hiragana, to_katakana, to_romaji } from '../lib/kana'
+import { elapsed, now } from '../lib-ts'
+import { to_hiragana, to_katakana, to_romaji } from '../lib-ts/kana'
 
 const lines = fs.readFileSync('./testdata/wordlist.txt', 'utf-8').split('\n')
 lines.shift()

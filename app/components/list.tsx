@@ -1,7 +1,7 @@
 import { Range } from 'immutable'
 import React from 'react'
 
-import { duration, now } from '../../lib'
+import { duration, now } from '../../lib-ts'
 import Scroller, { ScrollerInfo } from '../components/scroller'
 import { LayoutCache } from '../util/layout_cache'
 

@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { SubtitleDialog } from '../../lib'
+import { SubtitleDialog } from '../../lib-ts'
 import { subtitle } from '../api'
 
 import './subtitle_edit_dialog.scss'

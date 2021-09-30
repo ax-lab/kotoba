@@ -2,7 +2,7 @@ import * as os from 'os'
 import * as path from 'path'
 import { Worker } from 'worker_threads'
 
-import { elapsed, now } from '../../lib'
+import { elapsed, now } from '../../lib-ts'
 
 type Job = {
 	id: number

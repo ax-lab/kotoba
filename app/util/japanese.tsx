@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { RE_JAPANESE } from '../../lib'
+import { RE_JAPANESE } from '../../lib-ts'
 
 export default function Japanese(text: string) {
 	if (!text) return <></>

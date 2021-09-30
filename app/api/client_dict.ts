@@ -1,4 +1,4 @@
-import { EntryMatch } from '../../lib/entries'
+import { EntryMatch } from '../../lib-ts/entries'
 
 import * as graphql from './graphql'
 

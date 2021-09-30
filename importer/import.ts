@@ -3,9 +3,9 @@ import path from 'path'
 
 import sqlite from 'sqlite3'
 
-import * as lib from '../lib'
-import { kana } from '../lib'
-import { file_exists, remove_file } from '../lib/files'
+import * as lib from '../lib-ts'
+import { kana } from '../lib-ts'
+import { file_exists, remove_file } from '../lib-ts/files'
 
 import { Frequency, import_frequencies } from './frequency'
 import * as jlpt from './jlpt'

@@ -1,5 +1,5 @@
-import { check, compile_glob, elapsed, kana, now } from '../../lib'
-import { load_json_file } from '../../lib/files'
+import { check, compile_glob, elapsed, kana, now } from '../../lib-ts'
+import { load_json_file } from '../../lib-ts/files'
 
 import { entries_exact } from './entries'
 import { Entry } from './entry'

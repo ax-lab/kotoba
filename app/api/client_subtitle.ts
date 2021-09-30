@@ -1,4 +1,4 @@
-import { Dir, SubtitleEditParams, SubtitleLoadParams } from '../../lib'
+import { Dir, SubtitleEditParams, SubtitleLoadParams } from '../../lib-ts'
 
 import * as common from './common'
 

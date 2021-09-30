@@ -1,4 +1,4 @@
-import { now } from '../../lib'
+import { now } from '../../lib-ts'
 
 import { Entry } from './entry'
 

@@ -1,6 +1,6 @@
 import { Express } from 'express'
 
-import { SubtitleEditParams, SubtitleLoadParams } from '../lib'
+import { SubtitleEditParams, SubtitleLoadParams } from '../lib-ts'
 
 import App from './app'
 import { list_files } from './media'

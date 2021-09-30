@@ -1,7 +1,7 @@
 import { Range } from 'immutable'
 import Random from 'seedrandom'
 
-import { describe, expect, test } from '../../lib/testutil'
+import { describe, expect, test } from '../../lib-ts/testutil'
 
 import { SizeMap } from './size_map'
 

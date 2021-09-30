@@ -1,8 +1,8 @@
 import sax from 'sax'
 
-import * as lib from '../lib'
-import { open_zip } from '../lib/files'
-import * as kana from '../lib/kana'
+import * as lib from '../lib-ts'
+import { open_zip } from '../lib-ts/files'
+import * as kana from '../lib-ts/kana'
 
 export type KanjiEntry = {
 	/** The character itself */

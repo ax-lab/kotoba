@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import { useHistory, useParams } from 'react-router'
 
-import { check, duration, kana } from '../../lib'
+import { check, duration, kana } from '../../lib-ts'
 import { events } from '../api'
 import { save_history } from '../api/client_dict'
 import * as entries from '../api/entries'

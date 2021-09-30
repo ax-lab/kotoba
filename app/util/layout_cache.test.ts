@@ -1,4 +1,4 @@
-import { describe, expect, test } from '../../lib/testutil'
+import { describe, expect, test } from '../../lib-ts/testutil'
 
 import { LayoutCache } from './layout_cache'
 

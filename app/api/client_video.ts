@@ -1,4 +1,4 @@
-import { Dir, VideoLoopParams, VideoSeekParams } from '../../lib'
+import { Dir, VideoLoopParams, VideoSeekParams } from '../../lib-ts'
 
 import * as common from './common'
 import { events } from './events'

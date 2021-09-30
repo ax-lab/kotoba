@@ -15,7 +15,7 @@ import {
 	SubtitleEditParams,
 	SubtitleFile,
 	VideoLoopParams,
-} from '../lib'
+} from '../lib-ts'
 
 import { server_events } from './event_dispatcher'
 import { get_media_path, RE_SUB_EXTENSION, RE_VIDEO_EXTENSION } from './media'

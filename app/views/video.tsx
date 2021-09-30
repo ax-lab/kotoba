@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 
-import { Dir, DirEntry } from '../../lib/entities'
+import { Dir, DirEntry } from '../../lib-ts/entities'
 import { events, subtitle, video } from '../api'
 import Splitter from '../components/splitter'
 import State from '../util/state'

@@ -1,7 +1,7 @@
 import * as path from 'path'
 
-import * as lib from '../lib'
-import { read_lines } from '../lib/files'
+import * as lib from '../lib-ts'
+import { read_lines } from '../lib-ts/files'
 
 const PITCH_FILE = 'accents.txt'
 

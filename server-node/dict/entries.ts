@@ -1,4 +1,4 @@
-import { elapsed, now } from '../../lib'
+import { elapsed, now } from '../../lib-ts'
 
 import { SearchCache } from './cache'
 import DB from './db'

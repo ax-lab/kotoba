@@ -2,8 +2,8 @@
 	"include": [
 		"./app/**/*.ts",
 		"./app/**/*.tsx",
-		"./lib/**/*.ts",
-		"./lib/**/*.tsx",
+		"lib-ts/**/*.ts",
+		"lib-ts/**/*.tsx",
 		"./server-node/**/*.js",
 		"./server-node/**/*.ts",
 		"./server-node/**/*.tsx",

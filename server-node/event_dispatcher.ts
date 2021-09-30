@@ -1,4 +1,4 @@
-import { ServerEvent } from '../lib'
+import { ServerEvent } from '../lib-ts'
 
 /**
  * Server side event management. Events are posted globally and can be read

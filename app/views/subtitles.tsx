@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 
-import { SubtitleDialog, SubtitleEdit } from '../../lib/subtitles'
+import { SubtitleDialog, SubtitleEdit } from '../../lib-ts/subtitles'
 import { events, subtitle, video } from '../api'
 import Japanese from '../util/japanese'
 

@@ -1,5 +1,5 @@
-import { read_lines } from '../lib/files'
-import { is_kana } from '../lib/kana'
+import { read_lines } from '../lib-ts/files'
+import { is_kana } from '../lib-ts/kana'
 
 /**
  * Type for a Kirei Cake entry.

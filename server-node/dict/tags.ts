@@ -1,4 +1,4 @@
-import { make_filter } from '../../lib'
+import { make_filter } from '../../lib-ts'
 
 import DB from './db'
 

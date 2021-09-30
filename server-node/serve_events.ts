@@ -1,7 +1,7 @@
 import { Express } from 'express'
 import { v4 as uuid } from 'uuid'
 
-import { ServerEvent } from '../lib'
+import { ServerEvent } from '../lib-ts'
 
 import { server_events } from './event_dispatcher'
 

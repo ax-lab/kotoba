@@ -4,7 +4,7 @@ import fs from 'fs'
 import net from 'net'
 import path from 'path'
 
-import { PlaybackInfo, SubtitleLine } from '../lib'
+import { PlaybackInfo, SubtitleLine } from '../lib-ts'
 
 const DEBUG_IPC = false // debug IPC connection and messages
 const DEBUG_IPC_LOG = false // also include extremely verbose log messages

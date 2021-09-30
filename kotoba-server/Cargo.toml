@@ -1,0 +1,9 @@
+[package]
+name = "kotoba-server"
+version = "0.1.0"
+edition = "2018"
+authors = ["ax-lab"]
+license = "MIT"
+description = "Kotoba Server"
+repository = "https://github.com/ax-lab/kotoba"
+keywords = ["japanese", "dictionary"]

@@ -12,6 +12,15 @@
 			"runtimeExecutable": "node",
 			"runtimeArgs": ["--nolazy", "-r", "ts-node/register/transpile-only"],
 			"args": ["${workspaceFolder}/server-node/main.ts"]
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug Rust Server",
+			"cargo": {
+				"args": ["run", "--manifest-path", "./kotoba-server/Cargo.toml"]
+			},
+			"cwd": "${workspaceFolder}/kotoba-server"
 		}
 	]
 }

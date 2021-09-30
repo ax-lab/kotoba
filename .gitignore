@@ -14,6 +14,7 @@ config/app.local.json
 # Ignore build and dist files
 dist
 build
+target
 
 # Logs
 logs

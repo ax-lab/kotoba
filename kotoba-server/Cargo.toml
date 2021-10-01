@@ -7,3 +7,12 @@ license = "MIT"
 description = "Kotoba Server"
 repository = "https://github.com/ax-lab/kotoba"
 keywords = ["japanese", "dictionary"]
+
+[dependencies]
+juniper = "0.15.3"
+juniper_rocket = "0.7.1"
+lazy_static = "1.4.0"
+rocket = "0.4.10"
+rocket_contrib = { version = "0.4.10", default-features = false, features = ["json"] }
+serde = "1.0.124"
+serde_json = "1.0.64"

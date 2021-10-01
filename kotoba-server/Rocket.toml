@@ -1,0 +1,15 @@
+[global]
+port = 8086
+address = "0.0.0.0"
+
+[development]
+keep_alive = 5
+log = "critical"
+
+[staging]
+keep_alive = 5
+log = "normal"
+
+[production]
+keep_alive = 5
+log = "critical"

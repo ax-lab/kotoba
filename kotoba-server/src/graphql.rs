@@ -1,32 +1,41 @@
-use rocket::response::content::Html;
-use rocket::State;
+use actix_web as web;
 
 use crate::app::App;
 use crate::graph;
 
 #[get("/graphiql")]
-pub fn ide() -> Html<String> {
-	Html(graphiql_source("Kotoba - GraphiQL", "/api/graphql"))
+pub async fn ide() -> web::HttpResponse {
+	web::HttpResponse::Ok()
+		.content_type("text/html; charset=utf-8")
+		.body(graphiql_source("Kotoba - GraphiQL", "/api/graphql"))
 }
 
-#[get("/graphql?<request>")]
-pub fn query_get(
-	app: State<&App>,
-	request: juniper_rocket::GraphQLRequest,
-	schema: State<graph::Schema>,
-) -> juniper_rocket::GraphQLResponse {
+#[get("/graphql")]
+pub async fn query_get(
+	app: web::web::Data<&'static App>,
+	request: web::web::Query<juniper::http::GraphQLRequest>,
+	schema: web::web::Data<graph::Schema>,
+) -> Result<web::HttpResponse, web::Error> {
 	let context = graph::Context { app: &app };
-	request.execute_sync(&schema, &context)
+	let data = request.execute(&schema, &context).await;
+	let result = serde_json::to_string_pretty(&data)?;
+	Ok(web::HttpResponse::Ok()
+		.content_type("application/json")
+		.body(result))
 }
 
-#[post("/graphql", data = "<request>")]
-pub fn query(
-	app: State<&App>,
-	request: juniper_rocket::GraphQLRequest,
-	schema: State<graph::Schema>,
-) -> juniper_rocket::GraphQLResponse {
+#[post("/graphql")]
+pub async fn query(
+	app: web::web::Data<&'static App>,
+	request: web::web::Json<juniper::http::GraphQLRequest>,
+	schema: web::web::Data<graph::Schema>,
+) -> Result<web::HttpResponse, web::Error> {
 	let context = graph::Context { app: &app };
-	request.execute_sync(&schema, &context)
+	let data = request.execute(&schema, &context).await;
+	let result = serde_json::to_string(&data)?;
+	Ok(web::HttpResponse::Ok()
+		.content_type("application/json")
+		.body(result))
 }
 
 // spell-checker: disable

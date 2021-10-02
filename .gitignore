@@ -16,6 +16,9 @@ dist
 build
 target
 
+# Files used to trigger the building
+.trigger
+
 # Logs
 logs
 *.log

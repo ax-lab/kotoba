@@ -21,7 +21,10 @@
 		"open-coverage:windows": "open-cli build\\coverage\\index.html",
 		"open-coverage:default": "open-cli build/coverage/index.html",
 		"import": "ts-node ./importer/import.ts",
-		"kana-test": "ts-node ./server-node/kana-test.ts"
+		"kana-test": "ts-node ./server-node/kana-test.ts",
+		"rust": "run-p rust:*",
+		"rust:watch-check": "cargo watch --workdir kotoba-server -x check -s \"touch .trigger\"",
+		"rust:watch-run": "cargo watch --no-gitignore --workdir kotoba-server -w .trigger -x run"
 	},
 	"repository": {
 		"type": "git",

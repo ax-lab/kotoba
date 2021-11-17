@@ -220,6 +220,16 @@ function Mutation() {
 			Remove a phrase from the history.
 			"""
 			remove_phrase(id: String!): Boolean!
+
+			"""
+			Save an entry to the word history.
+			"""
+			insert_history(id: String!): Boolean!
+
+			"""
+			Remove an entry from the word history.
+			"""
+			remove_history(id: String!): Boolean!
 		}
 	`
 }
@@ -448,6 +458,11 @@ function Entry() {
 			meanings of the word, multiple sense elements will be employed.
 			"""
 			sense: [EntrySense!]!
+
+			"""
+			True if this word has been saved to the history.
+			"""
+			saved: Boolean!
 		}
 	`
 }

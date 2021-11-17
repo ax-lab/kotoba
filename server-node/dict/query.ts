@@ -112,6 +112,7 @@ import { compile_glob, kana } from '../../lib-ts'
 import { SearchCache } from './cache'
 import DB from './db'
 import { Entry, EntryMatchMode } from './entry'
+import * as history from './history'
 import * as inflection from './inflection'
 
 const DEBUG_QUERIES = false
@@ -170,7 +171,11 @@ type SearchQuery = {
 	terms: SearchQueryTerm[]
 }
 
-type SearchPredicate = SearchSentence | SearchQuery
+type SearchFavorites = {
+	type: 'history'
+}
+
+type SearchPredicate = SearchSentence | SearchQuery | SearchFavorites
 
 type Search = {
 	id: string
@@ -247,6 +252,9 @@ export function parse(query: string): Search {
 
 	const predicates = text
 		.map<SearchPredicate>((txt) => {
+			if (txt == ',' || txt == '、') {
+				return { type: 'history' }
+			}
 			switch (txt[0]) {
 				case '+':
 				case '＋':
@@ -280,9 +288,10 @@ export function parse(query: string): Search {
 				}
 			}
 		})
-		.filter((x) => x.terms.length)
+		.filter((x) => x.type == 'history' || x.terms.length)
 
-	const id = text.join(' ')
+	const has_history = predicates.some((x) => x.type == 'history')
+	const id = (has_history ? SearchCache.HISTORY_FLAG : ':') + text.join(' ')
 
 	const out = { id, predicates }
 
@@ -328,7 +337,9 @@ export async function search_deinflection(
 ) {
 	const inflector = new inflection.Deinflector()
 	const reject: RegExp[] = []
-	if (predicate.type == 'sentence') {
+	if (predicate.type == 'history') {
+		return 0
+	} else if (predicate.type == 'sentence') {
 		// attempt to de-inflect the whole sentence
 		inflector.add(predicate.full_text, allow_partial)
 	} else {
@@ -424,7 +435,11 @@ export async function search_with_mode(
 	// This is mostly the same as `search_exact` except that we are generating
 	// prefix matches.
 	const where: string[] = []
-	if (predicate.type == 'sentence') {
+	if (predicate.type == 'history') {
+		const ids = await history.list_words()
+		const entries = await Entry.get(ids)
+		return cache.push_and_solve(entries)
+	} else if (predicate.type == 'sentence') {
 		where.push(like(predicate.full_text, search, match))
 	} else {
 		// The exact operator forces an exact match only.
@@ -636,6 +651,10 @@ function like(text: string, search: SearchMode, match: MatchMode, args?: { glob?
 }
 
 function match_predicate(entry: Entry, mode: EntryMatchMode, predicate: SearchPredicate) {
+	if (predicate.type == 'history') {
+		return entry
+	}
+
 	const terms = entry.kanji.map((x) => x.expr).concat(entry.reading.map((x) => x.expr))
 	const query =
 		predicate.type == 'sentence'

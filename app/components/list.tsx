@@ -39,7 +39,7 @@ type ListProps = {
 	 * items so that the list can reset state (e.g. anchor) when a new list
 	 * is loaded.
 	 */
-	list: unknown
+	list?: unknown
 }
 
 /**

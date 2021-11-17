@@ -11,6 +11,26 @@
 		background-color: theme.$background-deep;
 	}
 
+	.favorite-button {
+		margin-left: 10px;
+		font-size: 0.7em;
+		opacity: 0.25;
+
+		&:hover,
+		&:focus {
+			opacity: 0.5;
+		}
+
+		&.saved {
+			opacity: 0.6;
+
+			&:hover,
+			&:focus {
+				opacity: 1;
+			}
+		}
+	}
+
 	//------------------------------------------------------------------------//
 	// Title
 	//------------------------------------------------------------------------//

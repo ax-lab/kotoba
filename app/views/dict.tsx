@@ -3,7 +3,8 @@ import { useHistory, useParams } from 'react-router'
 
 import { check, duration, kana } from '../../lib-ts'
 import { events } from '../api'
-import { save_history } from '../api/client_dict'
+import { Entry } from '../api/client_dict'
+import * as dict from '../api/client_dict'
 import * as entries from '../api/entries'
 import List from '../components/list'
 
@@ -67,6 +68,25 @@ class ResultListing extends React.Component<DictProps> {
 		const label = this.props.search ? `"${this.props.search || ''}" found ` : `Found `
 		const found = total != null ? `${total} ${total != 1 ? 'entries' : 'entry'}` : ``
 		const message = query.complete ? `${label}${found}` : `${label} ${found}...`
+
+		// Called by the `EntryView` when the save button for the entry is clicked
+		const toggle_saved = (entry: Entry) => {
+			const update = (saved: boolean) => {
+				entry.saved = saved
+				this.forceUpdate()
+			}
+
+			if (entry.saved) {
+				dict.remove_word_history(entry.id)
+					.then(() => update(false))
+					.catch((err) => console.error('removing from history', err))
+			} else {
+				dict.insert_word_history(entry.id)
+					.then(() => update(true))
+					.catch((err) => console.error('inserting into history', err))
+			}
+		}
+
 		return (
 			<>
 				<div>
@@ -83,7 +103,7 @@ class ResultListing extends React.Component<DictProps> {
 						if (!entry) {
 							return <div key={n}>Loading...</div>
 						}
-						return <EntryView key={entry.id} entry={entry} />
+						return <EntryView key={entry.id} entry={entry} toggle_saved={toggle_saved} />
 					}}
 				/>
 			</>
@@ -330,7 +350,7 @@ const Dict = () => {
 								kana.to_hiragana(txt),
 							)
 							if (text) {
-								save_history(text)
+								dict.save_history(text)
 									.then((id) => console.log(`saved "${text}" as ${id}`))
 									.catch((err) => console.error('failed to save history', err))
 							}

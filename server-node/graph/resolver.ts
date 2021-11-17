@@ -1,4 +1,5 @@
 import * as dict from '../dict'
+import * as history from '../dict/history'
 import { server_events } from '../event_dispatcher'
 
 import * as phrases from './phrases'
@@ -42,6 +43,16 @@ export const ROOT_RESOLVER = {
 	async remove_phrase({ id }: { id: string }) {
 		await phrases.remove_phrase(id)
 		server_events.post({ type: 'history-change' })
+		return true
+	},
+
+	async insert_history({ id }: { id: string }) {
+		await history.add_word(id)
+		return true
+	},
+
+	async remove_history({ id }: { id: string }) {
+		await history.remove_word(id)
 		return true
 	},
 }

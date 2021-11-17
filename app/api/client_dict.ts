@@ -46,6 +46,7 @@ export type Entry = {
 	kanji: EntryKanji[]
 	reading: EntryReading[]
 	sense: EntrySense[]
+	saved: boolean
 }
 
 export type EntryKanji = {
@@ -204,7 +205,7 @@ export async function list_history() {
 }
 
 /**
- * Save a phrase to the history.
+ * Save a phrase to the search history.
  */
 export async function save_history(text: string) {
 	const out = await graphql.query<{ id: string }>(
@@ -217,12 +218,36 @@ export async function save_history(text: string) {
 }
 
 /**
- * Delete a phrase from the history.
+ * Delete a phrase from the search history.
  */
 export async function remove_history(id: string) {
 	await graphql.query(
 		`mutation($id: String!) {
 			remove_phrase(id: $id)
+		}`,
+		{ id },
+	)
+}
+
+/**
+ * Save an entry to the word history.
+ */
+export async function insert_word_history(id: string) {
+	await graphql.query<{ id: string }>(
+		`mutation($id: String!) {
+			insert_history(id: $id)
+		}`,
+		{ id },
+	)
+}
+
+/**
+ * Delete an entry from the word history.
+ */
+export async function remove_word_history(id: string) {
+	await graphql.query(
+		`mutation($id: String!) {
+			remove_history(id: $id)
 		}`,
 		{ id },
 	)

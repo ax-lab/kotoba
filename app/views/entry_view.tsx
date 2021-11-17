@@ -7,6 +7,7 @@ import './entry_view.scss'
 
 interface EntryViewProps {
 	entry: Entry
+	toggle_saved: (entry: Entry) => void
 }
 
 const Tag = (tag: Tag) => {
@@ -114,7 +115,7 @@ const EntryLabel = (entry: Entry, text: string) => {
 	return sequence
 }
 
-const EntryView = ({ entry }: EntryViewProps) => {
+const EntryView = ({ entry, toggle_saved }: EntryViewProps) => {
 	const words = [...entry.kanji, ...entry.reading]
 	const p1 = words.filter((x) => x.popular)
 	const p2 = words.filter((x) => !x.popular)
@@ -152,6 +153,8 @@ const EntryView = ({ entry }: EntryViewProps) => {
 		`rank: ${entry.position.toString().padStart(2, '0')}`,
 	].filter((x) => x)
 
+	const favorite_class = entry.saved ? 'fas fa-heart saved' : 'far fa-heart'
+
 	return (
 		<div className="entry-view">
 			{pri.map((item) => (
@@ -172,6 +175,8 @@ const EntryView = ({ entry }: EntryViewProps) => {
 					{it}
 				</label>
 			))}
+
+			<button className={`favorite-button ${favorite_class}`} onClick={() => toggle_saved(entry)}></button>
 
 			{sec.map((item) => (
 				<h2 key={item.expr}>

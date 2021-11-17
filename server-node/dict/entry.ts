@@ -2,6 +2,7 @@ import { EntryMatch } from '../../lib-ts/entries'
 import { group_by } from '../../lib-ts/list'
 
 import DB from './db'
+import * as history from './history'
 import * as table from './table'
 import * as tags from './tags'
 
@@ -9,6 +10,7 @@ export { EntryMatch, EntryMatchMode } from '../../lib-ts/entries'
 
 type EntryRowArgs = {
 	row: table.Entry
+	saved: Set<string>
 	kanji_map: Map<string, EntryKanji[]>
 	reading_map: Map<string, EntryReading[]>
 	sense_map: Map<string, EntrySense[]>
@@ -27,6 +29,8 @@ export class Entry {
 	readonly reading: EntryReading[]
 	readonly sense: EntrySense[]
 
+	saved: boolean
+
 	readonly match?: EntryMatch
 
 	private constructor(args: EntryRowArgs | Entry, match?: EntryMatch) {
@@ -40,6 +44,7 @@ export class Entry {
 			this.kanji = args.kanji
 			this.reading = args.reading
 			this.sense = args.sense
+			this.saved = args.saved
 			if (match) {
 				this.match = match
 			}
@@ -60,6 +65,7 @@ export class Entry {
 				source: sources.filter((x) => x.$pos == row.$pos),
 				glossary: glossaries.filter((x) => x.$pos == row.$pos),
 			}))
+			this.saved = args.saved.has(this.id)
 		}
 	}
 
@@ -157,6 +163,8 @@ export class Entry {
 		const source = dict.query<table.EntrySenseSource>(`SELECT * FROM entries_sense_source WHERE ${condition}`)
 		const all_tags = await tags.all()
 
+		const saved_promise = history.list_words()
+
 		const kanji_map = group_by(
 			(await kanji).map((row) => {
 				const out = {
@@ -233,8 +241,17 @@ export class Entry {
 			(row) => [row.key, row.val],
 		)
 
+		const saved = new Set(await saved_promise)
 		const entries = (await rows).map((row) => {
-			const out = new Entry({ row, kanji_map, reading_map, sense_map, source_map, glossary_map })
+			const out = new Entry({
+				row,
+				kanji_map,
+				reading_map,
+				sense_map,
+				source_map,
+				glossary_map,
+				saved,
+			})
 			return out
 		})
 

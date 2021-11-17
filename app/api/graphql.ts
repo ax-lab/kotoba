@@ -61,6 +61,7 @@ export const ENTRY_FRAGMENTS = `
 		position
 		jlpt
 		popular
+		saved
 		kanji   { ...EntryKanjiF }
 		reading { ...EntryReadingF }
 		sense   { ...EntrySenseF }

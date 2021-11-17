@@ -12,7 +12,37 @@ export type SearchRow = {
 }
 
 export class SearchCache {
+	/**
+	 * This flag should be included on cache IDs that contain a history
+	 * predicate. Any cache with that predicate should be flushed when the
+	 * list of favorites changes.
+	 */
+	static HISTORY_FLAG = '@'
+
 	readonly id: string
+
+	/**
+	 * Apply the update function to all rows in the cache across all cache
+	 * instances.
+	 */
+	static update(fn: (entry: Entry) => void) {
+		for (const it of this.cache.values()) {
+			for (const row of it.rows) {
+				fn(row)
+			}
+		}
+	}
+
+	/**
+	 * Remove all cached search queries that have `HISTORY_FLAG` in their id.
+	 */
+	static remove_with_history_flag() {
+		for (const key of this.cache.keys()) {
+			if (key[0] == SearchCache.HISTORY_FLAG) {
+				this.cache.delete(key)
+			}
+		}
+	}
 
 	/**
 	 * Returns a shared Search instace.

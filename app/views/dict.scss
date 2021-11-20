@@ -33,7 +33,9 @@ input {
 		}
 
 		button {
-			margin-right: theme.$spacing;
+			&:last-of-type {
+				margin-right: theme.$spacing;
+			}
 			font-size: 0.9em;
 			width: 50px;
 		}

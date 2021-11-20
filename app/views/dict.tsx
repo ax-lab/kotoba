@@ -43,6 +43,7 @@ const DEBUG = false
 interface DictProps {
 	search: string
 	query: entries.Query
+	on_toggle_saved?: () => void
 }
 
 class ResultListing extends React.Component<DictProps> {
@@ -74,6 +75,9 @@ class ResultListing extends React.Component<DictProps> {
 			const update = (saved: boolean) => {
 				entry.saved = saved
 				this.forceUpdate()
+				if (this.props.on_toggle_saved) {
+					this.props.on_toggle_saved()
+				}
 			}
 
 			if (entry.saved) {
@@ -218,6 +222,8 @@ const Dict = () => {
 
 	const search = React.useRef('')
 
+	const search_deleting = React.useRef(false)
+
 	const history = useHistory()
 
 	const [query, set_query] = React.useState<entries.Query>(entries.all())
@@ -245,7 +251,14 @@ const Dict = () => {
 
 	// Called on direct input from the search input.
 	const on_search = async (txt: string) => {
-		history.push(`/dict/${encodeURIComponent(txt)}`)
+		const path = `/dict/${encodeURIComponent(txt)}`
+		const deleted = txt && search.current.startsWith(txt)
+		if (txt.startsWith(search.current) || (search_deleting.current && deleted)) {
+			history.replace(path)
+		} else {
+			history.push(path)
+		}
+		search_deleting.current = !!deleted
 		void lookup(txt)
 	}
 
@@ -336,6 +349,17 @@ const Dict = () => {
 	return (
 		<div className="dict-view">
 			<div className="input-toolbar">
+				<button
+					className="fa fa-eraser"
+					onClick={() => {
+						const input = input_el.current
+						if (input) {
+							input.value = ''
+							input.focus()
+							input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }))
+						}
+					}}
+				></button>
 				<input
 					type="search"
 					ref={input_el}
@@ -366,7 +390,7 @@ const Dict = () => {
 				></button>
 			</div>
 			<hr />
-			<ResultListing query={query} search={search_text} />
+			<ResultListing query={query} search={search_text} on_toggle_saved={() => input_el.current?.focus()} />
 		</div>
 	)
 }

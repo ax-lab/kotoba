@@ -75,7 +75,7 @@ module.exports = (env, _args) => {
 				serveIndex: true,
 				watch: true,
 			},
-			port: 9090,
+			port: 9001,
 			client: false,
 			proxy: {
 				'/api': {

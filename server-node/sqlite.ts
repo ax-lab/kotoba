@@ -1,13 +1,13 @@
 import sqlite from 'sqlite3'
 import { v4 as uuid } from 'uuid'
 
-const STORE_DIR = '.store'
+import { get_store_dir } from './config'
 
 export default class SQLite {
 	private _db: sqlite.Database
 
 	static async open(name: string) {
-		const filename = `${STORE_DIR}/${name}`
+		const filename = `${get_store_dir()}/${name}`
 
 		const db = await new Promise<sqlite.Database>((resolve, reject) => {
 			const db = new sqlite.Database(filename, (err) => {

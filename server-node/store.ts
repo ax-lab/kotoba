@@ -1,7 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 
-const STORE_DIR = './.store'
+import { get_store_dir } from './config'
+
 const RE_VALID_NAME = /^[-.\w\d_]+$/
 
 export default class Store {
@@ -9,13 +10,13 @@ export default class Store {
 	private store: Record<string, unknown> = {}
 
 	static get storage_dir() {
-		return STORE_DIR
+		return get_store_dir()
 	}
 
 	private static map = new Map<string, Store>()
 
 	get path() {
-		return path.join(STORE_DIR, `${this.name}.json`)
+		return path.join(Store.storage_dir, `${this.name}.json`)
 	}
 
 	static named(name: string) {
@@ -125,7 +126,7 @@ export default class Store {
 			const header = `failed to serialize '${this.name}:'`
 
 			// Ensure the configuration directory exists
-			fs.mkdir(STORE_DIR, { recursive: true }, (err) => {
+			fs.mkdir(get_store_dir(), { recursive: true }, (err) => {
 				if (err && err.code != 'EEXIST') {
 					console.error(`${header} creating directory:`, err)
 					return cleanup()

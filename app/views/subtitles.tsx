@@ -121,8 +121,22 @@ const SubtitleView = (args: SubtitleViewProps) => {
 							active && root.querySelector(`.subtitle-entry[data-line="${active.line_start}"]`)
 						if (last_active != next_active) {
 							clear_active()
-							next_active && next_active.classList.add('active')
-							next_active?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+							if (next_active) {
+								next_active.classList.add('active')
+								const r = root.getBoundingClientRect()
+								const n = next_active.getBoundingClientRect()
+								const r1 = r.y
+								const r2 = r1 + r.height
+								const n1 = n.y
+								const n2 = n1 + n.height
+								if ((n1 >= r1 && n1 <= r2) || (n2 >= r1 && n2 <= r2) || (n1 < r1 && n2 > r1)) {
+									next_active.scrollIntoView({
+										behavior: 'smooth',
+										block: 'center',
+										inline: 'center',
+									})
+								}
+							}
 						}
 					}
 				}

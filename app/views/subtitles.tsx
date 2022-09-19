@@ -27,11 +27,7 @@ const SubtitleView = (args: SubtitleViewProps) => {
 		const subs = events.current_subtitle?.data || []
 
 		const playback = events.current_playback
-		const pos = playback?.play?.position || 0
-
-		const loop_a = playback?.play?.loop_a
-		const loop_b = playback?.play?.loop_b
-		const is_looping = loop_a != null && loop_b != null && pos >= loop_a && pos <= loop_b
+		const pos = events.target_playback_position || playback?.play?.position || 0
 
 		let cur_index = -1
 		for (const [index, it] of subs.entries()) {
@@ -40,44 +36,48 @@ const SubtitleView = (args: SubtitleViewProps) => {
 			}
 		}
 
-		console.log(cur_index)
-
 		let handled = false
 		switch (ev.code) {
 			case 'Space':
+			case 'Enter':
 				handled = true
 				void video.toggle_play()
 				break
 			case 'ArrowUp':
 				handled = true
-				if (cur_index > 0) {
-					void video.seek({ position: subs[cur_index - 1].start.time })
-				} else if (cur_index >= 0) {
-					void video.seek({ position: subs[cur_index].start.time })
+				if (cur_index >= 0) {
+					const cur_time = subs[cur_index].start.time
+					const previous = subs
+						.filter((it) => cur_time - it.end.time >= -0.01)
+						.sort((a, b) => b.start.time - a.start.time)
+					if (pos - cur_time > 1 || previous.length == 0) {
+						void video.seek({ position: cur_time })
+					} else {
+						void video.seek({ position: previous[0].start.time })
+					}
 				}
 				break
 
 			case 'ArrowDown':
 				handled = true
-				if (cur_index >= 0 && cur_index < subs.length - 1) {
-					void video.seek({ position: subs[cur_index + 1].start.time })
+				{
+					const next = subs
+						.filter((it) => it.start.time - (pos + 0.25) > 0)
+						.sort((a, b) => a.start.time - b.start.time)
+					if (next.length > 0) {
+						void video.seek({ position: next[0].start.time })
+					}
 				}
 				break
 
 			case 'ArrowLeft':
 				handled = true
-				if (cur_index >= 0) {
-					void video.seek({ position: subs[cur_index].start.time })
-				}
+				void video.seek({ position: -2, relative: true })
 				break
 
 			case 'ArrowRight':
 				handled = true
-				if (!is_looping && cur_index >= 0) {
-					void video.loop({ a: subs[cur_index].start.time, b: subs[cur_index].end.time })
-				} else if (is_looping) {
-					void video.stop_loop()
-				}
+				void video.seek({ position: +2, relative: true })
 				break
 		}
 		if (handled) {
@@ -120,7 +120,6 @@ const SubtitleView = (args: SubtitleViewProps) => {
 						const next_active =
 							active && root.querySelector(`.subtitle-entry[data-line="${active.line_start}"]`)
 						if (last_active != next_active) {
-							console.log(next_active)
 							clear_active()
 							next_active && next_active.classList.add('active')
 							next_active?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })

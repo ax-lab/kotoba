@@ -8,7 +8,7 @@ import {
 
 export type EventCallback = (data: ServerEvent) => void
 
-const WARN_DURATION = 100
+const WARN_DURATION = 250
 const WARN_THROTTLE = 500
 
 type EventHandlerQueue = {
@@ -138,6 +138,25 @@ class Events {
 
 		this.watch_playback('global', (ev) => {
 			this._current_playback = ev
+
+			const cur_pos = ev.play?.position
+			const target = this.target_playback_position
+			if (cur_pos == null) {
+				this.target_playback_position = null
+			} else if (target) {
+				const source = this.target_playback_original || 0
+				const moving_forward = target > source
+				const completed = moving_forward
+					? cur_pos >= target
+					: Math.abs(cur_pos - target) <= 0.1 ||
+					  cur_pos < target ||
+					  // safety fallback
+					  cur_pos > source + 0.5
+
+				if (completed) {
+					this.target_playback_position = null
+				}
+			}
 		})
 		this.watch_subtitle('global', (ev) => {
 			this._current_subtitle = ev
@@ -159,6 +178,9 @@ class Events {
 			this._handlers.delete(id)
 		}
 	}
+
+	target_playback_position?: number | null
+	target_playback_original?: number
 
 	private _current_playback?: EventVideoPlayback
 

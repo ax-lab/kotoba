@@ -134,6 +134,16 @@ const FilesView = ({ type, cancel, hidden }: FilesViewProps) => {
 			.finally(() => clearTimeout(to))
 	}
 
+	const download = () => {
+		const a = document.createElement('a')
+		a.href = '/api/subtitle/dump'
+		a.style.position = 'absolute'
+		a.style.top = '-1000px'
+		document.body.appendChild(a)
+		a.click()
+		document.body.removeChild(a)
+	}
+
 	const txtFilter = React.createRef<HTMLInputElement>()
 
 	function filterDir(words: string[], dir: Dir): Dir {
@@ -186,6 +196,9 @@ const FilesView = ({ type, cancel, hidden }: FilesViewProps) => {
 		<div className="video-files-view" style={{ display: hidden ? 'none' : undefined }}>
 			<div className="video-toolbar">
 				<button className="fas fa-sync" title="Refresh" onClick={refresh} />
+				{type == 'subtitle' && (
+					<button className="fas fa-download" title="Download all subtitles" onClick={download} />
+				)}
 				<button className="fas fa-minus-square" title="Collapse all" onClick={collapse_all} />
 				<button className="fas fa-plus-square" title="Expand all" onClick={expand_all} />
 				{cancel && (

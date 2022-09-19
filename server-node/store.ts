@@ -46,6 +46,17 @@ export default class Store {
 		}
 	}
 
+	list<T>() {
+		const out: [string, T][] = []
+		for (const key of Object.keys(this.store)) {
+			out.push([key, this.store[key] as T])
+		}
+		out.sort((a, b) => {
+			return a[0].localeCompare(b[0])
+		})
+		return out
+	}
+
 	get<T>(key: string, defaultValue?: T) {
 		const out = this.store[key]
 		if (out !== undefined) {

@@ -39,6 +39,7 @@
 		"@babel/core": "^7.13.14",
 		"@babel/preset-env": "^7.13.12",
 		"@babel/preset-typescript": "^7.13.0",
+		"@types/adm-zip": "^0.5.0",
 		"@types/better-sqlite3": "^5.4.1",
 		"@types/express": "^4.17.11",
 		"@types/jest": "^26.0.22",
@@ -76,6 +77,7 @@
 		"webpack-dev-server": "^4.3.0"
 	},
 	"dependencies": {
+		"adm-zip": "^0.5.9",
 		"better-sqlite3": "^7.4.1",
 		"body-parser": "^1.19.0",
 		"classnames": "^2.3.1",

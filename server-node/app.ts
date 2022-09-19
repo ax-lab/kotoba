@@ -148,6 +148,23 @@ export default class App {
 		return player ? await player.close() : true
 	}
 
+	static async get_edited_subtitle(subtitle_path: string, media_path?: string) {
+		let fullpath = get_media_path(subtitle_path)
+		if (!fullpath || !RE_SUB_EXTENSION.test(fullpath)) {
+			return false
+		}
+
+		if (media_path) {
+			const edits = App.query_subtitle_edits(media_path, subtitle_path)
+			if (edits?.cached_file) {
+				fullpath = path.join(Store.storage_dir, edits.cached_file)
+			}
+		}
+
+		const text = await read_file(fullpath, 'utf-8')
+		return text
+	}
+
 	async load_subtitle(filename?: string, { no_video = false } = {}) {
 		if (!filename) {
 			this.update_subtitle_file(undefined)
@@ -163,7 +180,7 @@ export default class App {
 		if (media_path) {
 			const edits = App.query_subtitle_edits(media_path, filename)
 			if (edits?.cached_file) {
-				fullpath = edits.cached_file
+				fullpath = path.join(Store.storage_dir, edits.cached_file)
 			}
 		}
 
@@ -310,25 +327,27 @@ export default class App {
 
 		const name = path.basename(sub.name)
 
-		const cache_dir = `${Store.storage_dir}/subtitles`
-		if (!(await mkdir(cache_dir))) {
+		const base_dir = Store.storage_dir
+		const cache = `subtitles`
+		if (!(await mkdir(path.join(base_dir, cache)))) {
 			return false
 		}
 
-		const save_path = saved?.cached_file || `${cache_dir}/${uuid()}-${name}`
-		if (!(await write_file(save_path, sub.text))) {
+		const cached_file = saved?.cached_file || `${cache}/${uuid()}-${name}`
+		const cached_file_full = path.join(base_dir, cached_file)
+		if (!(await write_file(cached_file_full, sub.text))) {
 			return false
 		}
 
 		App.query_subtitle_edits(media_path, sub.name, (saved) => {
-			return { ...saved, cached_file: save_path, edits: [...editor.edits] }
+			return { ...saved, cached_file, edits: [...editor.edits] }
 		})
 
 		this.update_subtitle_file(sub)
 
 		const player = Player.current
 		if (player && player.media_path) {
-			await player.load_subtitle(save_path, { name: sub.name, label: 'Kotoba' })
+			await player.load_subtitle(cached_file_full, { name: sub.name, label: 'Kotoba' })
 		}
 
 		return true
@@ -395,6 +414,20 @@ export default class App {
 			return next
 		}
 		return prev
+	}
+
+	static all_subtitles() {
+		const out: [string, { media_path: string }][] = []
+		const store = this.store_media_state()
+		for (const [media_path, state] of store.list<MediaSavedState>()) {
+			if (state.subtitle) {
+				const full_media_path = get_media_path(media_path)
+				if (full_media_path && fs.existsSync(full_media_path)) {
+					out.push([state.subtitle, { media_path }])
+				}
+			}
+		}
+		return out
 	}
 
 	static query_subtitle_media(

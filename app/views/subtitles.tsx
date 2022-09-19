@@ -233,7 +233,11 @@ const Dialog = ({ entry, editable }: { entry: SubtitleDialog; editable?: boolean
 		<div
 			className="subtitle-entry"
 			data-line={entry.line_start}
-			onClick={() => video.seek({ position: entry.start.time })}
+			onDoubleClick={(ev) => {
+				ev.preventDefault()
+				ev.stopPropagation()
+				void video.seek({ position: entry.start.time })
+			}}
 		>
 			{editing && <SubtitleEditDialog dialog={entry} close={cancel_edit} />}
 			<div className="time-label">

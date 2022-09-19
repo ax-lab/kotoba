@@ -216,7 +216,11 @@ const Dialog = ({ entry, editable }: { entry: SubtitleDialog; editable?: boolean
 	}
 
 	return (
-		<div className="subtitle-entry" data-line={entry.line_start}>
+		<div
+			className="subtitle-entry"
+			data-line={entry.line_start}
+			onClick={() => video.seek({ position: entry.start.time })}
+		>
 			{editing && <SubtitleEditDialog dialog={entry} close={cancel_edit} />}
 			<div className="time-label">
 				<TimeLabel time={entry.start.time} />
@@ -229,7 +233,10 @@ const Dialog = ({ entry, editable }: { entry: SubtitleDialog; editable?: boolean
 						<button
 							className="fas fa-play"
 							title="Play"
-							onClick={() => video.seek({ position: entry.start.time })}
+							onClick={() => {
+								void video.seek({ position: entry.start.time })
+								void video.play()
+							}}
 						/>
 						<button
 							className="fas fa-sync-alt"

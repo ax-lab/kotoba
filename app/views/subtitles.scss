@@ -25,6 +25,7 @@
 		padding: theme.$spacing - 2px; // account for border
 		border-radius: theme.$radius;
 		background-color: $subtitle-entry-color;
+		cursor: pointer;
 
 		// use the border to display the current entry
 		border: 2px solid $subtitle-entry-color;

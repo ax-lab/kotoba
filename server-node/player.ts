@@ -6,6 +6,8 @@ import path from 'path'
 
 import { PlaybackInfo, SubtitleLine } from '../lib-ts'
 
+const is_linux = process.platform != 'win32'
+
 const DEBUG_IPC = false // debug IPC connection and messages
 const DEBUG_IPC_LOG = false // also include extremely verbose log messages
 
@@ -21,7 +23,7 @@ const PLAYBACK_THROTTLE_MS = 50
 const PLAYBACK_DELAY_MS = 10
 
 // Name for the socket used for IPC
-const IPC_PIPE = 'mpv-kotoba-control'
+const IPC_PIPE = is_linux ? '/tmp/mpv-kotoba-control' : 'mpv-kotoba-control'
 
 // Arguments for the player
 const MPV_ARGS = [
@@ -770,6 +772,11 @@ type MsgEventLog = {
 
 // Find the `mpv.exe` executable
 const mpv_path = (() => {
+	
+	if (is_linux) {
+		return 'mpv'
+	}
+
 	let base = path.normalize(path.dirname(__filename))
 	while (base) {
 		const mpv_path = path.join(base, BIN_DIR, MPV_EXE)
@@ -942,7 +949,7 @@ function spawn_mpv() {
 		function connect_to_mpv(on_message: (msg: PlayerMsg) => void) {
 			return new Promise<net.Socket | null>((resolve, reject) => {
 				try {
-					const ADDR = `\\\\.\\pipe\\${IPC_PIPE}`
+					const ADDR = is_linux ? IPC_PIPE : `\\\\.\\pipe\\${IPC_PIPE}`
 					if (DEBUG_IPC) {
 						console.log(`DBG: attempting IPC connection to ${ADDR}`)
 					}
